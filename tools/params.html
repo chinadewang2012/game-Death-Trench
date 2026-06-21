@@ -1,0 +1,912 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>游戏参数调整 - Death Trench 2D</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', Arial, sans-serif; background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); color: #fff; min-height: 100vh; padding: 20px; }
+        .container { max-width: 1400px; margin: 0 auto; }
+        .header { text-align: center; margin-bottom: 30px; }
+        .header h1 { font-size: 32px; margin-bottom: 10px; background: linear-gradient(90deg, #00ff88, #00cc66); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        .header p { color: #888; }
+        
+        .buddha-banner {
+            background: rgba(0, 255, 136, 0.1);
+            border: 1px solid rgba(0, 255, 136, 0.3);
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 20px;
+            text-align: center;
+            font-family: monospace;
+            color: #00ff88;
+            font-size: 14px;
+            white-space: pre-line;
+        }
+        
+        .presets-bar { display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; align-items: center; }
+        .presets-bar .label { color: #888; margin-right: 10px; }
+        .btn { padding: 10px 20px; border: none; border-radius: 8px; cursor: pointer; font-size: 14px; transition: all 0.3s; }
+        .btn-primary { background: #00cc66; color: #000; font-weight: bold; }
+        .btn-primary:hover { background: #00ff88; }
+        .btn-danger { background: #ff4444; color: #fff; }
+        .btn-danger:hover { background: #ff6666; }
+        .btn-secondary { background: rgba(255,255,255,0.1); color: #fff; }
+        .btn-secondary:hover { background: rgba(255,255,255,0.2); }
+        .btn-warning { background: #ffaa00; color: #000; }
+        .btn-warning:hover { background: #ffcc00; }
+        .btn-success { background: #00aaff; color: #fff; }
+        .btn-success:hover { background: #00ccff; }
+        
+        .tabs { display: flex; gap: 8px; margin-bottom: 20px; flex-wrap: wrap; }
+        .tab { padding: 12px 20px; background: rgba(255,255,255,0.1); border: none; border-radius: 8px; color: #fff; cursor: pointer; transition: all 0.3s; }
+        .tab.active { background: #00cc66; color: #000; }
+        .tab:hover { background: rgba(255,255,255,0.2); }
+        
+        .panel { display: none; background: rgba(255,255,255,0.05); border-radius: 12px; padding: 25px; backdrop-filter: blur(10px); }
+        .panel.active { display: block; }
+        
+        .main-layout { display: grid; grid-template-columns: 1fr 400px; gap: 20px; }
+        @media (max-width: 1024px) { .main-layout { grid-template-columns: 1fr; } }
+        
+        .section { margin-bottom: 25px; }
+        .section-title { font-size: 18px; margin-bottom: 15px; color: #00ff88; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 10px; }
+        
+        .form-group { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 12px; padding: 10px; background: rgba(0,0,0,0.2); border-radius: 8px; }
+        .form-group label { min-width: 100px; color: #aaa; }
+        .form-group .slider-wrap { display: flex; align-items: center; gap: 10px; flex: 1; }
+        .form-group input[type="range"] { flex: 1; height: 6px; -webkit-appearance: none; background: rgba(255,255,255,0.1); border-radius: 3px; }
+        .form-group input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 16px; height: 16px; background: #00cc66; border-radius: 50%; cursor: pointer; }
+        .form-group input[type="number"] { width: 80px; padding: 8px 10px; border: 1px solid rgba(255,255,255,0.2); border-radius: 6px; background: rgba(0,0,0,0.3); color: #fff; font-size: 14px; text-align: center; }
+        .form-group input:focus { outline: none; border-color: #00cc66; }
+        
+        .weapon-card { background: rgba(255,255,255,0.05); border-radius: 10px; padding: 20px; margin-bottom: 20px; border: 1px solid rgba(255,255,255,0.1); }
+        .weapon-card h3 { color: #00ff88; margin-bottom: 15px; font-size: 16px; }
+        .weapon-card .form-group { background: rgba(0,0,0,0.15); }
+        
+        .preview-panel { background: rgba(0,0,0,0.3); border-radius: 12px; padding: 20px; position: sticky; top: 20px; }
+        .preview-panel h3 { color: #00ff88; margin-bottom: 15px; font-size: 16px; }
+        .preview-json { background: rgba(0,0,0,0.4); border-radius: 8px; padding: 15px; font-family: monospace; font-size: 12px; max-height: 300px; overflow-y: auto; white-space: pre-wrap; word-break: break-all; }
+        
+        .stats-preview { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-top: 15px; }
+        .stat-box { background: rgba(255,255,255,0.05); border-radius: 8px; padding: 12px; text-align: center; }
+        .stat-box .value { font-size: 20px; font-weight: bold; color: #00ff88; }
+        .stat-box .label { font-size: 11px; color: #888; margin-top: 5px; }
+        .stat-box.warning .value { color: #ffaa00; }
+        .stat-box.danger .value { color: #ff4444; }
+        
+        .validation-warnings { margin-top: 15px; }
+        .warning-item { padding: 8px 12px; background: rgba(255,170,0,0.2); border-left: 3px solid #ffaa00; border-radius: 0 6px 6px 0; margin-bottom: 8px; font-size: 12px; color: #ffaa00; }
+        .warning-item.danger { background: rgba(255,68,68,0.2); border-left-color: #ff4444; color: #ff4444; }
+        
+        textarea { width: 100%; height: 200px; padding: 15px; border: 1px solid rgba(255,255,255,0.2); border-radius: 8px; background: rgba(0,0,0,0.3); color: #fff; font-family: monospace; font-size: 12px; resize: vertical; margin-top: 10px; }
+        textarea:focus { outline: none; border-color: #00cc66; }
+        
+        .action-bar { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 20px; }
+        .status { margin-top: 15px; padding: 12px; border-radius: 8px; font-size: 14px; }
+        .status.success { background: rgba(0,204,102,0.2); color: #00ff88; }
+        .status.error { background: rgba(255,68,68,0.2); color: #ff4444; }
+        .status.info { background: rgba(0,150,255,0.2); color: #00aaff; }
+        
+        .enemy-difficulty { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 10px; }
+        .diff-group { background: rgba(0,0,0,0.2); padding: 10px; border-radius: 8px; }
+        .diff-group label { font-size: 12px; color: #888; display: block; margin-bottom: 5px; }
+        .diff-group input { width: 100%; }
+        
+        @media (max-width: 768px) {
+            .form-group { flex-direction: column; align-items: flex-start; }
+            .form-group label { min-width: 100%; }
+            .form-group .slider-wrap { width: 100%; }
+            .form-group input[type="number"] { width: 100%; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🎮 游戏参数调整工具</h1>
+            <p>Death Trench 2D - 实时调整游戏参数</p>
+        </div>
+
+        <div class="buddha-banner">
+/*
+ * ╔══════════════════════════════════════════════════════════════╗
+ * ║                    赛博佛祖 保佑代码平安                      ║
+*
+                  _ooOoo_
+                 o8888888o
+                 88" . "88
+                 (| -_- |)
+                 O\ = /O
+              ____/`---'\____
+            .' \\| |// `
+           / \\||| : |||// \
+          / _||||| -:- |||||- \
+          | | \\\ - /// | |
+          | \_| ''\---/'' | |
+          \ .-\__ `-` ___/-. /
+        ___`. .' /--.--\ `. . __
+     ."" '< `.___\_<|>_/___.' >'""
+    | | : `- \`.;`\ _ /`;.`/ - ` : | |
+    \ \ `-. \_ __\ /__ _/ .-` / /
+======`-.____`-.___\_____/___.-`____.-'======
+                  `=---='
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+           佛祖保佑 永无BUG
+*
+ * ║     ┌──────────────────────────────────────────────────┐    ║
+ * ║     │  🙏  代码无Bug  │  功能正常  │  性能优良  │  安全可靠  │    ║
+ * ║     └──────────────────────────────────────────────────┘    ║
+ * ║                                                              ║
+ * ║     "一切Bug皆虚妄，唯有代码是真谛"                           ║
+ * ║     "若见诸Bug非Bug，即见如来"                               ║
+ * ║                                                              ║
+ * ║     南无阿弥陀佛  南无阿弥陀佛  南无阿弥陀佛                   ║
+ * ║                                                              ║
+ * ║     愿此代码：                                               ║
+ * ║     - 无内存泄漏                                             ║
+ * ║     - 无空指针异常                                           ║
+ * ║     - 无数组越界                                             ║
+ * ║     - 无死循环                                               ║
+ * ║     - 无并发冲突                                             ║
+ * ║                                                              ║
+ * ║     愿所有开发者：                                           ║
+ * ║     - 心平气和                                              ║
+ * ║     - 逻辑清晰                                              ║
+ * ║     - 测试充分                                              ║
+ * ║     - 文档完善                                              ║
+ * ║                                                              ║
+ * ║     🕉️  Om Mani Padme Hum  🕉️                               ║
+ * ║                                                              ║
+ * ║     "代码如佛法，Bug如尘埃，勤拂拭，明镜台"                   ║
+ * ║                                                              ║
+ * ╚══════════════════════════════════════════════════════════════╝
+*/
+        </div>
+
+        <div class="presets-bar">
+            <span class="label">预设:</span>
+            <button class="btn btn-primary" onclick="loadPreset('default')">官方默认</button>
+            <button class="btn btn-success" onclick="loadPreset('easy')">简单模式</button>
+            <button class="btn btn-warning" onclick="loadPreset('hard')">困难模式</button>
+            <button class="btn btn-danger" onclick="loadPreset('extreme')">地狱模式</button>
+        </div>
+
+        <div class="tabs">
+            <button class="tab active" onclick="showTab('weapons')">武器参数</button>
+            <button class="tab" onclick="showTab('enemy')">敌人参数</button>
+            <button class="tab" onclick="showTab('player')">玩家参数</button>
+            <button class="tab" onclick="showTab('map')">地图参数</button>
+            <button class="tab" onclick="showTab('drops')">掉落参数</button>
+            <button class="tab" onclick="showTab('buffs')">增益参数</button>
+        </div>
+
+        <div class="main-layout">
+            <div class="left-panel">
+                <div id="weapons-panel" class="panel active">
+                    <div class="section">
+                        <div class="section-title">武器配置</div>
+                        <div id="weapons-container"></div>
+                    </div>
+                </div>
+
+                <div id="enemy-panel" class="panel">
+                    <div class="section">
+                        <div class="section-title">敌人属性</div>
+                        <div class="form-group">
+                            <label>生命值</label>
+                            <div class="slider-wrap">
+                                <input type="range" id="enemy-health-slider" min="10" max="500" value="80" oninput="syncSlider('enemy-health')">
+                                <input type="number" id="enemy-health" value="80" min="10" max="500" oninput="syncNumber('enemy-health')">
+                            </div>
+                        </div>
+                        <div class="enemy-difficulty">
+                            <div class="diff-group">
+                                <label>简单难度 伤害</label>
+                                <input type="number" id="enemy-damage-easy" value="8" min="1" max="100" oninput="updatePreview()">
+                            </div>
+                            <div class="diff-group">
+                                <label>普通难度 伤害</label>
+                                <input type="number" id="enemy-damage-normal" value="12" min="1" max="100" oninput="updatePreview()">
+                            </div>
+                            <div class="diff-group">
+                                <label>困难难度 伤害</label>
+                                <input type="number" id="enemy-damage-hard" value="18" min="1" max="100" oninput="updatePreview()">
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>移动速度</label>
+                            <div class="slider-wrap">
+                                <input type="range" id="enemy-speed-slider" min="0.1" max="2" step="0.05" value="0.35" oninput="syncSlider('enemy-speed')">
+                                <input type="number" id="enemy-speed" value="0.35" min="0.1" max="2" step="0.05" oninput="syncNumber('enemy-speed')">
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>攻击间隔(ms)</label>
+                            <div class="slider-wrap">
+                                <input type="range" id="enemy-firerate-slider" min="500" max="5000" step="100" value="1500" oninput="syncSlider('enemy-firerate')">
+                                <input type="number" id="enemy-firerate" value="1500" min="500" max="5000" step="100" oninput="syncNumber('enemy-firerate')">
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>生成间隔(ms)</label>
+                            <div class="slider-wrap">
+                                <input type="range" id="enemy-spawn-slider" min="1000" max="10000" step="500" value="3000" oninput="syncSlider('enemy-spawn')">
+                                <input type="number" id="enemy-spawn" value="3000" min="1000" max="10000" step="500" oninput="syncNumber('enemy-spawn')">
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>敌人生成数量</label>
+                            <div class="slider-wrap">
+                                <input type="range" id="enemy-count-slider" min="1" max="50" value="10" oninput="syncSlider('enemy-count')">
+                                <input type="number" id="enemy-count" value="10" min="1" max="50" oninput="syncNumber('enemy-count')">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="player-panel" class="panel">
+                    <div class="section">
+                        <div class="section-title">玩家属性</div>
+                        <div class="form-group">
+                            <label>最大生命</label>
+                            <div class="slider-wrap">
+                                <input type="range" id="player-health-slider" min="50" max="500" value="100" oninput="syncSlider('player-health')">
+                                <input type="number" id="player-health" value="100" min="50" max="500" oninput="syncNumber('player-health')">
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>移动速度(%)</label>
+                            <div class="slider-wrap">
+                                <input type="range" id="player-speed-slider" min="50" max="300" value="100" oninput="syncSlider('player-speed')">
+                                <input type="number" id="player-speed" value="100" min="50" max="300" oninput="syncNumber('player-speed')">
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>子弹速度</label>
+                            <div class="slider-wrap">
+                                <input type="range" id="player-bulletspeed-slider" min="5" max="30" value="15" oninput="syncSlider('player-bulletspeed')">
+                                <input type="number" id="player-bulletspeed" value="15" min="5" max="30" oninput="syncNumber('player-bulletspeed')">
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>无敌时间(ms)</label>
+                            <div class="slider-wrap">
+                                <input type="range" id="player-invincible-slider" min="0" max="5000" step="100" value="1000" oninput="syncSlider('player-invincible')">
+                                <input type="number" id="player-invincible" value="1000" min="0" max="5000" step="100" oninput="syncNumber('player-invincible')">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="map-panel" class="panel">
+                    <div class="section">
+                        <div class="section-title">地图参数</div>
+                        <div class="form-group">
+                            <label>障碍物比例</label>
+                            <div class="slider-wrap">
+                                <input type="range" id="map-obstacle-slider" min="0" max="0.3" step="0.01" value="0.08" oninput="syncSlider('map-obstacle')">
+                                <input type="number" id="map-obstacle" value="0.08" min="0" max="0.3" step="0.01" oninput="syncNumber('map-obstacle')">
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>掩体比例</label>
+                            <div class="slider-wrap">
+                                <input type="range" id="map-cover-slider" min="0" max="0.3" step="0.01" value="0.14" oninput="syncSlider('map-cover')">
+                                <input type="number" id="map-cover" value="0.14" min="0" max="0.3" step="0.01" oninput="syncNumber('map-cover')">
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>建筑物比例</label>
+                            <div class="slider-wrap">
+                                <input type="range" id="map-building-slider" min="0" max="0.3" step="0.01" value="0.18" oninput="syncSlider('map-building')">
+                                <input type="number" id="map-building" value="0.18" min="0" max="0.3" step="0.01" oninput="syncNumber('map-building')">
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>水域比例</label>
+                            <div class="slider-wrap">
+                                <input type="range" id="map-water-slider" min="0" max="0.3" step="0.01" value="0.2" oninput="syncSlider('map-water')">
+                                <input type="number" id="map-water" value="0.2" min="0" max="0.3" step="0.01" oninput="syncNumber('map-water')">
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>地图大小</label>
+                            <div class="slider-wrap">
+                                <input type="range" id="map-size-slider" min="50" max="300" value="100" oninput="syncSlider('map-size')">
+                                <input type="number" id="map-size" value="100" min="50" max="300" oninput="syncNumber('map-size')">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="drops-panel" class="panel">
+                    <div class="section">
+                        <div class="section-title">掉落物品</div>
+                        <div class="form-group">
+                            <label>金币最小值</label>
+                            <div class="slider-wrap">
+                                <input type="range" id="drop-coinmin-slider" min="1" max="100" value="10" oninput="syncSlider('drop-coinmin')">
+                                <input type="number" id="drop-coinmin" value="10" min="1" max="100" oninput="syncNumber('drop-coinmin')">
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>金币最大值</label>
+                            <div class="slider-wrap">
+                                <input type="range" id="drop-coinmax-slider" min="1" max="200" value="30" oninput="syncSlider('drop-coinmax')">
+                                <input type="number" id="drop-coinmax" value="30" min="1" max="200" oninput="syncNumber('drop-coinmax')">
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>医疗包治疗量</label>
+                            <div class="slider-wrap">
+                                <input type="range" id="drop-medkit-slider" min="10" max="200" value="30" oninput="syncSlider('drop-medkit')">
+                                <input type="number" id="drop-medkit" value="30" min="10" max="200" oninput="syncNumber('drop-medkit')">
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>手雷伤害</label>
+                            <div class="slider-wrap">
+                                <input type="range" id="drop-grenade-dmg-slider" min="50" max="500" value="150" oninput="syncSlider('drop-grenade-dmg')">
+                                <input type="number" id="drop-grenade-dmg" value="150" min="50" max="500" oninput="syncNumber('drop-grenade-dmg')">
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>手雷半径</label>
+                            <div class="slider-wrap">
+                                <input type="range" id="drop-grenade-radius-slider" min="1" max="15" value="4" oninput="syncSlider('drop-grenade-radius')">
+                                <input type="number" id="drop-grenade-radius" value="4" min="1" max="15" oninput="syncNumber('drop-grenade-radius')">
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>弹药箱补给</label>
+                            <div class="slider-wrap">
+                                <input type="range" id="drop-ammo-slider" min="10" max="100" value="30" oninput="syncSlider('drop-ammo')">
+                                <input type="number" id="drop-ammo" value="30" min="10" max="100" oninput="syncNumber('drop-ammo')">
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>星星分值</label>
+                            <div class="slider-wrap">
+                                <input type="range" id="drop-star-slider" min="100" max="1000" value="500" oninput="syncSlider('drop-star')">
+                                <input type="number" id="drop-star" value="500" min="100" max="1000" oninput="syncNumber('drop-star')">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="buffs-panel" class="panel">
+                    <div class="section">
+                        <div class="section-title">增益效果</div>
+                        <div class="form-group">
+                            <label>速度加成倍数</label>
+                            <div class="slider-wrap">
+                                <input type="range" id="buff-speed-mult-slider" min="1" max="5" step="0.1" value="1.5" oninput="syncSlider('buff-speed-mult')">
+                                <input type="number" id="buff-speed-mult" value="1.5" min="1" max="5" step="0.1" oninput="syncNumber('buff-speed-mult')">
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>速度加成持续(ms)</label>
+                            <div class="slider-wrap">
+                                <input type="range" id="buff-speed-dur-slider" min="5000" max="60000" step="1000" value="30000" oninput="syncSlider('buff-speed-dur')">
+                                <input type="number" id="buff-speed-dur" value="30000" min="5000" max="60000" step="1000" oninput="syncNumber('buff-speed-dur')">
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>伤害减免倍数</label>
+                            <div class="slider-wrap">
+                                <input type="range" id="buff-damage-red-slider" min="0.1" max="1" step="0.05" value="0.5" oninput="syncSlider('buff-damage-red')">
+                                <input type="number" id="buff-damage-red" value="0.5" min="0.1" max="1" step="0.05" oninput="syncNumber('buff-damage-red')">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="action-bar">
+                    <button class="btn btn-primary" onclick="saveParams()">💾 保存参数</button>
+                    <button class="btn btn-secondary" onclick="loadParams()">📂 加载参数</button>
+                    <button class="btn btn-danger" onclick="resetParams()">🔄 重置默认</button>
+                </div>
+                <div id="save-status" class="status"></div>
+
+                <div class="section" style="margin-top: 20px;">
+                    <div class="section-title">导入/导出 JSON</div>
+                    <textarea id="export-import-area" placeholder="导出或导入JSON数据..."></textarea>
+                    <div class="action-bar">
+                        <button class="btn btn-success" onclick="exportJSON()">📤 导出JSON</button>
+                        <button class="btn btn-success" onclick="importJSON()">📥 导入JSON</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="preview-panel">
+                <h3>📊 实时参数预览</h3>
+                <div class="preview-json" id="preview-json"></div>
+                
+                <div class="stats-preview">
+                    <div class="stat-box" id="stat-pistol-dps">
+                        <div class="value">-</div>
+                        <div class="label">手枪 DPS</div>
+                    </div>
+                    <div class="stat-box" id="stat-rifle-dps">
+                        <div class="value">-</div>
+                        <div class="label">步枪 DPS</div>
+                    </div>
+                    <div class="stat-box" id="stat-sniper-dps">
+                        <div class="value">-</div>
+                        <div class="label">狙击枪 DPS</div>
+                    </div>
+                    <div class="stat-box" id="stat-threat">
+                        <div class="value">-</div>
+                        <div class="label">敌人威胁等级</div>
+                    </div>
+                    <div class="stat-box" id="stat-killtime">
+                        <div class="value">-</div>
+                        <div class="label">击杀时间(s)</div>
+                    </div>
+                    <div class="stat-box" id="stat-playerkill">
+                        <div class="value">-</div>
+                        <div class="label">玩家击杀敌人(s)</div>
+                    </div>
+                </div>
+
+                <div class="validation-warnings" id="validation-warnings"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const STORAGE_KEY = 'deathTrench_game_params';
+        
+        const DEFAULT_PARAMS = {
+            WEAPONS: [
+                {name: '手枪', damage: 25, fireRate: 250, clipSize: 15, range: 30, icon: '🔫'},
+                {name: '步枪', damage: 30, fireRate: 150, clipSize: 30, range: 40, icon: '🔴'},
+                {name: '狙击枪', damage: 120, fireRate: 1000, clipSize: 5, range: 60, icon: '🎯'}
+            ],
+            ENEMY: {
+                health: 80,
+                damage: { easy: 8, normal: 12, hard: 18 },
+                moveSpeed: 0.35,
+                fireRate: 1500,
+                spawnInterval: 3000,
+                count: 10
+            },
+            PLAYER: {
+                maxHealth: 100,
+                moveSpeed: 100,
+                bulletSpeed: 15,
+                invincibilityTime: 1000
+            },
+            MAP: {
+                obstacleRate: 0.08,
+                coverRate: 0.14,
+                buildingRate: 0.18,
+                waterRate: 0.2,
+                MAP_SIZE: 100
+            },
+            DROPS: {
+                coinMin: 10,
+                coinMax: 30,
+                medkitHeal: 30,
+                grenadeDamage: 150,
+                grenadeRadius: 4,
+                ammoRefillAll: 30,
+                starScore: 500
+            },
+            BUFFS: {
+                speedBoostMultiplier: 1.5,
+                speedBoostDuration: 30000,
+                damageReductionMultiplier: 0.5
+            }
+        };
+
+        const PRESETS = {
+            default: JSON.parse(JSON.stringify(DEFAULT_PARAMS)),
+            easy: {
+                WEAPONS: [
+                    {name: '手枪', damage: 30, fireRate: 200, clipSize: 20, range: 35, icon: '🔫'},
+                    {name: '步枪', damage: 40, fireRate: 120, clipSize: 40, range: 50, icon: '🔴'},
+                    {name: '狙击枪', damage: 150, fireRate: 800, clipSize: 8, range: 70, icon: '🎯'}
+                ],
+                ENEMY: { health: 50, damage: { easy: 5, normal: 8, hard: 12 }, moveSpeed: 0.25, fireRate: 2000, spawnInterval: 4000, count: 8 },
+                PLAYER: { maxHealth: 150, moveSpeed: 120, bulletSpeed: 18, invincibilityTime: 1500 },
+                MAP: { obstacleRate: 0.05, coverRate: 0.1, buildingRate: 0.12, waterRate: 0.15, MAP_SIZE: 100 },
+                DROPS: { coinMin: 15, coinMax: 50, medkitHeal: 50, grenadeDamage: 200, grenadeRadius: 5, ammoRefillAll: 50, starScore: 400 },
+                BUFFS: { speedBoostMultiplier: 2, speedBoostDuration: 40000, damageReductionMultiplier: 0.4 }
+            },
+            hard: {
+                WEAPONS: [
+                    {name: '手枪', damage: 20, fireRate: 300, clipSize: 12, range: 25, icon: '🔫'},
+                    {name: '步枪', damage: 25, fireRate: 180, clipSize: 25, range: 35, icon: '🔴'},
+                    {name: '狙击枪', damage: 80, fireRate: 1200, clipSize: 4, range: 50, icon: '🎯'}
+                ],
+                ENEMY: { health: 120, damage: { easy: 12, normal: 18, hard: 25 }, moveSpeed: 0.5, fireRate: 1000, spawnInterval: 2000, count: 15 },
+                PLAYER: { maxHealth: 80, moveSpeed: 80, bulletSpeed: 12, invincibilityTime: 500 },
+                MAP: { obstacleRate: 0.12, coverRate: 0.2, buildingRate: 0.25, waterRate: 0.25, MAP_SIZE: 80 },
+                DROPS: { coinMin: 5, coinMax: 20, medkitHeal: 20, grenadeDamage: 100, grenadeRadius: 3, ammoRefillAll: 20, starScore: 600 },
+                BUFFS: { speedBoostMultiplier: 1.3, speedBoostDuration: 20000, damageReductionMultiplier: 0.6 }
+            },
+            extreme: {
+                WEAPONS: [
+                    {name: '手枪', damage: 15, fireRate: 350, clipSize: 10, range: 20, icon: '🔫'},
+                    {name: '步枪', damage: 20, fireRate: 200, clipSize: 20, range: 30, icon: '🔴'},
+                    {name: '狙击枪', damage: 60, fireRate: 1500, clipSize: 3, range: 45, icon: '🎯'}
+                ],
+                ENEMY: { health: 200, damage: { easy: 18, normal: 25, hard: 35 }, moveSpeed: 0.7, fireRate: 800, spawnInterval: 1500, count: 25 },
+                PLAYER: { maxHealth: 50, moveSpeed: 70, bulletSpeed: 10, invincibilityTime: 300 },
+                MAP: { obstacleRate: 0.18, coverRate: 0.25, buildingRate: 0.3, waterRate: 0.3, MAP_SIZE: 60 },
+                DROPS: { coinMin: 3, coinMax: 15, medkitHeal: 15, grenadeDamage: 80, grenadeRadius: 2, ammoRefillAll: 15, starScore: 800 },
+                BUFFS: { speedBoostMultiplier: 1.2, speedBoostDuration: 15000, damageReductionMultiplier: 0.7 }
+            }
+        };
+
+        let currentParams = JSON.parse(JSON.stringify(DEFAULT_PARAMS));
+
+        function init() {
+            renderWeaponCards();
+            loadParams();
+        }
+
+        function showTab(tabName) {
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+            document.querySelector(`button[onclick="showTab('${tabName}')"]`).classList.add('active');
+            document.getElementById(`${tabName}-panel`).classList.add('active');
+        }
+
+        function syncSlider(name) {
+            const slider = document.getElementById(`${name}-slider`);
+            const input = document.getElementById(name);
+            input.value = slider.value;
+            updateParamFromInput(name, parseFloat(slider.value));
+        }
+
+        function syncNumber(name) {
+            const input = document.getElementById(name);
+            const slider = document.getElementById(`${name}-slider`);
+            if (slider) slider.value = input.value;
+            updateParamFromInput(name, parseFloat(input.value));
+        }
+
+        function updateParamFromInput(name, value) {
+            const mappings = {
+                'enemy-health': () => { currentParams.ENEMY.health = value; },
+                'enemy-speed': () => { currentParams.ENEMY.moveSpeed = value; },
+                'enemy-firerate': () => { currentParams.ENEMY.fireRate = value; },
+                'enemy-spawn': () => { currentParams.ENEMY.spawnInterval = value; },
+                'enemy-count': () => { currentParams.ENEMY.count = value; },
+                'player-health': () => { currentParams.PLAYER.maxHealth = value; },
+                'player-speed': () => { currentParams.PLAYER.moveSpeed = value; },
+                'player-bulletspeed': () => { currentParams.PLAYER.bulletSpeed = value; },
+                'player-invincible': () => { currentParams.PLAYER.invincibilityTime = value; },
+                'map-obstacle': () => { currentParams.MAP.obstacleRate = value; },
+                'map-cover': () => { currentParams.MAP.coverRate = value; },
+                'map-building': () => { currentParams.MAP.buildingRate = value; },
+                'map-water': () => { currentParams.MAP.waterRate = value; },
+                'map-size': () => { currentParams.MAP.MAP_SIZE = value; },
+                'drop-coinmin': () => { currentParams.DROPS.coinMin = value; },
+                'drop-coinmax': () => { currentParams.DROPS.coinMax = value; },
+                'drop-medkit': () => { currentParams.DROPS.medkitHeal = value; },
+                'drop-grenade-dmg': () => { currentParams.DROPS.grenadeDamage = value; },
+                'drop-grenade-radius': () => { currentParams.DROPS.grenadeRadius = value; },
+                'drop-ammo': () => { currentParams.DROPS.ammoRefillAll = value; },
+                'drop-star': () => { currentParams.DROPS.starScore = value; },
+                'buff-speed-mult': () => { currentParams.BUFFS.speedBoostMultiplier = value; },
+                'buff-speed-dur': () => { currentParams.BUFFS.speedBoostDuration = value; },
+                'buff-damage-red': () => { currentParams.BUFFS.damageReductionMultiplier = value; }
+            };
+            
+            if (mappings[name]) mappings[name]();
+            
+            if (name.startsWith('enemy-damage-')) {
+                const diff = name.replace('enemy-damage-', '');
+                currentParams.ENEMY.damage[diff] = parseInt(value);
+            }
+            
+            updatePreview();
+        }
+
+        function renderWeaponCards() {
+            const container = document.getElementById('weapons-container');
+            container.innerHTML = '';
+            
+            currentParams.WEAPONS.forEach((weapon, index) => {
+                const card = document.createElement('div');
+                card.className = 'weapon-card';
+                card.innerHTML = `
+                    <h3>${weapon.icon} ${weapon.name}</h3>
+                    <div class="form-group">
+                        <label>武器名称</label>
+                        <input type="text" value="${weapon.name}" style="width:120px" onchange="updateWeapon(${index}, 'name', this.value)">
+                    </div>
+                    <div class="form-group">
+                        <label>伤害</label>
+                        <div class="slider-wrap">
+                            <input type="range" min="5" max="300" value="${weapon.damage}" oninput="updateWeapon(${index}, 'damage', parseInt(this.value)); syncWeaponSlider(${index}, 'damage', this.value)">
+                            <input type="number" value="${weapon.damage}" min="5" max="300" onchange="updateWeapon(${index}, 'damage', parseInt(this.value)); syncWeaponNumber(${index}, 'damage', this.value)">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>射速(ms)</label>
+                        <div class="slider-wrap">
+                            <input type="range" min="50" max="2000" value="${weapon.fireRate}" oninput="updateWeapon(${index}, 'fireRate', parseInt(this.value)); syncWeaponSlider(${index}, 'fireRate', this.value)">
+                            <input type="number" value="${weapon.fireRate}" min="50" max="2000" onchange="updateWeapon(${index}, 'fireRate', parseInt(this.value)); syncWeaponNumber(${index}, 'fireRate', this.value)">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>弹夹容量</label>
+                        <div class="slider-wrap">
+                            <input type="range" min="1" max="100" value="${weapon.clipSize}" oninput="updateWeapon(${index}, 'clipSize', parseInt(this.value)); syncWeaponSlider(${index}, 'clipSize', this.value)">
+                            <input type="number" value="${weapon.clipSize}" min="1" max="100" onchange="updateWeapon(${index}, 'clipSize', parseInt(this.value)); syncWeaponNumber(${index}, 'clipSize', this.value)">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>射程</label>
+                        <div class="slider-wrap">
+                            <input type="range" min="10" max="100" value="${weapon.range}" oninput="updateWeapon(${index}, 'range', parseInt(this.value)); syncWeaponSlider(${index}, 'range', this.value)">
+                            <input type="number" value="${weapon.range}" min="10" max="100" onchange="updateWeapon(${index}, 'range', parseInt(this.value)); syncWeaponNumber(${index}, 'range', this.value)">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>图标</label>
+                        <input type="text" value="${weapon.icon}" style="width:60px" maxlength="2" onchange="updateWeapon(${index}, 'icon', this.value)">
+                    </div>
+                `;
+                container.appendChild(card);
+            });
+        }
+
+        function syncWeaponSlider(index, prop, value) {
+            const card = document.querySelectorAll('.weapon-card')[index];
+            const inputs = card.querySelectorAll('input[type="number"]');
+            const props = ['name', 'damage', 'fireRate', 'clipSize', 'range', 'icon'];
+            const propIndex = props.indexOf(prop);
+            if (propIndex !== -1 && inputs[propIndex]) {
+                inputs[propIndex].value = value;
+            }
+        }
+
+        function syncWeaponNumber(index, prop, value) {
+            const card = document.querySelectorAll('.weapon-card')[index];
+            const sliders = card.querySelectorAll('input[type="range"]');
+            const props = ['name', 'damage', 'fireRate', 'clipSize', 'range', 'icon'];
+            const propIndex = props.indexOf(prop);
+            if (propIndex !== -1 && sliders[propIndex]) {
+                sliders[propIndex].value = value;
+            }
+        }
+
+        function updateWeapon(index, prop, value) {
+            currentParams.WEAPONS[index][prop] = value;
+            updatePreview();
+        }
+
+        function updatePreview() {
+            document.getElementById('preview-json').textContent = JSON.stringify(currentParams, null, 2);
+            
+            const weapons = currentParams.WEAPONS;
+            let maxDps = 0;
+            let maxDpsIndex = 0;
+            
+            weapons.forEach((w, i) => {
+                const dps = (w.damage * 1000 / w.fireRate).toFixed(1);
+                const statBox = document.getElementById(`stat-pistol-dps`);
+                const dpsEl = statBox.querySelector('.value');
+                if (i === 0) dpsEl.textContent = dps;
+                else if (i === 1) document.getElementById('stat-rifle-dps').querySelector('.value').textContent = dps;
+                else if (i === 2) document.getElementById('stat-sniper-dps').querySelector('.value').textContent = dps;
+                
+                if (dps > maxDps) {
+                    maxDps = dps;
+                    maxDpsIndex = i;
+                }
+            });
+
+            const enemy = currentParams.ENEMY;
+            const threat = (enemy.health * enemy.damage.normal * enemy.moveSpeed).toFixed(1);
+            const threatBox = document.getElementById('stat-threat');
+            threatBox.querySelector('.value').textContent = threat;
+            threatBox.className = 'stat-box' + (threat > 500 ? ' danger' : threat > 300 ? ' warning' : '');
+
+            const killTime = (enemy.health / weapons[maxDpsIndex].damage).toFixed(2);
+            const killBox = document.getElementById('stat-killtime');
+            killBox.querySelector('.value').textContent = killTime;
+            killBox.className = 'stat-box' + (killTime > 5 ? ' warning' : '');
+
+            const playerKill = (enemy.health / currentParams.PLAYER.maxHealth * 3).toFixed(2);
+            document.getElementById('stat-playerkill').querySelector('.value').textContent = playerKill;
+
+            validateParams();
+        }
+
+        function validateParams() {
+            const warnings = document.getElementById('validation-warnings');
+            warnings.innerHTML = '';
+            
+            let hasWarning = false;
+            let hasDanger = false;
+
+            currentParams.WEAPONS.forEach(w => {
+                if (w.damage > 200) {
+                    hasDanger = true;
+                    warnings.innerHTML += `<div class="warning-item danger">⚠️ ${w.name} 伤害过高 (${w.damage})，可能导致游戏失衡</div>`;
+                } else if (w.damage > 150) {
+                    hasWarning = true;
+                    warnings.innerHTML += `<div class="warning-item">⚠️ ${w.name} 伤害较高 (${w.damage})</div>`;
+                }
+            });
+
+            if (currentParams.PLAYER.moveSpeed > 200) {
+                hasWarning = true;
+                warnings.innerHTML += `<div class="warning-item">⚠️ 玩家移动速度过高 (${currentParams.PLAYER.moveSpeed}%)</div>`;
+            }
+            if (currentParams.PLAYER.moveSpeed < 70) {
+                hasWarning = true;
+                warnings.innerHTML += `<div class="warning-item">⚠️ 玩家移动速度过低 (${currentParams.PLAYER.moveSpeed}%)</div>`;
+            }
+
+            if (currentParams.ENEMY.moveSpeed > 1) {
+                hasWarning = true;
+                warnings.innerHTML += `<div class="warning-item">⚠️ 敌人移动速度过高 (${currentParams.ENEMY.moveSpeed})</div>`;
+            }
+            if (currentParams.ENEMY.fireRate < 500) {
+                hasDanger = true;
+                warnings.innerHTML += `<div class="warning-item danger">⚠️ 敌人攻击间隔过短 (${currentParams.ENEMY.fireRate}ms)，难度过高</div>`;
+            }
+
+            if (currentParams.MAP.obstacleRate > 0.15 || currentParams.MAP.coverRate > 0.2 || 
+                currentParams.MAP.buildingRate > 0.25 || currentParams.MAP.waterRate > 0.25) {
+                hasWarning = true;
+                warnings.innerHTML += `<div class="warning-item">⚠️ 地图元素比例过高，可能影响游戏体验</div>`;
+            }
+
+            if (!hasWarning && !hasDanger) {
+                warnings.innerHTML = '<div style="color:#00ff88;font-size:12px;text-align:center;">✅ 参数设置合理</div>';
+            }
+        }
+
+        function loadPreset(presetName) {
+            if (PRESETS[presetName]) {
+                currentParams = JSON.parse(JSON.stringify(PRESETS[presetName]));
+                syncAllInputsFromParams();
+                renderWeaponCards();
+                updatePreview();
+                showStatus('save-status', 'info', `已加载预设: ${presetName}`);
+            }
+        }
+
+        function syncAllInputsFromParams() {
+            const enemy = currentParams.ENEMY;
+            document.getElementById('enemy-health').value = enemy.health;
+            document.getElementById('enemy-health-slider').value = enemy.health;
+            document.getElementById('enemy-damage-easy').value = enemy.damage.easy;
+            document.getElementById('enemy-damage-normal').value = enemy.damage.normal;
+            document.getElementById('enemy-damage-hard').value = enemy.damage.hard;
+            document.getElementById('enemy-speed').value = enemy.moveSpeed;
+            document.getElementById('enemy-speed-slider').value = enemy.moveSpeed;
+            document.getElementById('enemy-firerate').value = enemy.fireRate;
+            document.getElementById('enemy-firerate-slider').value = enemy.fireRate;
+            document.getElementById('enemy-spawn').value = enemy.spawnInterval;
+            document.getElementById('enemy-spawn-slider').value = enemy.spawnInterval;
+            document.getElementById('enemy-count').value = enemy.count;
+            document.getElementById('enemy-count-slider').value = enemy.count;
+
+            const player = currentParams.PLAYER;
+            document.getElementById('player-health').value = player.maxHealth;
+            document.getElementById('player-health-slider').value = player.maxHealth;
+            document.getElementById('player-speed').value = player.moveSpeed;
+            document.getElementById('player-speed-slider').value = player.moveSpeed;
+            document.getElementById('player-bulletspeed').value = player.bulletSpeed;
+            document.getElementById('player-bulletspeed-slider').value = player.bulletSpeed;
+            document.getElementById('player-invincible').value = player.invincibilityTime;
+            document.getElementById('player-invincible-slider').value = player.invincibilityTime;
+
+            const map = currentParams.MAP;
+            document.getElementById('map-obstacle').value = map.obstacleRate;
+            document.getElementById('map-obstacle-slider').value = map.obstacleRate;
+            document.getElementById('map-cover').value = map.coverRate;
+            document.getElementById('map-cover-slider').value = map.coverRate;
+            document.getElementById('map-building').value = map.buildingRate;
+            document.getElementById('map-building-slider').value = map.buildingRate;
+            document.getElementById('map-water').value = map.waterRate;
+            document.getElementById('map-water-slider').value = map.waterRate;
+            document.getElementById('map-size').value = map.MAP_SIZE;
+            document.getElementById('map-size-slider').value = map.MAP_SIZE;
+
+            const drops = currentParams.DROPS;
+            document.getElementById('drop-coinmin').value = drops.coinMin;
+            document.getElementById('drop-coinmin-slider').value = drops.coinMin;
+            document.getElementById('drop-coinmax').value = drops.coinMax;
+            document.getElementById('drop-coinmax-slider').value = drops.coinMax;
+            document.getElementById('drop-medkit').value = drops.medkitHeal;
+            document.getElementById('drop-medkit-slider').value = drops.medkitHeal;
+            document.getElementById('drop-grenade-dmg').value = drops.grenadeDamage;
+            document.getElementById('drop-grenade-dmg-slider').value = drops.grenadeDamage;
+            document.getElementById('drop-grenade-radius').value = drops.grenadeRadius;
+            document.getElementById('drop-grenade-radius-slider').value = drops.grenadeRadius;
+            document.getElementById('drop-ammo').value = drops.ammoRefillAll;
+            document.getElementById('drop-ammo-slider').value = drops.ammoRefillAll;
+            document.getElementById('drop-star').value = drops.starScore;
+            document.getElementById('drop-star-slider').value = drops.starScore;
+
+            const buffs = currentParams.BUFFS;
+            document.getElementById('buff-speed-mult').value = buffs.speedBoostMultiplier;
+            document.getElementById('buff-speed-mult-slider').value = buffs.speedBoostMultiplier;
+            document.getElementById('buff-speed-dur').value = buffs.speedBoostDuration;
+            document.getElementById('buff-speed-dur-slider').value = buffs.speedBoostDuration;
+            document.getElementById('buff-damage-red').value = buffs.damageReductionMultiplier;
+            document.getElementById('buff-damage-red-slider').value = buffs.damageReductionMultiplier;
+        }
+
+        function saveParams() {
+            try {
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(currentParams));
+                showStatus('save-status', 'success', '参数已保存到 localStorage');
+            } catch (e) {
+                showStatus('save-status', 'error', '保存失败: ' + e.message);
+            }
+        }
+
+        function loadParams() {
+            try {
+                const saved = localStorage.getItem(STORAGE_KEY);
+                if (saved) {
+                    currentParams = JSON.parse(saved);
+                    syncAllInputsFromParams();
+                    showStatus('save-status', 'success', '已从 localStorage 加载参数');
+                } else {
+                    currentParams = JSON.parse(JSON.stringify(DEFAULT_PARAMS));
+                    syncAllInputsFromParams();
+                    showStatus('save-status', 'info', '使用默认参数');
+                }
+                updatePreview();
+            } catch (e) {
+                currentParams = JSON.parse(JSON.stringify(DEFAULT_PARAMS));
+                syncAllInputsFromParams();
+                showStatus('save-status', 'error', '加载失败，使用默认参数: ' + e.message);
+            }
+        }
+
+        function resetParams() {
+            if (confirm('确定要重置为游戏默认参数吗？')) {
+                loadPreset('default');
+            }
+        }
+
+        function exportJSON() {
+            document.getElementById('export-import-area').value = JSON.stringify(currentParams, null, 2);
+            showStatus('save-status', 'success', 'JSON 已导出到文本框');
+        }
+
+        function importJSON() {
+            const text = document.getElementById('export-import-area').value;
+            if (!text.trim()) {
+                showStatus('save-status', 'error', '请输入有效的 JSON 数据');
+                return;
+            }
+            try {
+                const parsed = JSON.parse(text);
+                currentParams = parsed;
+                syncAllInputsFromParams();
+                updatePreview();
+                showStatus('save-status', 'success', 'JSON 导入成功');
+            } catch (e) {
+                showStatus('save-status', 'error', 'JSON 格式错误: ' + e.message);
+            }
+        }
+
+        function showStatus(elementId, type, message) {
+            const el = document.getElementById(elementId);
+            el.className = `status ${type}`;
+            el.textContent = message;
+            setTimeout(() => {
+                if (el.textContent === message) el.textContent = '';
+            }, 3000);
+        }
+
+        init();
+    </script>
+</body>
+</html>

@@ -1,0 +1,15 @@
+node_modules/
+dist/
+distNew/
+.npm-cache/
+.npmrc
+.vscode/
+.idea/
+.DS_Store
+*.log
+*.swp
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+_test_server.js
+generate-images.js

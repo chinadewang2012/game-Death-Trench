@@ -1,0 +1,722 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>任务线编辑系统 - Death Trench 2D</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #0d1117;
+            color: #c9d1d9;
+            min-height: 100vh;
+        }
+        .header {
+            background: #161b22;
+            border-bottom: 1px solid #30363d;
+            padding: 16px 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+        .header h1 { font-size: 20px; color: #00ff88; }
+        .header-actions { display: flex; gap: 10px; }
+        .btn {
+            padding: 8px 16px;
+            background: #21262d;
+            border: 1px solid #30363d;
+            border-radius: 6px;
+            color: #c9d1d9;
+            cursor: pointer;
+            font-size: 13px;
+            transition: all 0.15s;
+        }
+        .btn:hover { background: #30363d; border-color: #58a6ff; }
+        .btn-primary { background: #00ff88; color: #0d1117; font-weight: 600; }
+        .btn-primary:hover { background: #00e67a; }
+        .btn-danger { border-color: #f85149; color: #f85149; }
+        .btn-danger:hover { background: rgba(248, 81, 73, 0.15); }
+
+        .main-content {
+            display: grid;
+            grid-template-columns: 280px 1fr;
+            min-height: calc(100vh - 60px);
+        }
+        .sidebar {
+            background: #161b22;
+            border-right: 1px solid #30363d;
+            padding: 16px;
+            overflow-y: auto;
+        }
+        .sidebar-section { margin-bottom: 20px; }
+        .sidebar-title {
+            font-size: 13px;
+            color: #8b949e;
+            margin-bottom: 10px;
+            padding-bottom: 6px;
+            border-bottom: 1px solid #21262d;
+        }
+        .nav-item {
+            padding: 10px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 13px;
+            margin-bottom: 4px;
+            transition: all 0.12s;
+        }
+        .nav-item:hover { background: #21262d; }
+        .nav-item.active {
+            background: rgba(0, 255, 136, 0.12);
+            color: #00ff88;
+        }
+        .nav-item.selected {
+            background: rgba(88, 166, 255, 0.15);
+            border-left: 3px solid #58a6ff;
+        }
+
+        .editor-area {
+            padding: 20px;
+            overflow-y: auto;
+        }
+        .tab-bar {
+            display: flex;
+            gap: 4px;
+            margin-bottom: 20px;
+            padding-bottom: 16px;
+            border-bottom: 1px solid #21262d;
+        }
+        .tab {
+            padding: 10px 18px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            color: #8b949e;
+            transition: all 0.15s;
+        }
+        .tab:hover { background: #21262d; }
+        .tab.active {
+            background: rgba(0, 255, 136, 0.12);
+            color: #00ff88;
+        }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+
+        .form-section { margin-bottom: 24px; }
+        .form-section-title {
+            font-size: 14px;
+            color: #8b949e;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .form-row {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 14px;
+            margin-bottom: 14px;
+        }
+        .form-field {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+        .form-field label { font-size: 13px; color: #8b949e; }
+        .form-field input,
+        .form-field select,
+        .form-field textarea {
+            padding: 10px 12px;
+            background: #161b22;
+            border: 1px solid #30363d;
+            border-radius: 6px;
+            color: #c9d1d9;
+            font-size: 13px;
+            outline: none;
+            transition: border-color 0.15s;
+        }
+        .form-field input:focus,
+        .form-field select:focus,
+        .form-field textarea:focus { border-color: #58a6ff; }
+        .form-field textarea { min-height: 120px; resize: vertical; font-family: inherit; }
+
+        .task-list {
+            display: grid;
+            gap: 10px;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        .task-card {
+            background: #161b22;
+            border: 1px solid #30363d;
+            border-radius: 8px;
+            padding: 14px;
+            cursor: pointer;
+            transition: all 0.12s;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+        }
+        .task-card:hover { border-color: #58a6ff; }
+        .task-card.selected {
+            border-color: #00ff88;
+            background: rgba(0, 255, 136, 0.05);
+        }
+        .task-info h4 { color: #c9d1d9; margin-bottom: 4px; }
+        .task-info p { font-size: 12px; color: #8b949e; }
+        .task-reward { font-size: 12px; color: #ffaa00; }
+        .task-actions { display: flex; gap: 6px; }
+        .task-actions button { padding: 4px 8px; font-size: 11px; }
+
+        .map-select-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+            gap: 10px;
+        }
+        .map-select-item {
+            padding: 12px;
+            background: #161b22;
+            border: 1px solid #30363d;
+            border-radius: 8px;
+            cursor: pointer;
+            text-align: center;
+            transition: all 0.12s;
+        }
+        .map-select-item:hover { border-color: #58a6ff; }
+        .map-select-item.selected {
+            border-color: #00ff88;
+            background: rgba(0, 255, 136, 0.08);
+        }
+        .map-select-item .map-icon { font-size: 28px; margin-bottom: 6px; }
+        .map-select-item .map-name { font-size: 13px; }
+
+        .lang-toggle {
+            display: flex;
+            gap: 6px;
+        }
+        .lang-btn {
+            padding: 6px 12px;
+            background: #161b22;
+            border: 1px solid #30363d;
+            border-radius: 4px;
+            font-size: 12px;
+            cursor: pointer;
+            transition: all 0.12s;
+        }
+        .lang-btn.active {
+            background: #00ff88;
+            color: #0d1117;
+            border-color: #00ff88;
+        }
+
+        .story-line {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            padding-left: 20px;
+            border-left: 2px solid #30363d;
+        }
+        .story-node {
+            position: relative;
+            background: #161b22;
+            border: 1px solid #30363d;
+            border-radius: 8px;
+            padding: 12px;
+            transition: all 0.12s;
+        }
+        .story-node::before {
+            content: '';
+            position: absolute;
+            left: -26px;
+            top: 16px;
+            width: 10px;
+            height: 10px;
+            background: #30363d;
+            border-radius: 50%;
+            border: 2px solid #0d1117;
+        }
+        .story-node.current::before {
+            background: #00ff88;
+        }
+        .story-node:hover { border-color: #58a6ff; }
+        .story-node-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 6px;
+        }
+        .story-node-title { font-size: 13px; color: #c9d1d9; }
+        .story-node-status { font-size: 11px; padding: 2px 6px; border-radius: 3px; }
+        .story-node-status.pending { background: #21262d; color: #8b949e; }
+        .story-node-status.active { background: rgba(0, 255, 136, 0.15); color: #00ff88; }
+        .story-node-status.completed { background: rgba(88, 166, 255, 0.15); color: #58a6ff; }
+
+        .notification {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            padding: 14px 20px;
+            background: #161b22;
+            border: 1px solid #30363d;
+            border-radius: 8px;
+            color: #c9d1d9;
+            font-size: 14px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+            opacity: 0;
+            transform: translateY(20px);
+            transition: all 0.3s;
+            z-index: 1000;
+        }
+        .notification.show { opacity: 1; transform: translateY(0); }
+        .notification.success { border-color: #00ff88; color: #00ff88; }
+        .notification.error { border-color: #f85149; color: #f85149; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>📋 任务线编辑系统</h1>
+        <div class="header-actions">
+            <button class="btn" onclick="exportMissions()">📤 导出任务</button>
+            <button class="btn btn-primary" onclick="saveAllMissions()">💾 保存全部</button>
+            <button class="btn" onclick="window.location.href='index.html'">← 返回工具箱</button>
+        </div>
+    </div>
+
+    <div class="main-content">
+        <div class="sidebar">
+            <div class="sidebar-section">
+                <div class="sidebar-title">导航</div>
+                <div class="nav-item active" onclick="showTab('story')">📖 主线剧情</div>
+                <div class="nav-item" onclick="showTab('tasks')">📋 任务管理</div>
+                <div class="nav-item" onclick="showTab('maps')">🗺️ 地图关联</div>
+                <div class="nav-item" onclick="showTab('settings')">⚙️ 设置</div>
+            </div>
+            <div class="sidebar-section" id="storyNav" style="display:block;">
+                <div class="sidebar-title">剧情章节</div>
+                <div class="nav-item" onclick="selectChapter(1)">第一章：沙漠风暴</div>
+                <div class="nav-item" onclick="selectChapter(2)">第二章：城市废墟</div>
+                <div class="nav-item" onclick="selectChapter(3)">第三章：工厂决战</div>
+            </div>
+            <div class="sidebar-section" id="taskNav" style="display:none;">
+                <div class="sidebar-title">任务列表</div>
+                <div id="taskNavItems"></div>
+            </div>
+        </div>
+
+        <div class="editor-area">
+            <div class="tab-content active" id="tabStory">
+                <h2 style="margin-bottom: 20px; color: #00ff88;">📖 主线剧情编辑</h2>
+                <div class="form-section">
+                    <div class="form-section-title">
+                        <span>章节信息</span>
+                        <div class="lang-toggle">
+                            <button class="lang-btn active" onclick="switchLang('zh')">中文</button>
+                            <button class="lang-btn" onclick="switchLang('en')">English</button>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-field">
+                            <label>章节ID</label>
+                            <input type="text" id="chapterId" value="chapter_1" readonly>
+                        </div>
+                        <div class="form-field">
+                            <label>章节名称 (中文)</label>
+                            <input type="text" id="chapterNameZh" placeholder="如：沙漠风暴">
+                        </div>
+                        <div class="form-field">
+                            <label>章节名称 (English)</label>
+                            <input type="text" id="chapterNameEn" placeholder="如：Desert Storm">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-section">
+                    <div class="form-section-title">
+                        <span>剧情节点</span>
+                        <button class="btn btn-primary" style="margin-left: auto;" onclick="addStoryNode()">+ 添加节点</button>
+                    </div>
+                    <div class="story-line" id="storyLine"></div>
+                </div>
+            </div>
+
+            <div class="tab-content" id="tabTasks">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                    <h2 style="color: #00ff88;">📋 任务管理</h2>
+                    <button class="btn btn-primary" onclick="showTaskEditor()">+ 新建任务</button>
+                </div>
+                <div class="task-list" id="taskList"></div>
+            </div>
+
+            <div class="tab-content" id="tabMaps">
+                <h2 style="margin-bottom: 20px; color: #00ff88;">🗺️ 地图与任务关联</h2>
+                <div class="form-section">
+                    <div class="form-section-title">选择地图</div>
+                    <div class="map-select-grid" id="mapSelectGrid"></div>
+                </div>
+                <div class="form-section" id="mapTasksSection" style="display:none;">
+                    <div class="form-section-title">关联任务</div>
+                    <div id="mapTasksList"></div>
+                </div>
+            </div>
+
+            <div class="tab-content" id="tabSettings">
+                <h2 style="margin-bottom: 20px; color: #00ff88;">⚙️ 系统设置</h2>
+                <div class="form-section">
+                    <div class="form-row">
+                        <div class="form-field">
+                            <label>默认语言</label>
+                            <select id="defaultLang">
+                                <option value="zh">中文 (Chinese)</option>
+                                <option value="en">English</option>
+                            </select>
+                        </div>
+                        <div class="form-field">
+                            <label>任务提示显示</label>
+                            <select id="taskDisplayMode">
+                                <option value="both">双语显示</option>
+                                <option value="single">单语言</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                <button class="btn btn-primary" onclick="saveSettings()">保存设置</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="notification" id="notification"></div>
+
+    <div id="taskEditorModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.85); display:flex; align-items:center; justify-content:center; z-index:1000;">
+        <div style="background:#0d1117; border:1px solid #30363d; border-radius:12px; padding:24px; width:min(600px,90%);">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+                <h3 style="color:#00ff88;">任务编辑器</h3>
+                <button class="btn" onclick="closeTaskEditor()">×</button>
+            </div>
+            <div class="form-row">
+                <div class="form-field">
+                    <label>任务ID</label>
+                    <input type="text" id="editTaskId" placeholder="task_xxx">
+                </div>
+                <div class="form-field">
+                    <label>任务类型</label>
+                    <select id="editTaskType">
+                        <option value="kill">击杀敌人</option>
+                        <option value="collect">收集物品</option>
+                        <option value="extract">成功撤离</option>
+                        <option value="score">达到分数</option>
+                        <option value="survive">存活时间</option>
+                    </select>
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="form-field">
+                    <label>任务名称 (中文)</label>
+                    <input type="text" id="editTaskNameZh" placeholder="如：沙漠突袭">
+                </div>
+                <div class="form-field">
+                    <label>任务名称 (English)</label>
+                    <input type="text" id="editTaskNameEn" placeholder="如：Desert Assault">
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="form-field">
+                    <label>任务描述 (中文)</label>
+                    <textarea id="editTaskDescZh" placeholder="任务描述..."></textarea>
+                </div>
+                <div class="form-field">
+                    <label>任务描述 (English)</label>
+                    <textarea id="editTaskDescEn" placeholder="Task description..."></textarea>
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="form-field">
+                    <label>目标值</label>
+                    <input type="number" id="editTaskTarget" value="10">
+                </div>
+                <div class="form-field">
+                    <label>金币奖励</label>
+                    <input type="number" id="editTaskReward" value="500">
+                </div>
+                <div class="form-field">
+                    <label>关联地图</label>
+                    <select id="editTaskMap">
+                        <option value="any">任意地图</option>
+                        <option value="desert">沙漠</option>
+                        <option value="city">城市</option>
+                        <option value="factory">工厂</option>
+                        <option value="jungle">丛林</option>
+                        <option value="snow">雪地</option>
+                    </select>
+                </div>
+            </div>
+            <div style="display:flex; gap:10px; justify-content:flex-end; margin-top:20px;">
+                <button class="btn" onclick="closeTaskEditor()">取消</button>
+                <button class="btn btn-primary" onclick="saveTask()">保存任务</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentLang = 'zh';
+        let missions = {
+            chapters: [
+                { id: 'chapter_1', nameZh: '沙漠风暴', nameEn: 'Desert Storm', nodes: [] },
+                { id: 'chapter_2', nameZh: '城市废墟', nameEn: 'Urban Ruins', nodes: [] },
+                { id: 'chapter_3', nameZh: '工厂决战', nameEn: 'Factory Showdown', nodes: [] }
+            ],
+            tasks: [
+                { id: 'task_kill1', type: 'kill', nameZh: '沙漠突袭', nameEn: 'Desert Assault', descZh: '消灭所有敌人，完成战术目标', descEn: 'Eliminate all enemies, complete tactical objectives', target: 15, reward: 500, map: 'desert' },
+                { id: 'task_kill2', type: 'kill', nameZh: '城市清剿', nameEn: 'City Cleanup', descZh: '清理城市区域的敌人', descEn: 'Clear enemies from urban area', target: 20, reward: 600, map: 'city' },
+                { id: 'task_extract', type: 'extract', nameZh: '成功撤离', nameEn: 'Successful Extraction', descZh: '活着离开战场', descEn: 'Leave the battlefield alive', target: 1, reward: 300, map: 'any' },
+                { id: 'task_score', type: 'score', nameZh: '高分挑战', nameEn: 'High Score Challenge', descZh: '达到1000分', descEn: 'Reach 1000 points', target: 1000, reward: 800, map: 'any' }
+            ],
+            mapTasks: {}
+        };
+
+        function loadMissions() {
+            try {
+                const stored = localStorage.getItem('deathTrench_missions');
+                if (stored) missions = JSON.parse(stored);
+            } catch (e) { /* use default */ }
+        }
+
+        function saveAllMissions() {
+            localStorage.setItem('deathTrench_missions', JSON.stringify(missions));
+            showNotification('保存成功！', 'success');
+        }
+
+        function exportMissions() {
+            const blob = new Blob([JSON.stringify(missions, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'deathtrench_missions.json';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            showNotification('已导出任务配置', 'success');
+        }
+
+        function showTab(tabId) {
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+            document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+            document.getElementById('tab' + tabId.charAt(0).toUpperCase() + tabId.slice(1)).classList.add('active');
+            document.querySelector('.nav-item[onclick*="' + tabId + '"]').classList.add('active');
+            
+            document.getElementById('storyNav').style.display = (tabId === 'story') ? 'block' : 'none';
+            document.getElementById('taskNav').style.display = (tabId === 'tasks') ? 'block' : 'none';
+            
+            if (tabId === 'tasks') refreshTaskNav();
+            if (tabId === 'maps') refreshMapSelect();
+        }
+
+        function switchLang(lang) {
+            currentLang = lang;
+            document.querySelectorAll('.lang-btn').forEach(el => el.classList.remove('active'));
+            document.querySelector('.lang-btn[onclick*="' + lang + '"]').classList.add('active');
+        }
+
+        function selectChapter(chapterNum) {
+            const chapter = missions.chapters[chapterNum - 1];
+            if (!chapter) return;
+            
+            document.getElementById('chapterId').value = chapter.id;
+            document.getElementById('chapterNameZh').value = chapter.nameZh;
+            document.getElementById('chapterNameEn').value = chapter.nameEn;
+            
+            refreshStoryLine(chapter);
+        }
+
+        function refreshStoryLine(chapter) {
+            const container = document.getElementById('storyLine');
+            if (!chapter.nodes || chapter.nodes.length === 0) {
+                container.innerHTML = '<div style="color:#6e7681; padding:20px;">暂无剧情节点</div>';
+                return;
+            }
+            container.innerHTML = chapter.nodes.map((node, idx) => `
+                <div class="story-node ${idx === 0 ? 'current' : ''}" onclick="editStoryNode(${chapter.id}, ${idx})">
+                    <div class="story-node-header">
+                        <span class="story-node-title">${currentLang === 'zh' ? node.titleZh : node.titleEn}</span>
+                        <span class="story-node-status ${node.status}">${getStatusText(node.status)}</span>
+                    </div>
+                    <p style="font-size:12px; color:#8b949e;">${currentLang === 'zh' ? node.descZh : node.descEn}</p>
+                </div>
+            `).join('');
+        }
+
+        function getStatusText(status) {
+            const texts = { pending: '待解锁', active: '进行中', completed: '已完成' };
+            return texts[status] || status;
+        }
+
+        function addStoryNode() {
+            const chapterId = document.getElementById('chapterId').value;
+            const chapter = missions.chapters.find(c => c.id === chapterId);
+            if (!chapter) { showNotification('请先选择章节', 'error'); return; }
+            
+            const newNode = {
+                id: 'node_' + Date.now(),
+                titleZh: '新节点',
+                titleEn: 'New Node',
+                descZh: '描述...',
+                descEn: 'Description...',
+                status: chapter.nodes.length === 0 ? 'active' : 'pending',
+                requiredTasks: []
+            };
+            chapter.nodes.push(newNode);
+            refreshStoryLine(chapter);
+            showNotification('已添加剧情节点', 'success');
+        }
+
+        function refreshTaskNav() {
+            const container = document.getElementById('taskNavItems');
+            container.innerHTML = missions.tasks.map((t, idx) => `
+                <div class="nav-item" onclick="editTask(${idx})">${currentLang === 'zh' ? t.nameZh : t.nameEn}</div>
+            `).join('');
+        }
+
+        function refreshTaskList() {
+            const container = document.getElementById('taskList');
+            container.innerHTML = missions.tasks.map((task, idx) => `
+                <div class="task-card">
+                    <div class="task-info">
+                        <h4>${currentLang === 'zh' ? task.nameZh : task.nameEn}</h4>
+                        <p>${currentLang === 'zh' ? task.descZh : task.descEn}</p>
+                        <span class="task-reward">💰 ${task.reward}</span>
+                    </div>
+                    <div class="task-actions">
+                        <button class="btn" onclick="editTask(${idx})">✏️</button>
+                        <button class="btn btn-danger" onclick="deleteTask(${idx})">🗑️</button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function showTaskEditor(taskIdx = -1) {
+            document.getElementById('taskEditorModal').style.display = 'flex';
+            if (taskIdx >= 0) {
+                const task = missions.tasks[taskIdx];
+                document.getElementById('editTaskId').value = task.id;
+                document.getElementById('editTaskType').value = task.type;
+                document.getElementById('editTaskNameZh').value = task.nameZh;
+                document.getElementById('editTaskNameEn').value = task.nameEn;
+                document.getElementById('editTaskDescZh').value = task.descZh;
+                document.getElementById('editTaskDescEn').value = task.descEn;
+                document.getElementById('editTaskTarget').value = task.target;
+                document.getElementById('editTaskReward').value = task.reward;
+                document.getElementById('editTaskMap').value = task.map;
+            } else {
+                document.getElementById('editTaskId').value = 'task_' + Date.now();
+            }
+        }
+
+        function closeTaskEditor() {
+            document.getElementById('taskEditorModal').style.display = 'none';
+        }
+
+        function saveTask() {
+            const task = {
+                id: document.getElementById('editTaskId').value,
+                type: document.getElementById('editTaskType').value,
+                nameZh: document.getElementById('editTaskNameZh').value,
+                nameEn: document.getElementById('editTaskNameEn').value,
+                descZh: document.getElementById('editTaskDescZh').value,
+                descEn: document.getElementById('editTaskDescEn').value,
+                target: parseInt(document.getElementById('editTaskTarget').value) || 0,
+                reward: parseInt(document.getElementById('editTaskReward').value) || 0,
+                map: document.getElementById('editTaskMap').value
+            };
+            
+            const existingIdx = missions.tasks.findIndex(t => t.id === task.id);
+            if (existingIdx >= 0) {
+                missions.tasks[existingIdx] = task;
+            } else {
+                missions.tasks.push(task);
+            }
+            closeTaskEditor();
+            refreshTaskList();
+            refreshTaskNav();
+            showNotification('任务保存成功', 'success');
+        }
+
+        function editTask(idx) {
+            showTaskEditor(idx);
+        }
+
+        function deleteTask(idx) {
+            if (!confirm('确定删除此任务？')) return;
+            missions.tasks.splice(idx, 1);
+            refreshTaskList();
+            refreshTaskNav();
+            showNotification('任务已删除', 'success');
+        }
+
+        function refreshMapSelect() {
+            const maps = [
+                { id: 'desert', nameZh: '沙漠', nameEn: 'Desert', icon: '🏜️' },
+                { id: 'city', nameZh: '城市', nameEn: 'City', icon: '🏙️' },
+                { id: 'factory', nameZh: '工厂', nameEn: 'Factory', icon: '🏭' },
+                { id: 'jungle', nameZh: '丛林', nameEn: 'Jungle', icon: '🌴' },
+                { id: 'snow', nameZh: '雪地', nameEn: 'Snow', icon: '❄️' }
+            ];
+            const container = document.getElementById('mapSelectGrid');
+            container.innerHTML = maps.map(m => `
+                <div class="map-select-item" onclick="selectMap('${m.id}')">
+                    <div class="map-icon">${m.icon}</div>
+                    <div class="map-name">${currentLang === 'zh' ? m.nameZh : m.nameEn}</div>
+                </div>
+            `).join('');
+        }
+
+        function selectMap(mapId) {
+            document.querySelectorAll('.map-select-item').forEach(el => el.classList.remove('selected'));
+            document.querySelector(`.map-select-item[onclick*="${mapId}"]`).classList.add('selected');
+            
+            document.getElementById('mapTasksSection').style.display = 'block';
+            const mapTasks = missions.tasks.filter(t => t.map === mapId || t.map === 'any');
+            const container = document.getElementById('mapTasksList');
+            
+            if (mapTasks.length === 0) {
+                container.innerHTML = '<div style="color:#6e7681;">此地图暂无关联任务</div>';
+                return;
+            }
+            
+            container.innerHTML = '<div class="task-list">' + mapTasks.map(task => `
+                <div class="task-card">
+                    <div class="task-info">
+                        <h4>${currentLang === 'zh' ? task.nameZh : task.nameEn}</h4>
+                        <p>${currentLang === 'zh' ? task.descZh : task.descEn}</p>
+                    </div>
+                    <div class="task-reward">💰 ${task.reward}</div>
+                </div>
+            `).join('') + '</div>';
+        }
+
+        function saveSettings() {
+            const settings = {
+                defaultLang: document.getElementById('defaultLang').value,
+                taskDisplayMode: document.getElementById('taskDisplayMode').value
+            };
+            localStorage.setItem('deathTrench_mission_settings', JSON.stringify(settings));
+            showNotification('设置已保存', 'success');
+        }
+
+        function showNotification(msg, type = 'info') {
+            const el = document.getElementById('notification');
+            el.textContent = msg;
+            el.className = 'notification ' + type;
+            el.classList.add('show');
+            setTimeout(() => el.classList.remove('show'), 3000);
+        }
+
+        loadMissions();
+        refreshTaskList();
+        refreshTaskNav();
+        selectChapter(1);
+    </script>
+</body>
+</html>
