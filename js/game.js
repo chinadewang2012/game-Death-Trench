@@ -532,6 +532,15 @@ function showLoadingScreen(callback) {
             }, 500);
         }
     }, 100);
+    
+    // 关键修复：添加超时保护，防止 setInterval 在异常情况下永不清理导致内存泄漏
+    const LOAD_TIMEOUT = 15000; // 15秒超时
+    const timeoutGuard = setTimeout(() => {
+        clearInterval(loadInterval);
+        console.warn('[LOAD] Loading screen timeout, force removing');
+        try { loadingDiv.remove(); } catch (e) {}
+        callback();
+    }, LOAD_TIMEOUT);
 }
 
 function startGame() {
@@ -891,7 +900,9 @@ function update() {
                 heap[0] = last;
                 let i = 0;
                 const n = heap.length;
-                while (true) {
+                let heapIter = 0;
+                const HEAP_MAX_ITER = n * 2 + 8; // 硬上限，防御性防止任何极端场景下的类死锁
+                while (heapIter < HEAP_MAX_ITER) {
                     const l = i * 2 + 1, r = i * 2 + 2;
                     let m = i;
                     if (l < n && heap[l].f < heap[m].f) m = l;
@@ -899,6 +910,7 @@ function update() {
                     if (m === i) break;
                     [heap[m], heap[i]] = [heap[i], heap[m]];
                     i = m;
+                    heapIter++;
                 }
             }
             return top;
@@ -913,7 +925,7 @@ function update() {
 
         const startKey = keyOf(sX, sY);
         gScore.set(startKey, 0);
-        heapPush({x: sX, y: sY, f: h(sX, sY)});
+        heapPush({x: sX, y: sY, g: 0, f: h(sX, sY)});
 
         const dirs = [[0, -1], [1, 0], [0, 1], [-1, 0]];
         const MAX_VISITS = 800; // 硬上限：防止超大障碍物包围下的 CPU 饥饿（类死锁）
@@ -922,12 +934,13 @@ function update() {
         while (heap.length > 0 && visits < MAX_VISITS) {
             const cur = heapPop();
             const ck = keyOf(cur.x, cur.y);
-            // 关键修复：正确比较 g 值而非 f 值。
-            // 原逻辑比较 cur.f > gScore[ck] + h()，在无浮点误差时几乎等价于 cur.g > gScore[ck]，
-            // 但由于 cur.f = cur.g + h(cur)，此处改为直接比较 g，更稳定、更易读，
-            // 避免相同格重复展开造成的性能类死锁。
+            // 关键修复：使用堆节点中实际存储的 g 值（cur.g）进行比较，
+            // 而非再次计算 cur.f - h(cur.x, cur.y)，避免浮点误差导致同一格反复展开。
+            // 同时增加小 epsilon 容差，避免因浮点精度造成的边界抖动。
             const curG = gScore.get(ck);
-            if (curG !== undefined && (cur.f - h(cur.x, cur.y)) > curG) continue;
+            const storedG = (typeof cur.g === 'number') ? cur.g : (cur.f - h(cur.x, cur.y));
+            const EPS = 1e-6;
+            if (curG !== undefined && storedG > curG + EPS) { visits++; continue; }
             visits++;
 
             if (cur.x === eX && cur.y === eY) {
@@ -952,14 +965,15 @@ function update() {
                 if (nx < 0 || nx >= MAP_SIZE || ny < 0 || ny >= MAP_SIZE) continue;
                 const tile = getTile(nx, ny);
                 if (isBlockedTile(tile)) continue;
-                const tentative = (gScore.get(ck) !== undefined ? gScore.get(ck) : 0) + 1;
+                const tentative = (curG !== undefined ? curG : 0) + 1;
                 const nk = keyOf(nx, ny);
                 const curNkG = gScore.get(nk);
-                // 只有当新路径更优时才入堆（避免堆膨胀 -> 类死锁 / 性能雪崩）
-                if (curNkG === undefined || tentative < curNkG) {
+                // 只有当新路径严格更优时才入堆（避免堆膨胀 -> 类死锁 / 性能雪崩），
+                // 加入 epsilon 防止浮点抖动造成的误判入堆。
+                if (curNkG === undefined || tentative < curNkG - EPS) {
                     cameFrom.set(nk, ck);
                     gScore.set(nk, tentative);
-                    heapPush({x: nx, y: ny, f: tentative + h(nx, ny)});
+                    heapPush({x: nx, y: ny, g: tentative, f: tentative + h(nx, ny)});
                 }
             }
         }

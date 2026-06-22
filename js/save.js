@@ -25,25 +25,26 @@ const SaveManager = (() => {
     }
 
     // 关键：存档写入互斥锁，防止同帧多次保存/导入时交错造成 localStorage 脏数据（类死锁）
-    let _saveOperationInProgress = false;
+    let _saveLockHeld = false;
     // 锁超时兜底：若锁被卡住超过 5 秒则强制释放，避免单次异常造成永久死锁
     let _saveLockTimer = null;
     function _acquireSaveLock() {
-        if (_saveOperationInProgress) return false;
-        _saveOperationInProgress = true;
+        if (_saveLockHeld) return false;
+        _saveLockHeld = true;
         if (_saveLockTimer) { try { clearTimeout(_saveLockTimer); } catch (e) {} }
         _saveLockTimer = setTimeout(() => {
-            // 5 秒兜底：防止任何异常路径导致锁永久被占用
-            if (_saveOperationInProgress) {
+            // 5 秒兜底：强制释放锁，并打印警告，避免死锁
+            if (_saveLockHeld) {
                 console.warn('[SaveManager] Lock timeout: force-releasing save lock.');
-                _saveOperationInProgress = false;
+                _saveLockHeld = false;
             }
             _saveLockTimer = null;
         }, 5000);
         return true;
     }
     function _releaseSaveLock() {
-        _saveOperationInProgress = false;
+        if (!_saveLockHeld) return;
+        _saveLockHeld = false;
         if (_saveLockTimer) {
             try { clearTimeout(_saveLockTimer); } catch (e) {}
             _saveLockTimer = null;
@@ -306,7 +307,15 @@ const SaveManager = (() => {
             }
             
             const reader = new FileReader();
+            // 关键修复：添加超时保护，防止 FileReader 挂起导致 Promise 永不 resolve
+            const READ_TIMEOUT = 5000; // 5秒超时
+            const timeoutGuard = setTimeout(() => {
+                try { reader.abort(); } catch (e) {}
+                reject({ success: false, message: '文件读取超时' });
+            }, READ_TIMEOUT);
+            
             reader.onload = function(e) {
+                clearTimeout(timeoutGuard);
                 try {
                     const result = importSave(e.target.result);
                     if (result.success) {
@@ -319,7 +328,12 @@ const SaveManager = (() => {
                 }
             };
             reader.onerror = function() {
+                clearTimeout(timeoutGuard);
                 reject({ success: false, message: '文件读取失败' });
+            };
+            reader.onabort = function() {
+                clearTimeout(timeoutGuard);
+                reject({ success: false, message: '文件读取被中止' });
             };
             reader.readAsText(file);
         });

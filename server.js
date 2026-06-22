@@ -104,45 +104,51 @@ function serveFile(res, filePath) {
         const stream = fs.createReadStream(filePath, { start: 0, end: size - 1 });
         // 文件流超时保护：超过10秒未完成则关闭连接，防止挂起
         let streamTimer = null;
-        let streamFinished = false;
-        const clearStreamTimer = () => {
+        const done = { finished: false }; // 对象而非布尔，确保闭包引用一致
+        const safeMarkDone = () => {
+            if (done.finished) return false;
+            done.finished = true;
             if (streamTimer) {
                 clearTimeout(streamTimer);
                 streamTimer = null;
             }
+            return true;
         };
         streamTimer = setTimeout(() => {
-            clearStreamTimer();
-            if (streamFinished) return;
-            try {
-                if (!res.destroyed) res.destroy(new Error('Stream timeout'));
-            } catch (e) {}
+            streamTimer = null;
+            if (!safeMarkDone()) return;
+            try { if (!res.destroyed) res.destroy(new Error('Stream timeout')); } catch (e) {}
         }, 10000);
         stream.on('error', () => {
-            clearStreamTimer();
-            if (streamFinished) return;
-            streamFinished = true;
+            if (!safeMarkDone()) return;
             try { if (!res.destroyed) res.destroy(); } catch (e) {}
         });
-        stream.on('end', () => {
-            streamFinished = true;
-            clearStreamTimer();
-        });
-        stream.on('close', () => {
-            streamFinished = true;
-            clearStreamTimer();
-        });
+        stream.on('end', () => { safeMarkDone(); });
+        stream.on('close', () => { safeMarkDone(); });
         // 关键修复：监听 res 的 finish/close，在响应已完成后阻止 stream 继续
-        res.on('finish', () => {
-            streamFinished = true;
-            clearStreamTimer();
+        const onResDone = () => {
+            if (!safeMarkDone()) return;
             try { stream.destroy(); } catch (e) {}
-        });
+        };
+        res.on('finish', onResDone);
+        res.on('close', onResDone);
         stream.pipe(res);
     });
 }
 
 const server = http.createServer((req, res) => {
+    // 关键修复：使用 Node 原生 setDefaultTimeout 等效的 req.setTimeout，
+    // 确保无论请求体还是响应阶段都有读/写超时兜底，
+    // 防止恶意慢速客户端占用连接（Slowloris 类死锁）。
+    try {
+        req.setTimeout(30000, () => {
+            try { req.destroy(new Error('Request read timeout')); } catch (e) {}
+        });
+        res.setTimeout(30000, () => {
+            try { res.destroy(new Error('Response write timeout')); } catch (e) {}
+        });
+    } catch (e) {}
+
     // 为每个请求设置30秒的整体超时兜底，避免任何未考虑到的路径导致连接挂起（类死锁）
     let overallTimer = null;
     let overallTimerCleared = false;
@@ -156,13 +162,12 @@ const server = http.createServer((req, res) => {
     };
     overallTimer = setTimeout(() => {
         try {
-            if (!res.destroyed) {
-                if (!res.headersSent) {
-                    res.writeHead(408, { 'Content-Type': 'text/plain; charset=utf-8', 'Connection': 'close' });
-                    res.end('Request Timeout');
-                } else {
-                    res.destroy(new Error('Request timeout'));
-                }
+            if (res.destroyed || res.finished) return;
+            if (!res.headersSent) {
+                res.writeHead(408, { 'Content-Type': 'text/plain; charset=utf-8', 'Connection': 'close' });
+                res.end('Request Timeout');
+            } else {
+                res.destroy(new Error('Request timeout'));
             }
         } catch (e) {}
     }, 30000);
@@ -170,16 +175,19 @@ const server = http.createServer((req, res) => {
     // 确保请求最终都会结束（无论 finish/close/error），避免连接挂起（类死锁）
     res.on('finish', clearOverallTimer);
     res.on('close', clearOverallTimer);
-    req.on('end', () => { /* 仅作为哨兵，请求体结束后由处理函数负责响应 */ });
+    req.on('end', () => { clearOverallTimer(); /* 请求体结束，解除超时等待 */ });
     req.on('error', () => {
         clearOverallTimer();
+        // 关键修复：只有在 res 尚未结束/未发送响应时才尝试写 400；
+        // 否则之前的代码路径（例如 safeResolve → 403）已经 end，
+        // 再次 res.end 会触发 ERR_STREAM_WRITE_AFTER_END 并使进程崩溃。
         try {
-            if (!res.destroyed) {
-                if (!res.headersSent) {
-                    res.writeHead(400, { 'Content-Type': 'text/plain; charset=utf-8', 'Connection': 'close' });
-                }
-                res.end('Bad Request');
+            if (res.destroyed) return;
+            if (res.finished) return;
+            if (!res.headersSent) {
+                res.writeHead(400, { 'Content-Type': 'text/plain; charset=utf-8', 'Connection': 'close' });
             }
+            res.end('Bad Request');
         } catch (e) {}
     });
 
@@ -237,16 +245,18 @@ server.on('error', (err) => {
                 if (!_err && stdout && stdout.trim()) {
                     console.error('[INFO] 占用该端口的进程信息：\n' + stdout.trim());
                 }
-                process.exit(1);
+                // 关键修复：使用 gracefulShutdown 确保服务器完全关闭后再退出，
+                // 避免子进程未完成或连接未释放导致的端口残留
+                gracefulShutdown();
             });
             return;
         } catch (e) {
-            process.exit(1);
+            gracefulShutdown();
         }
     } else {
         console.error('[ERROR] 服务器错误：', err.message);
+        gracefulShutdown();
     }
-    process.exit(1);
 });
 
 // 关键修复：全局连接超时必须在 server.listen 之前注册，
