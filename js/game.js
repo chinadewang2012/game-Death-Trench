@@ -514,6 +514,10 @@ function showLoadingScreen(callback) {
         '提示：收集掉落物获得奖励'
     ];
 
+    // 关键修复：先声明超时定时器，避免 TDZ 引用问题（setInterval 回调中引用）
+    const LOAD_TIMEOUT = 15000; // 15秒超时
+    let timeoutGuard = null;
+
     const loadInterval = setInterval(() => {
         progress += 10;
         if (progress > 100) progress = 100;
@@ -526,6 +530,7 @@ function showLoadingScreen(callback) {
 
         if (progress >= 100) {
             clearInterval(loadInterval);
+            if (timeoutGuard) clearTimeout(timeoutGuard); // 关键修复：正常完成时也清除超时定时器，避免内存泄漏
             setTimeout(() => {
                 loadingDiv.remove();
                 callback();
@@ -533,9 +538,8 @@ function showLoadingScreen(callback) {
         }
     }, 100);
     
-    // 关键修复：添加超时保护，防止 setInterval 在异常情况下永不清理导致内存泄漏
-    const LOAD_TIMEOUT = 15000; // 15秒超时
-    const timeoutGuard = setTimeout(() => {
+    // 设置超时保护，防止 setInterval 在异常情况下永不清理导致内存泄漏
+    timeoutGuard = setTimeout(() => {
         clearInterval(loadInterval);
         console.warn('[LOAD] Loading screen timeout, force removing');
         try { loadingDiv.remove(); } catch (e) {}
@@ -675,6 +679,60 @@ const TICK_INTERVAL = 1000 / TICK_RATE;
 let lastTickTime = 0;
 let tickAccumulator = 0;
 let gameStartTime = 0;
+
+// ============================================================
+// 游戏状态清理函数（防止状态残留导致的类死锁/内存泄漏）
+// ============================================================
+function cleanupGameState() {
+    // 清理定时器
+    stopAutoBackup();
+    
+    // 清理动画帧
+    if (animationId) {
+        cancelAnimationFrame(animationId);
+        animationId = null;
+    }
+    
+    // 重置游戏状态标志
+    gameRunning = false;
+    autoFire = false;
+    shiftHeld = false;
+    isExtracting = false;
+    extractProgress = 0;
+    extractStartTime = 0;
+    
+    // 清理按键状态
+    keys.clear();
+    
+    // 清理对象池
+    bullets = [];
+    enemies = [];
+    drops = [];
+    explosions = [];
+    
+    // 重置时间相关状态
+    lastTickTime = 0;
+    tickAccumulator = 0;
+    gameStartTime = 0;
+    lastShot = 0;
+    lastEnemySpawn = 0;
+    lastItemUse = 0;
+    
+    // 清理地图缓存
+    if (mapCanvas && mapCtx) {
+        mapCtx.clearRect(0, 0, mapCanvas.width, mapCanvas.height);
+    }
+    
+    // 重置敌人路径计算索引
+    window.__nextEnemyPathfinder = 0;
+    
+    // 隐藏撤离进度条
+    const extractBar = document.getElementById('extractProgressBar');
+    if (extractBar) extractBar.style.display = 'none';
+    
+    // 隐藏物资轮盘
+    showItemWheel(false);
+}
 
 function gameLoop(timestamp) {
     if (!gameRunning) {
@@ -1726,11 +1784,11 @@ function collectDrop(drop) {
 // 游戏结束
 // ============================================================
 function gameOver() {
+    // 先清理游戏状态，防止后续操作访问已销毁的对象
+    cleanupGameState();
+    
+    // 确保gameRunning已设置为false（cleanupGameState已设置，这里再次确认）
     gameRunning = false;
-    if (animationId) {
-        cancelAnimationFrame(animationId);
-        animationId = null;
-    }
 
     playerData.totalKills += player.kills;
     playerData.totalScore += player.score;
@@ -1742,13 +1800,7 @@ function gameOver() {
     updatePlayerTitle();
     savePlayerData();
 
-    bullets = [];
-    enemies = [];
-    drops = [];
-    explosions = [];
-
-    const extractBar = document.getElementById('extractProgressBar');
-    if (extractBar) extractBar.style.display = 'none';
+    // 对象池已在cleanupGameState中清理，这里无需重复
 
     document.getElementById('finalScore').textContent = player.score;
     document.getElementById('finalKills').textContent = player.kills;
@@ -1762,11 +1814,11 @@ function gameOver() {
 // 撤离成功
 // ============================================================
 function extractionSuccess() {
+    // 先清理游戏状态
+    cleanupGameState();
+    
+    // 确保gameRunning已设置为false
     gameRunning = false;
-    if (animationId) {
-        cancelAnimationFrame(animationId);
-        animationId = null;
-    }
 
     playerData.totalKills += player.kills;
     playerData.totalScore += player.score;
@@ -1779,13 +1831,7 @@ function extractionSuccess() {
     updatePlayerTitle();
     savePlayerData();
 
-    bullets = [];
-    enemies = [];
-    drops = [];
-    explosions = [];
-
-    const extractBar = document.getElementById('extractProgressBar');
-    if (extractBar) extractBar.style.display = 'none';
+    // 对象池已在cleanupGameState中清理，这里无需重复
 
     document.getElementById('finalScore').textContent = player.score;
     document.getElementById('finalKills').textContent = player.kills;
@@ -1818,12 +1864,13 @@ function endGame() {
         gameOver();
         return;
     }
-    // 玩家仍存活但主动结束：走与死亡相同的结算流程，但不累加死亡数
+    
+    // 先清理游戏状态
+    cleanupGameState();
+    
+    // 确保gameRunning已设置为false
     gameRunning = false;
-    if (animationId) {
-        cancelAnimationFrame(animationId);
-        animationId = null;
-    }
+    
     if (player) {
         playerData.totalKills += player.kills || 0;
         playerData.totalScore += player.score || 0;
@@ -1835,13 +1882,7 @@ function endGame() {
     updatePlayerTitle();
     savePlayerData();
 
-    bullets = [];
-    enemies = [];
-    drops = [];
-    explosions = [];
-
-    const extractBar = document.getElementById('extractProgressBar');
-    if (extractBar) extractBar.style.display = 'none';
+    // 对象池已在cleanupGameState中清理，这里无需重复
 
     if (player) {
         const fs = document.getElementById('finalScore');
