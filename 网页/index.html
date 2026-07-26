@@ -248,6 +248,9 @@
                 </div>
             </div>
             <div class="lobby-action-btns">
+                <button class="lobby-icon-btn" onclick="showRedeemCodePanel()" title="兑换码">
+                    <i data-lucide="gift" style="width:18px;height:18px;"></i>
+                </button>
                 <button class="lobby-icon-btn" onclick="showPersonalInfo()" title="个人信息">
                     <i data-lucide="user" style="width:18px;height:18px;"></i>
                 </button>
@@ -1502,6 +1505,20 @@
                     <input type="checkbox" id="announcementDontShow"> 不再提示此版本
                 </label>
                 <button class="menu-btn primary" onclick="closeAnnouncement()">知道了</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 兑换码弹窗 -->
+    <div id="redeemCodeModal" class="popup-overlay" style="display:none;">
+        <div class="popup-box popup-redeem">
+            <div class="popup-title">🎁 兑换码</div>
+            <div class="popup-message" style="margin-bottom:12px;">输入兑换码，领取击杀与金币奖励（每个账号限用一次）</div>
+            <input type="text" id="redeemCodeInput" class="redeem-input" placeholder="请输入兑换码，如 DT2026A01" maxlength="16" onkeydown="if(event.key==='Enter') submitRedeemCode()">
+            <div id="redeemCodeMessage" class="redeem-message" style="min-height:20px;margin-top:8px;font-size:13px;"></div>
+            <div class="popup-actions">
+                <button class="menu-btn tertiary" onclick="closeRedeemCodePanel()">取消</button>
+                <button class="menu-btn primary" onclick="submitRedeemCode()">兑换</button>
             </div>
         </div>
     </div>

@@ -186,7 +186,7 @@
                     <i data-lucide="terminal" style="width:18px;height:18px;"></i>
                     开发者工具
                 </button>
-                <button class="menu-btn-default menu-btn-dev" onclick="showRedeemCode()">
+                <button class="menu-btn-default menu-btn-dev" onclick="showRedeemCodePanel()">
                     <i data-lucide="gift" style="width:18px;height:18px;"></i>
                     兑换码
                 </button>
@@ -1239,7 +1239,7 @@
             // 隐藏密码验证界面（如果意外打开）
             var overlay = document.getElementById('toolsPromptOverlay');
             if (overlay) overlay.style.display = 'none';
-            var redeemOverlay = document.getElementById('redeemPromptOverlay');
+            var redeemOverlay = document.getElementById('redeemCodeModal');
             if (redeemOverlay) redeemOverlay.style.display = 'none';
 
             // 检查版本并显示对应的参数功能按钮
@@ -1406,15 +1406,15 @@
         </div>
     </div>
 
-    <div id="redeemPromptOverlay" class="tools-prompt-overlay">
-        <div class="tools-prompt-box">
-            <h2>🎁 兑换码</h2>
-            <p>请输入兑换码</p>
-            <div id="redeemPromptError" class="tools-prompt-error"></div>
-            <input type="text" id="redeemCodeInput" placeholder="输入兑换码..." onkeydown="if (event.key==='Enter') verifyRedeemCode();" autofocus>
-            <div class="tools-prompt-actions">
-                <button class="menu-btn secondary" onclick="closeRedeemPrompt()">取消</button>
-                <button class="menu-btn primary" onclick="verifyRedeemCode()">兑换</button>
+    <div id="redeemCodeModal" class="popup-overlay" style="display:none;">
+        <div class="popup-box popup-redeem">
+            <div class="popup-title">🎁 兑换码</div>
+            <div class="popup-message" style="margin-bottom:12px;">输入兑换码，领取击杀与金币奖励（每个账号限用一次）</div>
+            <input type="text" id="redeemCodeInput" class="redeem-input" placeholder="请输入兑换码，如 DT2026A01" maxlength="16" onkeydown="if(event.key==='Enter') submitRedeemCode()">
+            <div id="redeemCodeMessage" class="redeem-message" style="min-height:20px;margin-top:8px;font-size:13px;"></div>
+            <div class="popup-actions">
+                <button class="menu-btn tertiary" onclick="closeRedeemCodePanel()">取消</button>
+                <button class="menu-btn primary" onclick="submitRedeemCode()">兑换</button>
             </div>
         </div>
     </div>
