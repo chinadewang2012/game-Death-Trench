@@ -390,15 +390,33 @@ const AntiCheat = (() => {
     }
 
     // 同步签名（用于快速存档路径，避免 async 导致页面关闭时丢失）
+    // 以下字段仅作客户端记录，不计入验证码，避免玩家正常使用功能后被误判为篡改
+    const NON_SIGNED_FIELDS = ['redeemedCodes'];
+
+    function _stripNonSignedFields(data) {
+        if (!data || typeof data !== 'object') return data;
+        try {
+            const clone = JSON.parse(JSON.stringify(data));
+            for (const key of NON_SIGNED_FIELDS) {
+                delete clone[key];
+            }
+            return clone;
+        } catch (e) {
+            return data;
+        }
+    }
+
     function signPlayerDataSync(data) {
-        const payload = JSON.stringify(data);
+        const signedData = _stripNonSignedFields(data);
+        const payload = JSON.stringify(signedData);
         const sig = _syncHash(payload + _str(SIG_KEY));
         return { payload, sig, ts: _now() };
     }
 
     function verifyPlayerDataSync(data, signature) {
         if (!data || !signature) return false;
-        const expected = _syncHash(JSON.stringify(data) + _str(SIG_KEY));
+        const signedData = _stripNonSignedFields(data);
+        const expected = _syncHash(JSON.stringify(signedData) + _str(SIG_KEY));
         return expected === signature;
     }
 

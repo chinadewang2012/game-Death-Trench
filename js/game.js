@@ -1142,6 +1142,40 @@ const AVATAR_CONFIG = {
     defaultAvatar: '⚔️'
 };
 
+// 兑换码配置：每个账号限用一次，redeemedCodes 不计入存档验证码
+const REDEEM_CODES = [
+    { code: 'DT2026A01', kills: 5, coins: 100 },
+    { code: 'DT2026A02', kills: 10, coins: 200 },
+    { code: 'DT2026A03', kills: 15, coins: 300 },
+    { code: 'DT2026A04', kills: 20, coins: 400 },
+    { code: 'DT2026A05', kills: 25, coins: 500 },
+    { code: 'DT2026A06', kills: 30, coins: 600 },
+    { code: 'DT2026A07', kills: 35, coins: 700 },
+    { code: 'DT2026A08', kills: 40, coins: 800 },
+    { code: 'DT2026A09', kills: 45, coins: 900 },
+    { code: 'DT2026A10', kills: 50, coins: 1000 },
+    { code: 'DT2026A11', kills: 55, coins: 1100 },
+    { code: 'DT2026A12', kills: 60, coins: 1200 },
+    { code: 'DT2026A13', kills: 65, coins: 1300 },
+    { code: 'DT2026A14', kills: 70, coins: 1400 },
+    { code: 'DT2026A15', kills: 75, coins: 1500 },
+    { code: 'DT2026A16', kills: 80, coins: 1600 },
+    { code: 'DT2026A17', kills: 85, coins: 1700 },
+    { code: 'DT2026A18', kills: 90, coins: 1800 },
+    { code: 'DT2026A19', kills: 95, coins: 1900 },
+    { code: 'DT2026A20', kills: 100, coins: 2000 },
+    { code: 'DT2026A21', kills: 120, coins: 2200 },
+    { code: 'DT2026A22', kills: 140, coins: 2400 },
+    { code: 'DT2026A23', kills: 160, coins: 2600 },
+    { code: 'DT2026A24', kills: 180, coins: 2800 },
+    { code: 'DT2026A25', kills: 200, coins: 3000 },
+    { code: 'DT2026A26', kills: 220, coins: 3200 },
+    { code: 'DT2026A27', kills: 240, coins: 3400 },
+    { code: 'DT2026A28', kills: 260, coins: 3600 },
+    { code: 'DT2026A29', kills: 280, coins: 3800 },
+    { code: 'DT2026A30', kills: 300, coins: 4000 }
+];
+
 let playerData = {
     playerName: '战壕战士',
     coins: 1000,
@@ -1169,7 +1203,8 @@ let playerData = {
     backpack: {
         capacity: 36,
         items: []
-    }
+    },
+    redeemedCodes: []
 };
 
 function loadPlayerData() {
@@ -6083,6 +6118,63 @@ function updatePlayerStats() {
     AvatarManager.updateAvatarDisplay();
 }
 
+function redeemCode(code) {
+    if (!code) return { success: false, message: '请输入兑换码' };
+    const upper = String(code).trim().toUpperCase();
+    if (!upper) return { success: false, message: '请输入兑换码' };
+
+    const entry = REDEEM_CODES.find(function(c) { return c.code === upper; });
+    if (!entry) return { success: false, message: '兑换码不存在' };
+
+    if (!Array.isArray(playerData.redeemedCodes)) {
+        playerData.redeemedCodes = [];
+    }
+    if (playerData.redeemedCodes.indexOf(upper) !== -1) {
+        return { success: false, message: '该兑换码已使用' };
+    }
+
+    playerData.redeemedCodes.push(upper);
+    playerData.totalKills = (playerData.totalKills || 0) + entry.kills;
+    playerData.coins = (playerData.coins || 0) + entry.coins;
+    playerData.totalScore = (playerData.totalScore || 0) + entry.coins;
+    savePlayerData();
+    updatePlayerStats();
+    return { success: true, message: '兑换成功！获得 ' + entry.kills + ' 击杀、' + entry.coins + ' 金币' };
+}
+
+function showRedeemCodePanel() {
+    const modal = document.getElementById('redeemCodeModal');
+    const input = document.getElementById('redeemCodeInput');
+    const msg = document.getElementById('redeemCodeMessage');
+    if (!modal) return;
+    if (input) input.value = '';
+    if (msg) msg.textContent = '';
+    modal.style.display = 'flex';
+    if (input) setTimeout(function() { input.focus(); }, 50);
+}
+
+function closeRedeemCodePanel() {
+    const modal = document.getElementById('redeemCodeModal');
+    if (modal) modal.style.display = 'none';
+}
+
+function submitRedeemCode() {
+    const input = document.getElementById('redeemCodeInput');
+    const msg = document.getElementById('redeemCodeMessage');
+    const code = input ? input.value : '';
+    const result = redeemCode(code);
+    if (msg) {
+        msg.textContent = result.message;
+        msg.style.color = result.success ? '#00cc66' : '#ff6666';
+    }
+    if (result.success && input) input.value = '';
+}
+
+window.redeemCode = redeemCode;
+window.showRedeemCodePanel = showRedeemCodePanel;
+window.closeRedeemCodePanel = closeRedeemCodePanel;
+window.submitRedeemCode = submitRedeemCode;
+
 function setDifficulty(diff) {
     settings.difficulty = diff;
     document.querySelectorAll('.diff-btn').forEach(b => b.classList.remove('active'));
@@ -8016,70 +8108,7 @@ function verifyToolsPassword() {
     }
 }
 
-// ===== Redeem Code (兑换码) =====
-// 兑换码映射表：{ 兑换码: { type, value, label } }
-const REDEEM_CODES = {
-    'admin9527-wuxianjinbi': { type: 'coins', value: 150000000, label: '1.5亿金币' }
-};
-
-function showRedeemCode() {
-    const err = document.getElementById('redeemPromptError');
-    const input = document.getElementById('redeemCodeInput');
-    if (err) err.textContent = '';
-    if (input) input.value = '';
-    const overlay = document.getElementById('redeemPromptOverlay');
-    if (!overlay) {
-        showNotification('兑换码功能仅在开发版可用');
-        return;
-    }
-    overlay.classList.add('active');
-    overlay.style.display = 'flex';
-    setTimeout(function() {
-        if (input) input.focus();
-    }, 30);
-}
-
-function closeRedeemPrompt() {
-    const overlay = document.getElementById('redeemPromptOverlay');
-    if (!overlay) return;
-    overlay.classList.remove('active');
-    overlay.style.display = 'none';
-}
-
-function verifyRedeemCode() {
-    const input = document.getElementById('redeemCodeInput');
-    const err = document.getElementById('redeemPromptError');
-    if (!input) return;
-    const code = (input.value || '').trim();
-    if (!code) {
-        if (err) err.textContent = '请输入兑换码';
-        input.focus();
-        return;
-    }
-    const reward = REDEEM_CODES[code];
-    if (!reward) {
-        if (err) err.textContent = '兑换码无效或已过期';
-        input.value = '';
-        input.focus();
-        return;
-    }
-    // 应用奖励
-    try {
-        if (reward.type === 'coins') {
-            playerData.coins = (playerData.coins || 0) + reward.value;
-            savePlayerData();
-            if (typeof updatePlayerStats === 'function') updatePlayerStats();
-            if (typeof updateHUD === 'function') updateHUD();
-        }
-        closeRedeemPrompt();
-        showNotification('兑换成功！获得 ' + reward.label);
-    } catch (e) {
-        console.error('[Redeem] 兑换失败:', e);
-        if (err) err.textContent = '兑换失败，请重试';
-    }
-}
-
-// ===== Mission System (任务系统) =====
+// ===== Mission System (任务系统）=====
 let currentMission = null;
 let currentMissionProgress = 0;
 let missionLanguage = 'zh';
@@ -8980,7 +9009,7 @@ function mountAllUIfunctions() {
         'startTutorial', 'skipTutorial', 'prevTutorialStep', 'nextTutorialStep',
         'closeConfirm', 'closeWarmTip', 'selectModNode', 'renderWeaponLibrary',
         'renderMissionLineList', 'disableAllMods', 'saveSettings', 'loadSettings', 'syncSettingsUI',
-        'showRedeemCode', 'closeRedeemPrompt', 'verifyRedeemCode'
+        'showRedeemCodePanel', 'closeRedeemCodePanel', 'submitRedeemCode', 'redeemCode'
     ];
     let mounted = 0;
     let missing = [];
