@@ -1,0 +1,1529 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>死亡战壕 - Death Trench 2D</title>
+    <link rel="stylesheet" href="css/style.css?v=3">
+    <link rel="stylesheet" href="css/style-new-ui.css?v=3">
+    <link rel="stylesheet" href="css/style-new-ui-panels.css?v=3">
+    <script src="https://unpkg.com/lucide@1.8.0/dist/umd/lucide.min.js"></script>
+</head>
+<body>
+    <div class="global-bg"></div>
+    <div class="global-bg-overlay"></div>
+    <div id="gameContainer">
+        <canvas id="gameCanvas" tabindex="0"></canvas>
+
+        <!-- 受击红色闪烁层 -->
+        <div id="damageFlash" style="position:absolute;inset:0;z-index:50;pointer-events:none;
+            background:radial-gradient(ellipse at center, transparent 40%, rgba(204,51,51,0.3) 100%);
+            opacity:0; transition:opacity 0.1s;"></div>
+
+        <!-- 持久红色暗角（随血量变化） -->
+        <div id="damageVignette" style="position:absolute;inset:0;z-index:49;pointer-events:none;
+            background:radial-gradient(ellipse at center, transparent 30%, rgba(204,51,51,0.15) 100%);
+            opacity:0;"></div>
+
+        <!-- 小地图 -->
+        <div id="minimap" style="position:absolute;top:20px;right:80px;z-index:100;
+            width:160px;height:160px;background:rgba(0,0,0,0.7);
+            border:1px solid rgba(74,93,35,0.4);border-radius:6px;overflow:hidden;display:none;">
+            <div style="position:absolute;top:4px;left:6px;font-size:10px;color:rgba(255,255,255,0.3);z-index:2;">地图</div>
+            <canvas id="minimapCanvas" width="160" height="160" style="width:100%;height:100%;"></canvas>
+        </div>
+
+        <div class="mission-panel" id="missionPanel">
+            <div class="mission-header">
+                <span class="mission-icon">📋</span>
+                <span class="mission-title" id="missionTitle">当前任务</span>
+            </div>
+            <div class="mission-content" id="missionContent">
+                <div class="mission-name" id="missionName">沙漠突袭</div>
+                <div class="mission-desc" id="missionDesc">消灭所有敌人，完成战术目标</div>
+                <div class="mission-reward" id="missionReward">奖励: 🪙 500</div>
+                <div class="mission-progress">
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="missionProgress"></div>
+                    </div>
+                    <span class="progress-text" id="missionProgressText">0/15</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- 左上角：得分 + 击杀 + 金币 -->
+        <div id="topLeftPanel">
+            <div class="tl-row"><span class="tl-label">得分</span><span id="score" class="tl-value">0</span></div>
+            <div class="tl-row"><span class="tl-label">击杀</span><span id="killCount" class="tl-value">0</span></div>
+            <div class="tl-row"><span class="tl-icon">🪙</span><span id="coinCount" class="tl-value">1000</span></div>
+        </div>
+
+        <!-- 血条（位于画面底部中央上方） -->
+        <div id="hud">
+            <div class="health-bar">
+                <div class="health-fill"></div>
+            </div>
+            <div id="damageFlash" class="damage-flash"></div>
+        </div>
+
+        <!-- 弹药大数字 + 武器选择器整合 -->
+        <div id="weaponBlock">
+            <div id="ammoBig">
+                <span id="ammoCurrent">15</span><span class="ammo-slash">/</span><span id="ammoMax">15</span>
+            </div>
+            <div id="weaponNameBig">手枪</div>
+            <div id="autoFireStatus" class="auto-fire-status off" onclick="toggleAutoFire()">
+                <span class="auto-fire-icon">⚡</span>
+                <span class="auto-fire-text">连发</span>
+            </div>
+            <div id="weaponSelector">
+                <button class="weapon-btn active" onclick="switchWeapon(0)">
+                    <span class="weapon-icon">🔫</span>
+                    <span class="weapon-name">手枪</span>
+                </button>
+                <button class="weapon-btn" onclick="switchWeapon(1)">
+                    <span class="weapon-icon">🔴</span>
+                    <span class="weapon-name">步枪</span>
+                </button>
+                <button class="weapon-btn" onclick="switchWeapon(2)">
+                    <span class="weapon-icon">🎯</span>
+                    <span class="weapon-name">狙击</span>
+                </button>
+                <button class="weapon-btn" onclick="switchWeapon(3)">
+                    <span class="weapon-icon">🗡️</span>
+                    <span class="weapon-name">匕首</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- 游戏内设置按钮（右上角） -->
+        <button id="gameSettingsBtn" class="game-settings-btn" onclick="showSettings()">
+            <span class="settings-icon">⚙️</span>
+        </button>
+
+        <!-- 侧边栏遮罩层 -->
+        <div id="sidebarOverlay" class="sidebar-overlay" onclick="toggleSidebar()"></div>
+
+        <!-- 撤离进度条 -->
+        <div id="extractProgressBar" style="display:none; position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.7); border: 2px solid #00ff88; border-radius: 8px; padding: 10px 20px; min-width: 260px; text-align: center;">
+            <div style="color: #00ff88; font-size: 14px; font-weight: bold; margin-bottom: 6px;">🚁 撤离进度</div>
+            <div style="background: rgba(255,255,255,0.1); border-radius: 4px; height: 16px; overflow: hidden;">
+                <div id="extractProgressFill" style="background: linear-gradient(90deg, #00cc66, #00ff88); height: 100%; width: 0%; transition: width 0.1s linear; border-radius: 4px;"></div>
+            </div>
+            <div id="extractProgressText" style="color: #00ff88; font-size: 12px; margin-top: 4px;">撤离中... 0%</div>
+        </div>
+
+        <!-- 物资圆盘（按住 Shift 显示） -->
+        <div id="itemWheel">
+            <div class="wheel-slot wheel-top" data-item="medkit">
+                <div class="wheel-icon">💊</div>
+                <div class="wheel-name">医疗包</div>
+                <div class="wheel-count" id="invMedkit">0</div>
+                <div class="wheel-key">W</div>
+            </div>
+            <div class="wheel-slot wheel-left" data-item="ammoBox">
+                <div class="wheel-icon">🔋</div>
+                <div class="wheel-name">弹药箱</div>
+                <div class="wheel-count" id="invAmmo">0</div>
+                <div class="wheel-key">A</div>
+            </div>
+            <div class="wheel-slot wheel-bottom" data-item="speedBoost">
+                <div class="wheel-icon">⚡</div>
+                <div class="wheel-name">加速卡</div>
+                <div class="wheel-count" id="invSpeed">0</div>
+                <div class="wheel-key">S</div>
+            </div>
+            <div class="wheel-slot wheel-right" data-item="grenade">
+                <div class="wheel-icon">💣</div>
+                <div class="wheel-name">手雷</div>
+                <div class="wheel-count" id="invGrenade">0</div>
+                <div class="wheel-key">D</div>
+            </div>
+            <div class="weapon-hint">按住 Shift + W/A/S/D 使用物资</div>
+        </div>
+    </div>
+
+    <!-- 操作说明面板（游戏中显示，CSS 中以 #controls 定义样式） -->
+    <div id="controls" style="display:none;">
+        <div class="control-row"><span>WASD / 方向键</span><span>移动</span></div>
+        <div class="control-row"><span>鼠标右键</span><span>射击</span></div>
+        <div class="control-row"><span>空格</span><span>连发开关</span></div>
+        <div class="control-row"><span>1 / 2 / 3</span><span>切换武器</span></div>
+        <div class="control-row"><span>R</span><span>换弹</span></div>
+        <div class="control-row"><span>G</span><span>投掷手雷</span></div>
+        <div class="control-row"><span>Shift + WASD</span><span>使用物资</span></div>
+        <div class="control-row"><span>ESC</span><span>结束游戏</span></div>
+    </div>
+
+    <div id="menu">
+        <div class="menu-bg-layer"></div>
+        <div class="menu-scanlines"></div>
+        <div class="menu-embers">
+            <div class="ember ember-1"></div>
+            <div class="ember ember-2"></div>
+            <div class="ember ember-3"></div>
+            <div class="ember ember-4"></div>
+            <div class="ember ember-5"></div>
+            <div class="ember ember-6"></div>
+            <div class="ember ember-7"></div>
+            <div class="ember ember-8"></div>
+            <div class="ember ember-9"></div>
+            <div class="ember ember-10"></div>
+            <div class="ember ember-11"></div>
+            <div class="ember ember-12"></div>
+        </div>
+        <div class="menu-content">
+            <div class="menu-title-section">
+                <h1 class="menu-logo">DEATH TRENCH</h1>
+                <p class="menu-tagline">死亡战壕</p>
+            </div>
+            <div class="menu-banner-area">
+                <img src="assets/hero-trench-bg.jpg" alt="战壕场景">
+                <div class="menu-banner-overlay"></div>
+                <div class="menu-banner-info">
+                    <div>
+                        <p class="menu-banner-tag">2D Top-Down Military Shooter</p>
+                        <p class="menu-banner-version">v2.0.0</p>
+                    </div>
+                    <div class="menu-banner-badges">
+                        <span class="menu-badge-pvp">PVP</span>
+                        <span class="menu-badge-coop">CO-OP</span>
+                    </div>
+                </div>
+            </div>
+            <div class="menu-button-stack">
+                <button class="menu-btn-primary" onclick="showLobby()">进入大厅</button>
+                <button class="menu-btn-secondary" onclick="showTutorial()">新手教程</button>
+                <button class="menu-btn-tertiary" onclick="showSettings()">
+                    <i data-lucide="settings" style="width:18px;height:18px;"></i>
+                    设置
+                </button>
+                <button class="menu-btn-default" onclick="showSaveManager()">
+                    <i data-lucide="save" style="width:18px;height:18px;"></i>
+                    存档管理
+                </button>
+                <button class="menu-btn-default menu-btn-dev" onclick="tryOpenTools()" style="display:none">
+                    <i data-lucide="terminal" style="width:18px;height:18px;"></i>
+                    开发者工具
+                </button>
+            </div>
+        </div>
+        <div class="menu-footer">
+            <span class="menu-footer-version">v2.0.0</span>
+            <span class="menu-footer-backup">
+                <span class="backup-dot" id="backupIndicator"></span>
+                <span id="backupStatusText">自动备份已启用</span>
+            </span>
+        </div>
+    </div>
+
+    <div id="lobby">
+        <div class="lobby-atmosphere-bg"></div>
+        <div class="lobby-scanlines"></div>
+        
+        <header class="lobby-top-bar">
+            <div class="lobby-player-section">
+                    <div class="lobby-avatar-wrap" onclick="AvatarManager.openAvatarEditor()" style="cursor:pointer;" title="点击修改头像">
+                        <div class="lobby-avatar">⚔️</div>
+                        <span class="lobby-level-badge">Lv.5</span>
+                        <div class="avatar-edit-hint">📷</div>
+                    </div>
+                <div class="lobby-player-text">
+                    <span class="lobby-player-name" id="lobbyPlayerName">战壕战士</span>
+                    <span class="lobby-player-title" id="lobbyTitleBadge">新兵</span>
+                </div>
+            </div>
+            <div class="lobby-stats-row">
+                <div class="lobby-stat">
+                    <span>🪙</span>
+                    <span id="playerCoins">1000</span>
+                </div>
+                <div class="lobby-stat">
+                    <span>🎯</span>
+                    <span id="playerKills">0</span>
+                </div>
+                <div class="lobby-stat">
+                    <span>⭐</span>
+                    <span id="playerScore">0</span>
+                </div>
+            </div>
+            <div class="lobby-action-btns">
+                <button class="lobby-icon-btn" onclick="showPersonalInfo()" title="个人信息">
+                    <i data-lucide="user" style="width:18px;height:18px;"></i>
+                </button>
+                <button class="lobby-icon-btn" onclick="showSettings()" title="设置">
+                    <i data-lucide="settings" style="width:18px;height:18px;"></i>
+                </button>
+                <button class="lobby-icon-btn" onclick="openMailbox()" title="信箱">
+                    <i data-lucide="mail" style="width:18px;height:18px;"></i>
+                </button>
+                <button class="lobby-icon-btn" title="好友">
+                    <i data-lucide="users" style="width:18px;height:18px;"></i>
+                </button>
+            </div>
+        </header>
+
+        <section class="lobby-center-area">
+            <div class="lobby-char-wrap">
+                <div class="lobby-char-glow-outer"></div>
+                <div class="lobby-char-glow"></div>
+                <div class="lobby-char-icon">
+                    <i data-lucide="shield" style="width:48px;height:48px;color:var(--brand-accent);"></i>
+                </div>
+            </div>
+            <div class="lobby-char-class">精英战士</div>
+            <div class="lobby-char-stats">
+                <div class="lobby-char-stat">
+                    <span class="lobby-char-stat-label">生命值</span>
+                    <div class="lobby-char-stat-bar">
+                        <div class="lobby-char-stat-fill health-fill" style="width:100%;"></div>
+                    </div>
+                    <span class="lobby-char-stat-val">100%</span>
+                </div>
+                <div class="lobby-char-stat">
+                    <span class="lobby-char-stat-label">攻击力</span>
+                    <div class="lobby-char-stat-bar">
+                        <div class="lobby-char-stat-fill attack-fill" style="width:75%;"></div>
+                    </div>
+                    <span class="lobby-char-stat-val atk-val">75%</span>
+                </div>
+                <div class="lobby-char-stat">
+                    <span class="lobby-char-stat-label">防御力</span>
+                    <div class="lobby-char-stat-bar">
+                        <div class="lobby-char-stat-fill defense-fill" style="width:60%;"></div>
+                    </div>
+                    <span class="lobby-char-stat-val def-val">60%</span>
+                </div>
+            </div>
+        </section>
+
+        <nav class="lobby-bottom-nav">
+            <div class="lobby-func-grid">
+                <button class="lobby-func-btn" onclick="showReadyRoom()">
+                    <i data-lucide="crosshair" style="width:24px;height:24px;color:var(--brand-accent);"></i>
+                    <span>战备中心</span>
+                </button>
+                <button class="lobby-func-btn" onclick="showInventory()">
+                    <i data-lucide="package" style="width:24px;height:24px;color:var(--brand-accent);"></i>
+                    <span>仓库</span>
+                </button>
+                <button class="lobby-func-btn" onclick="showBlackMarket()">
+                    <i data-lucide="store" style="width:24px;height:24px;color:var(--brand-accent);"></i>
+                    <span>黑市</span>
+                </button>
+                <button class="lobby-func-btn" onclick="showModification()">
+                    <i data-lucide="wrench" style="width:24px;height:24px;color:var(--brand-accent);"></i>
+                    <span>改装处</span>
+                </button>
+                <button class="lobby-func-btn" onclick="showSkins()">
+                    <i data-lucide="palette" style="width:24px;height:24px;color:var(--brand-accent);"></i>
+                    <span>皮肤商店</span>
+                </button>
+                <button class="lobby-func-btn" onclick="showLotteryPanel()">
+                    <i data-lucide="dices" style="width:24px;height:24px;color:var(--brand-accent);"></i>
+                    <span>抽奖</span>
+                </button>
+                <button class="lobby-func-btn" onclick="showAmmoPanel()">
+                    <i data-lucide="box" style="width:24px;height:24px;color:var(--brand-accent);"></i>
+                    <span>弹药库</span>
+                </button>
+                <button class="lobby-func-btn" onclick="showMissionPanel()">
+                    <i data-lucide="clipboard-list" style="width:24px;height:24px;color:var(--brand-accent);"></i>
+                    <span>任务线</span>
+                </button>
+                <button class="lobby-func-btn" onclick="showFriends()">
+                    <i data-lucide="users" style="width:24px;height:24px;color:var(--brand-accent);"></i>
+                    <span>好友</span>
+                </button>
+            </div>
+            <div class="lobby-back-wrap">
+                <button class="lobby-back-btn" onclick="backToMenu()">
+                    <i data-lucide="arrow-left" style="width:16px;height:16px;"></i>
+                    <span>返回主菜单</span>
+                </button>
+            </div>
+        </nav>
+
+        <div class="lobby-panels">
+            <div id="readyRoom" class="panel">
+                <div class="ready-header">
+                    <h2>🎮 战备中心</h2>
+                    <button class="menu-btn tertiary" onclick="exitReadyRoom()">返回大厅</button>
+                </div>
+                <div class="ready-layout">
+                    <div class="ready-left">
+                        <div class="section-title">选择战场</div>
+                        <div class="map-grid ready-map-grid" id="readyPresetMapGrid">
+                            <div class="map-card small selected" data-map="desert" onclick="selectMap('desert')">
+                                <canvas class="map-preview-canvas" width="140" height="90"></canvas>
+                                <div class="map-name-overlay">🏜️ 沙漠</div>
+                            </div>
+                            <div class="map-card small" data-map="city" onclick="selectMap('city')">
+                                <canvas class="map-preview-canvas" width="140" height="90"></canvas>
+                                <div class="map-name-overlay">🏙️ 城市</div>
+                            </div>
+                            <div class="map-card small" data-map="factory" onclick="selectMap('factory')">
+                                <canvas class="map-preview-canvas" width="140" height="90"></canvas>
+                                <div class="map-name-overlay">🏭 工厂</div>
+                            </div>
+                            <div class="map-card small" data-map="jungle" onclick="selectMap('jungle')">
+                                <canvas class="map-preview-canvas" width="140" height="90"></canvas>
+                                <div class="map-name-overlay">🌴 丛林</div>
+                            </div>
+                            <div class="map-card small" data-map="snow" onclick="selectMap('snow')">
+                                <canvas class="map-preview-canvas" width="140" height="90"></canvas>
+                                <div class="map-name-overlay">❄️ 雪山</div>
+                            </div>
+                            <div class="map-card small" data-map="volcano" onclick="selectMap('volcano')">
+                                <canvas class="map-preview-canvas" width="140" height="90"></canvas>
+                                <div class="map-name-overlay">🌋 火山</div>
+                            </div>
+                            <div class="map-card small" data-map="ruins" onclick="selectMap('ruins')">
+                                <canvas class="map-preview-canvas" width="140" height="90"></canvas>
+                                <div class="map-name-overlay">🏛️ 遗迹</div>
+                            </div>
+                            <div class="map-card small" data-map="base" onclick="selectMap('base')">
+                                <canvas class="map-preview-canvas" width="140" height="90"></canvas>
+                                <div class="map-name-overlay">🏰 基地</div>
+                            </div>
+                        </div>
+                        <div class="map-grid ready-map-grid" id="readyCustomMapGrid"></div>
+                    </div>
+                    <div class="ready-right">
+                        <div class="section-title">任务信息</div>
+                        <div class="mission-card compact" id="readyRoomMissionCard">
+                            <div class="mission-icon">🔴</div>
+                            <div class="mission-details">
+                                <div class="mission-name" id="readyRoomMissionName">加载中...</div>
+                                <div class="mission-desc" id="readyRoomMissionDesc">-</div>
+                                <div class="mission-reward" id="readyRoomMissionReward">-</div>
+                            </div>
+                        </div>
+
+                        <div class="section-title">选择难度</div>
+                        <div class="diff-buttons compact">
+                            <button class="diff-btn easy" onclick="setDifficulty('easy')">🌱 简单</button>
+                            <button class="diff-btn normal active" onclick="setDifficulty('normal')">🔥 普通</button>
+                            <button class="diff-btn hard" onclick="setDifficulty('hard')">💀 困难</button>
+                        </div>
+
+                        <div class="section-title">装备</div>
+                        <div class="equip-slots compact">
+                            <div class="equip-slot">
+                                <span class="slot-icon">🔫</span>
+                                <span class="slot-name">突击步枪</span>
+                            </div>
+                            <div class="equip-slot">
+                                <span class="slot-icon">🛡️</span>
+                                <span class="slot-name" id="equippedArmor">无护甲</span>
+                            </div>
+                        </div>
+                        <div class="equip-actions compact-actions">
+                            <button class="menu-btn tertiary" onclick="equipArmor('light')">轻型</button>
+                            <button class="menu-btn tertiary" onclick="equipArmor('heavy')">重型</button>
+                            <button class="menu-btn tertiary" onclick="equipArmor('none')">无</button>
+                        </div>
+
+                        <div class="section-title">物资补给</div>
+                        <div class="supply-list" id="supplyList">
+                            <div class="supply-item"><span class="supply-icon">💰</span><span class="supply-name">金币</span><span class="supply-count" id="supplyCoins">0</span></div>
+                            <div class="supply-item"><span class="supply-icon">💊</span><span class="supply-name">医疗包</span><span class="supply-count" id="supplyMedkit">0</span></div>
+                            <div class="supply-item"><span class="supply-icon">🔋</span><span class="supply-name">弹药</span><span class="supply-count" id="supplyAmmo">∞</span></div>
+                            <div class="supply-item"><span class="supply-icon">💣</span><span class="supply-name">手雷</span><span class="supply-count" id="supplyGrenade">0</span></div>
+                            <div class="supply-item"><span class="supply-icon">⭐</span><span class="supply-name">幸运星</span><span class="supply-count" id="supplyStar">0</span></div>
+                        </div>
+
+                        <div class="start-area">
+                            <button class="start-button" onclick="startGame()">
+                                <span class="start-icon">▶️</span>
+                                <span class="start-text">开始战斗</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="inventoryPanel" class="panel">
+                <div class="panel-title-bar">
+                    <h2>📦 仓库</h2>
+                    <div class="panel-gold">🪙 <span id="invGoldDisplay">1000</span></div>
+                    <button class="menu-btn tertiary" style="padding:8px 16px; font-size:14px;" onclick="showLobby()">← 返回</button>
+                </div>
+
+                <div class="inventory-three-col">
+                    <!-- 左栏：出战武器 -->
+                    <div class="inv-col inv-col-left">
+                        <div class="section-label">出战武器</div>
+                        <div class="weapon-loadout-slot active" id="invPrimarySlot">
+                            <div class="slot-type-label">主武器</div>
+                            <div class="slot-weapon-icon">🔫</div>
+                            <div class="slot-weapon-name" id="invPrimaryName">突击步枪</div>
+                            <div class="slot-weapon-ammo" id="invPrimaryAmmo">30/120</div>
+                        </div>
+                        <div class="weapon-loadout-slot" id="invSecondarySlot">
+                            <div class="slot-type-label">副武器</div>
+                            <div class="slot-weapon-icon">🔫</div>
+                            <div class="slot-weapon-name" id="invSecondaryName">手枪</div>
+                            <div class="slot-weapon-ammo" id="invSecondaryAmmo">15/60</div>
+                        </div>
+                    </div>
+
+                    <!-- 中栏：武器库 -->
+                    <div class="inv-col inv-col-center">
+                        <div class="section-label">武器库</div>
+                        <div class="weapon-library-grid" id="weaponLibraryGrid"></div>
+                    </div>
+
+                    <!-- 右栏：弹药背包 -->
+                    <div class="inv-col inv-col-right">
+                        <div class="section-label">弹药背包</div>
+                        <div class="ammo-backpack-list" id="ammoBackpackList"></div>
+                    </div>
+                </div>
+
+                <!-- 底部弹格栏 -->
+                <div class="ammo-slots-bar">
+                    <div class="section-label">当前武器弹格（6格）</div>
+                    <div class="ammo-slot-row" id="ammoSlotRow"></div>
+                </div>
+            </div>
+
+            <div id="blackMarketPanel" class="panel">
+                <div class="panel-title-bar">
+                    <h2>🏪 黑市交易</h2>
+                    <div class="panel-gold">🪙 <span id="marketGold">1000</span></div>
+                    <button class="menu-btn tertiary" style="padding:8px 16px; font-size:14px;" onclick="showLobby()">← 返回</button>
+                </div>
+
+                <div class="market-main-layout">
+                    <!-- 左侧：武器改装树 (70%) -->
+                    <div class="market-left-tree">
+                        <div class="section-label">武器改装树</div>
+                        <div class="mod-tree-container">
+                            <div class="mod-tree-row mod-tree-top">
+                                <div class="mod-tree-node" id="modNodeScope" onclick="selectModNode('scope')">
+                                    <div class="mod-node-icon">🔭</div>
+                                    <div class="mod-node-name">瞄准镜</div>
+                                    <div class="mod-node-status" id="modNodeScopeStatus">未装备</div>
+                                </div>
+                                <div class="mod-tree-node" id="modNodeSuppressor" onclick="selectModNode('suppressor')">
+                                    <div class="mod-node-icon">🔇</div>
+                                    <div class="mod-node-name">消音器</div>
+                                    <div class="mod-node-status" id="modNodeSuppressorStatus">未装备</div>
+                                </div>
+                                <div class="mod-tree-node" id="modNodeExtendedMag" onclick="selectModNode('extendedMag')">
+                                    <div class="mod-node-icon">📋</div>
+                                    <div class="mod-node-name">扩容弹匣</div>
+                                    <div class="mod-node-status" id="modNodeExtendedMagStatus">未装备</div>
+                                </div>
+                            </div>
+                            <svg class="mod-tree-lines" viewBox="0 0 600 40" preserveAspectRatio="none">
+                                <line x1="100" y1="0" x2="300" y2="40" stroke="var(--color-border)" stroke-width="1.5"/>
+                                <line x1="300" y1="0" x2="300" y2="40" stroke="var(--color-border)" stroke-width="1.5"/>
+                                <line x1="500" y1="0" x2="300" y2="40" stroke="var(--color-border)" stroke-width="1.5"/>
+                            </svg>
+                            <div class="mod-tree-center">
+                                <div class="mod-tree-weapon-display" id="modTreeWeaponDisplay">
+                                    <div class="mod-tree-weapon-silhouette weapon-silhouette">
+                                        <div class="ws-stock"></div>
+                                        <div class="ws-body"></div>
+                                        <div class="ws-barrel"></div>
+                                        <div class="ws-magazine"></div>
+                                        <div class="ws-grip"></div>
+                                        <div class="ws-sight"></div>
+                                    </div>
+                                    <div class="mod-tree-weapon-name" id="modTreeWeaponName">突击步枪</div>
+                                </div>
+                            </div>
+                            <svg class="mod-tree-lines" viewBox="0 0 600 40" preserveAspectRatio="none">
+                                <line x1="100" y1="0" x2="300" y2="40" stroke="var(--color-border)" stroke-width="1.5"/>
+                                <line x1="300" y1="0" x2="300" y2="40" stroke="var(--color-border)" stroke-width="1.5"/>
+                                <line x1="500" y1="0" x2="300" y2="40" stroke="var(--color-border)" stroke-width="1.5"/>
+                            </svg>
+                            <div class="mod-tree-row mod-tree-bottom">
+                                <div class="mod-tree-node" id="modNodeGrip" onclick="selectModNode('grip')">
+                                    <div class="mod-node-icon">✋</div>
+                                    <div class="mod-node-name">战术握把</div>
+                                    <div class="mod-node-status" id="modNodeGripStatus">未装备</div>
+                                </div>
+                                <div class="mod-tree-node" id="modNodeAPRounds" onclick="selectModNode('apRounds')">
+                                    <div class="mod-node-icon">🎯</div>
+                                    <div class="mod-node-name">穿甲弹</div>
+                                    <div class="mod-node-status" id="modNodeAPRoundsStatus">未装备</div>
+                                </div>
+                                <div class="mod-tree-node" id="modNodeStock" onclick="selectModNode('stock')">
+                                    <div class="mod-node-icon">🪵</div>
+                                    <div class="mod-node-name">枪托</div>
+                                    <div class="mod-node-status" id="modNodeStockStatus">未装备</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="market-right-faction">
+                        <div class="section-label">阵营信息</div>
+                        <div class="faction-card">
+                            <div class="faction-icon">⬡</div>
+                            <div class="faction-name" id="factionName">死亡战壕特遣队</div>
+                            <div class="faction-level">Lv.<span id="factionLevel">5</span></div>
+                            <div class="faction-stats">
+                                <div class="faction-stat-row">
+                                    <span class="faction-stat-label">攻击力加成</span>
+                                    <div class="faction-stat-bar"><div class="faction-stat-fill" style="width:60%;"></div></div>
+                                    <span class="faction-stat-value">+12%</span>
+                                </div>
+                                <div class="faction-stat-row">
+                                    <span class="faction-stat-label">防御力加成</span>
+                                    <div class="faction-stat-bar"><div class="faction-stat-fill" style="width:45%;"></div></div>
+                                    <span class="faction-stat-value">+8%</span>
+                                </div>
+                                <div class="faction-stat-row">
+                                    <span class="faction-stat-label">射速加成</span>
+                                    <div class="faction-stat-bar"><div class="faction-stat-fill" style="width:30%;"></div></div>
+                                    <span class="faction-stat-value">+5%</span>
+                                </div>
+                                <div class="faction-stat-row">
+                                    <span class="faction-stat-label">移动速度</span>
+                                    <div class="faction-stat-bar"><div class="faction-stat-fill" style="width:70%;"></div></div>
+                                    <span class="faction-stat-value">+15%</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="market-bottom-tabs">
+                    <button class="mkt-tab active" onclick="switchMarketTab('weapon')">🔫 武器</button>
+                    <button class="mkt-tab" onclick="switchMarketTab('attachment')">🔩 配件</button>
+                    <button class="mkt-tab" onclick="switchMarketTab('ammo')">🔮 弹药</button>
+                    <button class="mkt-tab" onclick="switchMarketTab('armor')">🛡️ 护甲</button>
+                    <button class="mkt-tab" onclick="switchMarketTab('consumable')">💊 消耗品</button>
+                    <button class="mkt-tab" onclick="switchMarketTab('sell')">💰 出售</button>
+                </div>
+                <div class="market-tab-contents">
+                    <div class="market-tab-content market-weapon-section" id="marketTabWeapon">
+                        <div class="market-grid" id="weaponMarketGrid">
+                        </div>
+                    </div>
+                    <div class="market-tab-content market-attachment-section" id="marketTabAttachment" style="display:none;">
+                        <div class="market-grid" id="attachmentMarketGrid">
+                        </div>
+                    </div>
+                    <div class="market-tab-content market-ammo-section" id="marketTabAmmo" style="display:none;">
+                        <div class="market-grid" id="ammoMarketGrid">
+                        </div>
+                    </div>
+                    <div class="market-tab-content market-armor-section" id="marketTabArmor" style="display:none;">
+                        <div class="market-grid" id="armorMarketGrid">
+                        </div>
+                    </div>
+                    <div class="market-tab-content market-consumable-section" id="marketTabConsumable" style="display:none;">
+                        <div class="market-grid" id="consumableMarketGrid">
+                        </div>
+                    </div>
+                    <div class="market-tab-content market-sell-section" id="marketTabSell" style="display:none;">
+                        <div class="market-grid" id="sellMarketGrid">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="mapSelectPanel" class="panel">
+                <h2>🗺️ 地图选择</h2>
+                <div class="map-content">
+                    <div class="map-grid" id="presetMapGrid">
+                        <div class="map-card selected" data-map="desert" onclick="selectMap('desert')">
+                            <canvas class="map-preview-canvas" width="160" height="100"></canvas>
+                            <div class="map-name-overlay">🏜️ 沙漠战场</div>
+                        </div>
+                        <div class="map-card" data-map="city" onclick="selectMap('city')">
+                            <canvas class="map-preview-canvas" width="160" height="100"></canvas>
+                            <div class="map-name-overlay">🏙️ 城市巷战</div>
+                        </div>
+                        <div class="map-card" data-map="factory" onclick="selectMap('factory')">
+                            <canvas class="map-preview-canvas" width="160" height="100"></canvas>
+                            <div class="map-name-overlay">🏭 废弃工厂</div>
+                        </div>
+                        <div class="map-card" data-map="jungle" onclick="selectMap('jungle')">
+                            <canvas class="map-preview-canvas" width="160" height="100"></canvas>
+                            <div class="map-name-overlay">🌴 丛林突袭</div>
+                        </div>
+                        <div class="map-card" data-map="snow" onclick="selectMap('snow')">
+                            <canvas class="map-preview-canvas" width="160" height="100"></canvas>
+                            <div class="map-name-overlay">❄️ 雪山阵地</div>
+                        </div>
+                        <div class="map-card" data-map="volcano" onclick="selectMap('volcano')">
+                            <canvas class="map-preview-canvas" width="160" height="100"></canvas>
+                            <div class="map-name-overlay">🌋 火山熔岩</div>
+                        </div>
+                        <div class="map-card" data-map="ruins" onclick="selectMap('ruins')">
+                            <canvas class="map-preview-canvas" width="160" height="100"></canvas>
+                            <div class="map-name-overlay">🏛️ 古代遗迹</div>
+                        </div>
+                        <div class="map-card" data-map="base" onclick="selectMap('base')">
+                            <canvas class="map-preview-canvas" width="160" height="100"></canvas>
+                            <div class="map-name-overlay">🏰 军事基地</div>
+                        </div>
+                    </div>
+                    <div class="map-grid" id="customMapGrid" style="margin-top: 16px;">
+                    </div>
+                </div>
+            </div>
+            <div id="missionLinePanel" class="panel">
+                <div class="panel-title-bar">
+                    <h2>📋 任务线</h2>
+                    <button class="menu-btn tertiary" style="padding:8px 16px; font-size:14px;" onclick="showLobby()">← 返回</button>
+                </div>
+
+                <div class="mission-banner">
+                    <span class="mission-banner-icon">⚠️</span>
+                    <span class="mission-banner-text">标注「任意地图」的任务可点击选择；特定地图任务需切换地图后才能进行</span>
+                </div>
+
+                <div class="mission-line-list" id="missionLineList"></div>
+            </div>
+
+            <div id="personalInfoPanel" class="panel">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+                    <h2>👤 个人信息</h2>
+                    <button class="menu-btn tertiary" style="padding:8px 16px; font-size:14px;" onclick="showLobby()">← 返回</button>
+                </div>                <div class="personal-info-content">
+                    <div class="pi-avatar-section" onclick="AvatarManager.openAvatarEditor()" style="cursor:pointer;" title="点击修改头像">
+                        <div class="pi-avatar">⚔️</div>
+                        <div class="pi-avatar-edit-mask">📷</div>
+                        <div class="pi-title-badge" id="piTitleBadge">新兵</div>
+                    </div>
+                    <div class="pi-name-row">
+                        <div class="pi-name" id="piNameDisplay">战壕战士</div>
+                        <button class="pi-edit-btn" onclick="toggleNameEdit()">✏️</button>
+                    </div>
+                    <div class="pi-name-edit" id="piNameEdit" style="display:none;">
+                        <input type="text" id="piNameInput" class="pi-name-input" placeholder="输入新名称..." maxlength="12">
+                        <button class="pi-save-btn" onclick="savePlayerName()">保存</button>
+                        <button class="pi-cancel-btn" onclick="toggleNameEdit()">取消</button>
+                    </div>
+                    <div class="pi-stats-grid">
+                        <div class="pi-stat-card">
+                            <div class="pi-stat-icon">🎯</div>
+                            <div class="pi-stat-value" id="piKills">0</div>
+                            <div class="pi-stat-label">击杀</div>
+                        </div>
+                        <div class="pi-stat-card">
+                            <div class="pi-stat-icon">💀</div>
+                            <div class="pi-stat-value" id="piDeaths">0</div>
+                            <div class="pi-stat-label">死亡</div>
+                        </div>
+                        <div class="pi-stat-card">
+                            <div class="pi-stat-icon">📊</div>
+                            <div class="pi-stat-value" id="piKD">0.0</div>
+                            <div class="pi-stat-label">K/D</div>
+                        </div>
+                        <div class="pi-stat-card">
+                            <div class="pi-stat-icon">⏱️</div>
+                            <div class="pi-stat-value" id="piPlayTime">0秒</div>
+                            <div class="pi-stat-label">游玩时长</div>
+                        </div>
+                        <div class="pi-stat-card">
+                            <div class="pi-stat-icon">⭐</div>
+                            <div class="pi-stat-value" id="piScore">0</div>
+                            <div class="pi-stat-label">总得分</div>
+                        </div>
+                        <div class="pi-stat-card">
+                            <div class="pi-stat-icon">🏆</div>
+                            <div class="pi-stat-value" id="piMissions">0</div>
+                            <div class="pi-stat-label">完成任务</div>
+                        </div>
+                    </div>                    <div class="pi-title-info">
+                        <span class="pi-title-label">当前称号：</span>
+                        <span class="pi-title-value" id="piTitle">新兵</span>
+                    </div>
+                    <div class="pi-medal-info">
+                        <span class="pi-title-label">我的勋章：</span>
+                        <span class="pi-title-value"><span id="piUnlockedMedalCount">0</span> / <span id="piTotalMedalCount">0</span></span>
+                    </div>
+                    <div class="pi-medal-grid" id="piMedalGrid"></div>
+                    <div class="pi-title-hint">💡 点击徽章查看称号介绍，双击徽章切换/佩戴称号</div>
+                    <div class="pi-badge-grid" id="piBadgeGrid">
+                    </div>
+                </div>
+            </div>
+
+            <div id="titleDetailModal" class="modal-panel" style="display:none;">
+                <div class="modal-panel-inner">
+                    <h2 id="titleDetailName" class="modal-title"></h2>
+                    <div id="titleDetailBadge"></div>
+                    <div class="modal-section">
+                        <div class="modal-label">解锁条件：</div>
+                        <div class="modal-value" id="titleDetailReq"></div>
+                    </div>
+                    <div class="modal-section">
+                        <div class="modal-label">当前状态：</div>
+                        <div class="modal-value" id="titleDetailStatus"></div>
+                    </div>
+                    <div class="modal-section">
+                        <div class="modal-label">介绍：</div>
+                        <div class="modal-value" id="titleDetailDesc"></div>
+                    </div>
+                    <div class="modal-actions">
+                        <button class="btn-save" onclick="equipTitle()">佩戴此称号</button>
+                        <button class="btn-cancel" onclick="closeTitleDetail()">关闭</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 改装面板 -->
+            <div id="modificationPanel" class="panel">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+                    <h2>🔧 武器改装处</h2>
+                    <div style="display:flex; gap:8px;">
+                        <button class="menu-btn danger" style="padding:8px 16px; font-size:14px;" onclick="disableAllMods()">⚠️ 禁用所有配件</button>
+                        <button class="menu-btn tertiary" style="padding:8px 16px; font-size:14px;" onclick="showLobby()">← 返回</button>
+                    </div>
+                </div>
+                <div class="mod-content">
+                    <div class="mod-section">
+                        <div class="section-title">选择武器</div>
+                        <div class="weapon-select-grid" id="modWeaponGrid"></div>
+                    </div>
+                    <div class="mod-section">
+                        <div class="section-title">可装配配件</div>
+                        <div class="mod-grid" id="modShopGrid"></div>
+                    </div>
+                    <div class="mod-section">
+                        <div class="section-title">已装备配件</div>
+                        <div class="mod-equipped" id="modEquippedList"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 抽奖面板 -->
+            <div id="lotteryPanel" class="panel">
+                <div class="panel-title-bar">
+                    <h2>🎰 幸运抽奖</h2>
+                    <div class="panel-gold">🪙 <span id="lotteryGold">1000</span></div>
+                    <button class="menu-btn tertiary" style="padding:8px 16px; font-size:14px; margin-right:8px;" onclick="showCumulativeRewards()">📊 累计奖励</button>
+                    <button class="menu-btn tertiary" style="padding:8px 16px; font-size:14px;" onclick="showLobby()">← 返回</button>
+                </div>
+
+                <div class="lottery-banner">
+                    <div class="lottery-banner-title">✨ 幸运抽奖 ✨</div>
+                    <div class="lottery-banner-sub">每10抽必得稀有及以上奖励</div>
+                    <div class="lottery-pity">保底进度: <span id="lotteryPity">0</span>/10</div>
+                </div>
+
+                <div id="lotteryResults" class="lottery-results">
+                    <div style="text-align:center;color:#8b949e;padding:40px;">点击下方按钮开始抽奖</div>
+                </div>
+
+                <div class="lottery-actions">
+                    <button class="menu-btn secondary lottery-btn" onclick="doLottery(1)">
+                        <span class="lottery-btn-icon">🎲</span>
+                        <span class="lottery-btn-text">单抽</span>
+                        <span class="lottery-btn-price">🪙 100</span>
+                    </button>
+                    <button class="menu-btn primary lottery-btn" onclick="doLottery(10)">
+                        <span class="lottery-btn-icon">🎁</span>
+                        <span class="lottery-btn-text">十连抽</span>
+                        <span class="lottery-btn-price">🪙 900</span>
+                    </button>
+                </div>
+
+                <div class="lottery-preview">
+                    <div class="section-title" style="margin-bottom:12px;">奖励预览</div>
+                    <div class="lottery-preview-grid">
+                        <div class="preview-item" style="border-color:#f59e0b;">
+                            <span>🎨</span><span style="color:#f59e0b;">传说</span>
+                        </div>
+                        <div class="preview-item" style="border-color:#a855f7;">
+                            <span>🔇</span><span style="color:#a855f7;">史诗</span>
+                        </div>
+                        <div class="preview-item" style="border-color:#3b82f6;">
+                            <span>🔭</span><span style="color:#3b82f6;">稀有</span>
+                        </div>
+                        <div class="preview-item" style="border-color:#9ca3af;">
+                            <span>🪙</span><span style="color:#9ca3af;">普通</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 累计奖励弹窗 -->
+            <div id="cumulativeRewardOverlay" class="tools-prompt-overlay" style="display:none;">
+                <div class="tools-prompt-box" style="width:500px; max-height:600px; overflow:auto;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+                        <h2>📊 累计抽奖奖励</h2>
+                        <button class="menu-btn tertiary" onclick="closeCumulativeRewards()">✕</button>
+                    </div>
+                    <div style="margin-bottom:20px;">
+                        <div style="text-align:center; padding:15px; background:rgba(30,30,30,0.8); border-radius:8px; margin-bottom:15px;">
+                            <div style="font-size:24px; font-weight:bold; color:#fff;">总抽奖次数</div>
+                            <div style="font-size:36px; font-weight:bold; color:#ffaa00; margin-top:5px;" id="totalDrawsCount">0</div>
+                        </div>
+                        <div style="display:grid; grid-template-columns:repeat(4,1fr); gap:10px;">
+                            <div style="text-align:center; padding:10px; background:rgba(30,30,30,0.8); border-radius:8px; border:2px solid #9ca3af;">
+                                <div style="font-size:20px;">⬜</div>
+                                <div style="font-size:24px; font-weight:bold; color:#9ca3af;" id="countCommon">0</div>
+                                <div style="font-size:12px; color:#888;">普通</div>
+                            </div>
+                            <div style="text-align:center; padding:10px; background:rgba(30,30,30,0.8); border-radius:8px; border:2px solid #3b82f6;">
+                                <div style="font-size:20px;">🔵</div>
+                                <div style="font-size:24px; font-weight:bold; color:#3b82f6;" id="countRare">0</div>
+                                <div style="font-size:12px; color:#888;">稀有</div>
+                            </div>
+                            <div style="text-align:center; padding:10px; background:rgba(30,30,30,0.8); border-radius:8px; border:2px solid #a855f7;">
+                                <div style="font-size:20px;">🟣</div>
+                                <div style="font-size:24px; font-weight:bold; color:#a855f7;" id="countEpic">0</div>
+                                <div style="font-size:12px; color:#888;">史诗</div>
+                            </div>
+                            <div style="text-align:center; padding:10px; background:rgba(30,30,30,0.8); border-radius:8px; border:2px solid #f59e0b;">
+                                <div style="font-size:20px;">🟡</div>
+                                <div style="font-size:24px; font-weight:bold; color:#f59e0b;" id="countLegendary">0</div>
+                                <div style="font-size:12px; color:#888;">传说</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div>
+                        <div style="font-size:14px; font-weight:bold; color:#fff; margin-bottom:10px;">📜 最近抽奖记录</div>
+                        <div id="rewardHistoryList" style="max-height:300px; overflow-y:auto;"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 皮肤面板 -->
+            <div id="skinPanel" class="panel">
+                <div class="panel-title-bar">
+                    <h2>🎨 皮肤商店</h2>
+                    <div class="panel-gold">🪙 <span id="skinGold">1000</span></div>
+                    <button class="menu-btn tertiary" style="padding:8px 16px; font-size:14px;" onclick="showLobby()">← 返回</button>
+                </div>
+
+                <div class="skin-tabs">
+                    <button class="tab-btn active" onclick="showSkinTab('weapon')">🔫 武器皮肤</button>
+                    <button class="tab-btn" onclick="showSkinTab('player')">👤 角色皮肤</button>
+                </div>
+
+                <!-- 大预览面板 -->
+                <div class="skin-large-preview">
+                    <div class="skin-preview-weapon" id="skinPreviewWeapon">
+                        <div class="weapon-silhouette skin-default">
+                            <div class="ws-stock"></div>
+                            <div class="ws-body"></div>
+                            <div class="ws-barrel"></div>
+                            <div class="ws-magazine"></div>
+                            <div class="ws-grip"></div>
+                            <div class="ws-sight"></div>
+                        </div>
+                    </div>
+                    <div class="skin-preview-name" id="skinPreviewName">默认</div>
+                    <div class="skin-preview-status">当前装备: <span id="skinEquippedName">默认</span></div>
+                </div>
+
+                <div id="weaponSkinGrid" class="skin-grid"></div>
+                <div id="playerSkinGrid" class="skin-grid" style="display:none;"></div>
+                <div class="skin-equipped-info">
+                    <span>当前装备：</span>
+                    <span id="currentWeaponSkinName">默认</span>
+                    <span> | </span>
+                    <span id="currentPlayerSkinName">默认</span>
+                </div>
+            </div>
+
+            <!-- 弹药面板 -->
+            <div id="ammoPanel" class="panel">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+                    <h2>📦 弹药库</h2>
+                    <button class="menu-btn tertiary" style="padding:8px 16px; font-size:14px;" onclick="showLobby()">← 返回</button>
+                </div>
+                <div class="ammo-grid" id="ammoGrid"></div>
+            </div>
+        </div>
+
+        <button class="back-btn" onclick="backToMenu()">返回主菜单</button>
+    </div>
+
+    <!-- 右侧可滑动侧边栏 -->
+    <div id="rightSidebar" class="right-sidebar">
+        <div class="sidebar-header">
+            <h3>⚙️ 快捷面板</h3>
+            <button class="sidebar-close" onclick="toggleSidebar()">✕</button>
+        </div>
+        <div class="sidebar-tabs">
+            <button class="sidebar-tab active" onclick="switchSidebarTab('settings')">设置</button>
+            <button class="sidebar-tab" onclick="switchSidebarTab('stats')">统计</button>
+            <button class="sidebar-tab" onclick="switchSidebarTab('items')">道具</button>
+        </div>
+        <div class="sidebar-content">
+            <!-- 设置面板 -->
+            <div id="sidebar-settings" class="sidebar-panel active">
+                <div class="setting-group">
+                    <label class="setting-label">游戏难度</label>
+                    <select id="sidebarDifficultySelect" onchange="settings.difficulty = this.value">
+                        <option value="easy">简单</option>
+                        <option value="normal" selected>普通</option>
+                        <option value="hard">困难</option>
+                    </select>
+                </div>
+                <div class="setting-group">
+                    <label class="setting-label">玩家速度: <span id="sidebarSpeedValue">100%</span></label>
+                    <input type="range" min="50" max="150" value="100" oninput="settings.playerSpeed = this.value; document.getElementById('sidebarSpeedValue').textContent = this.value + '%'">
+                </div>
+                <div class="setting-group">
+                    <label class="setting-label">射速调整: <span id="sidebarFireRateValue">100%</span></label>
+                    <input type="range" min="50" max="200" value="100" oninput="settings.fireRate = this.value; document.getElementById('sidebarFireRateValue').textContent = this.value + '%'">
+                </div>
+                <div class="setting-group">
+                    <label class="setting-label">
+                        <input type="checkbox" checked onchange="enableItemCooldown = this.checked">
+                        物品使用间隔
+                    </label>
+                </div>
+                <div class="setting-group" style="margin-top: 20px; padding-top: 15px; border-top: 1px solid rgba(0,204,102,0.2);">
+                    <button class="menu-btn secondary" style="width: 100%; margin-bottom: 8px;" onclick="pauseGame()">⏸️ 暂停游戏</button>
+                    <button class="menu-btn secondary" style="width: 100%;" onclick="showLobby()">🏠 返回大厅</button>
+                </div>
+            </div>
+            <!-- 统计面板 -->
+            <div id="sidebar-stats" class="sidebar-panel">
+                <div class="stat-item">
+                    <span class="stat-label">本局得分</span>
+                    <span class="stat-value" id="sidebarScore">0</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">击杀数</span>
+                    <span class="stat-value" id="sidebarKills">0</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">存活时间</span>
+                    <span class="stat-value" id="sidebarTime">0s</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">总金币</span>
+                    <span class="stat-value" id="sidebarCoins">0</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">命中率</span>
+                    <span class="stat-value" id="sidebarAccuracy">--</span>
+                </div>
+            </div>
+            <!-- 道具面板 -->
+            <div id="sidebar-items" class="sidebar-panel">
+                <div class="sidebar-item-list">
+                    <div class="sidebar-item">
+                        <span class="item-icon">💊</span>
+                        <span class="item-name">医疗包</span>
+                        <span class="item-count" id="sidebarMedkits">0</span>
+                    </div>
+                    <div class="sidebar-item">
+                        <span class="item-icon">📦</span>
+                        <span class="item-name">弹药箱</span>
+                        <span class="item-count" id="sidebarAmmoBox">0</span>
+                    </div>
+                    <div class="sidebar-item">
+                        <span class="item-icon">💣</span>
+                        <span class="item-name">手榴弹</span>
+                        <span class="item-count" id="sidebarGrenades">0</span>
+                    </div>
+                    <div class="sidebar-item">
+                        <span class="item-icon">⚡</span>
+                        <span class="item-name">加速药剂</span>
+                        <span class="item-count" id="sidebarSpeedBoost">0</span>
+                    </div>
+                </div>
+                <div style="margin-top: 20px; padding-top: 15px; border-top: 1px solid rgba(0,204,102,0.2);">
+                    <button class="menu-btn primary" style="width: 100%;" onclick="useItem('medkit')">使用医疗包</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="settingsPanel">
+        <h2>⚙️ 设置</h2>
+        <div class="setting-group">
+            <label class="setting-label">游戏难度</label>
+            <select id="difficultySelect" onchange="settings.difficulty = this.value; saveSettings()">
+                <option value="easy">简单</option>
+                <option value="normal" selected>普通</option>
+                <option value="hard">困难</option>
+            </select>
+        </div>
+        <div class="setting-group">
+            <label class="setting-label">玩家速度: <span id="speedValue">100%</span></label>
+            <input type="range" id="speedSlider" min="50" max="150" value="100" oninput="settings.playerSpeed = this.value; document.getElementById('speedValue').textContent = this.value + '%'; saveSettings()">
+        </div>
+        <div class="setting-group">
+            <label class="setting-label">
+                <input type="checkbox" id="itemCooldownToggle" checked onchange="enableItemCooldown = this.checked; saveSettings()">
+                物品使用间隔（0.2秒）
+            </label>
+        </div>
+        <div class="setting-group">
+            <label class="setting-label">射速调整: <span id="fireRateValue">100%</span></label>
+            <input type="range" id="fireRateSlider" min="50" max="200" value="100" oninput="settings.fireRate = this.value; document.getElementById('fireRateValue').textContent = this.value + '%'; saveSettings()">
+        </div>
+        <div class="setting-group" id="paramExportGroup" style="margin-top: 15px; padding-top: 15px; border-top: 1px solid rgba(0,204,102,0.2); display: none;">
+            <button class="menu-btn secondary" onclick="exportGameParams()" style="width: 100%; margin-bottom: 8px;">
+                📤 参数复制
+            </button>
+            <div style="color: #666; font-size: 11px; text-align: center;">导出当前游戏参数到文件</div>
+        </div>
+        <div class="setting-group" id="paramImportGroup" style="margin-top: 15px; padding-top: 15px; border-top: 1px solid rgba(0,204,102,0.2); display: none;">
+            <button class="menu-btn secondary" onclick="importGameParams()" style="width: 100%; margin-bottom: 8px;">
+                📥 参数校验
+            </button>
+            <div style="color: #666; font-size: 11px; text-align: center;">从文件导入并校验游戏参数</div>
+        </div>
+        <div class="setting-group" style="margin-top: 20px; padding-top: 15px; border-top: 1px solid rgba(0,204,102,0.2);">
+            <div style="color: #888; font-size: 12px; text-align: center;">
+                开发者B站：<a href="https://space.bilibili.com/3493132675058010" target="_blank" style="color: #00cc66;">点击访问</a>
+            </div>
+        </div>
+        <button class="menu-btn secondary" onclick="hideSettings()">返回</button>
+    </div>
+
+    <div id="gameOver">
+        <h2>💀 战斗结束</h2>
+        <div class="score-display">
+            <div>最终得分: <span id="finalScore">0</span></div>
+            <div>击杀数: <span id="finalKills">0</span></div>
+            <div>获得金币: <span id="coinsEarned">0</span></div>
+        </div>
+        <button class="menu-btn primary" onclick="startGame()">再来一局</button>
+        <button class="menu-btn secondary" onclick="showLobby()">返回大厅</button>
+    </div>
+
+    <div id="tutorialPanel">
+        <h2>📖 新手教程</h2>
+        <div class="tutorial-step active">
+            <h3>🎮 欢迎来到死亡战壕</h3>
+            <p>这是一款2D俯视角射击游戏，你将扮演死亡战壕特遣队战士，在各种战场中消灭敌人！</p>
+        </div>
+        <div class="tutorial-step">
+            <h3>🏃 移动控制</h3>
+            <p>使用 WASD 或方向键控制角色移动。游戏支持流畅的8方向移动，让你在战场上灵活穿梭。</p>
+        </div>
+        <div class="tutorial-step">
+            <h3>🔫 射击系统</h3>
+            <p>使用鼠标瞄准。右键点击发射子弹，按空格键开启/关闭连发模式（连发模式下再次按右键也可停止射击）。</p>
+        </div>
+        <div class="tutorial-step">
+            <h3>🎯 武器切换</h3>
+            <p>按数字键 1、2、3 切换武器。手枪适合近距离战斗，步枪是全能选择，狙击枪一击必杀！</p>
+        </div>
+        <div class="tutorial-step">
+            <h3>⚡ 战术道具</h3>
+            <p>击杀敌人会掉落金币、医疗包、弹药箱等道具。靠近自动拾取，提升战斗力！</p>
+        </div>
+        <div class="tutorial-step">
+            <h3>🎖️ 准备战斗！</h3>
+            <p>现在你已经掌握了基本操作，准备好迎接挑战了吗？祝你好运，战士！</p>
+        </div>
+        <div class="tutorial-nav">
+            <button class="menu-btn tertiary" onclick="backToMenu()">退出教程</button>
+            <button class="menu-btn tertiary" onclick="prevTutorial()">上一步</button>
+            <button class="menu-btn primary" onclick="nextTutorial()">下一步</button>
+        </div>
+    </div>
+
+    <div id="saveManagerPanel" class="panel-modal">
+        <div class="panel-modal-content" style="width: min(900px, 92%); max-height: 90vh;">
+            <div class="panel-modal-header">
+                <h2>💾 存档管理中心</h2>
+                <button class="close-btn" onclick="closeSaveManager()">×</button>
+            </div>
+            
+            <div class="save-manager-tabs">
+                <button class="save-tab active" data-tab="quick" onclick="switchSaveTab('quick')">⚡ 快速存档</button>
+                <button class="save-tab" data-tab="slots" onclick="switchSaveTab('slots')">📦 存档槽位</button>
+                <button class="save-tab" data-tab="backup" onclick="switchSaveTab('backup')">🔁 自动备份</button>
+                <button class="save-tab" data-tab="import" onclick="switchSaveTab('import')">📁 导入导出</button>
+            </div>
+
+            <div id="saveTabQuick" class="save-tab-content active">
+                <div class="quick-save-section">
+                    <div class="quick-info">
+                        <div class="quick-label">当前存档状态</div>
+                        <div class="quick-status" id="quickSaveStatus">
+                            <span class="status-icon">📋</span>
+                            <span class="status-text" id="saveStatusText">暂无自动存档</span>
+                        </div>
+                    </div>
+                    <div class="quick-actions">
+                        <button class="menu-btn primary" onclick="saveGame()">💾 保存游戏</button>
+                        <button class="menu-btn secondary" onclick="loadGame()">📂 读取存档</button>
+                    </div>
+                </div>
+            </div>
+
+            <div id="saveTabSlots" class="save-tab-content">
+                <div class="slot-info">每个槽位可保存一个独立存档。保存到槽位不会覆盖主存档。</div>
+                <div class="slot-grid-compact" id="slotGrid">
+                    <div class="slot-card" data-slot="1">
+                        <div class="slot-num">1</div>
+                        <div class="slot-body">
+                            <div class="slot-content" id="slotContent1"><span class="slot-empty">空</span></div>
+                        </div>
+                        <div class="slot-actions-row">
+                            <button class="slot-action-btn" onclick="saveToSlot(1)" title="保存">💾</button>
+                            <button class="slot-action-btn" onclick="loadFromSlot(1)" title="加载">📂</button>
+                            <button class="slot-action-btn danger" onclick="confirmDeleteSlot(1)" title="删除">🗑</button>
+                        </div>
+                    </div>
+                    <div class="slot-card" data-slot="2">
+                        <div class="slot-num">2</div>
+                        <div class="slot-body">
+                            <div class="slot-content" id="slotContent2"><span class="slot-empty">空</span></div>
+                        </div>
+                        <div class="slot-actions-row">
+                            <button class="slot-action-btn" onclick="saveToSlot(2)" title="保存">💾</button>
+                            <button class="slot-action-btn" onclick="loadFromSlot(2)" title="加载">📂</button>
+                            <button class="slot-action-btn danger" onclick="confirmDeleteSlot(2)" title="删除">🗑</button>
+                        </div>
+                    </div>
+                    <div class="slot-card" data-slot="3">
+                        <div class="slot-num">3</div>
+                        <div class="slot-body">
+                            <div class="slot-content" id="slotContent3"><span class="slot-empty">空</span></div>
+                        </div>
+                        <div class="slot-actions-row">
+                            <button class="slot-action-btn" onclick="saveToSlot(3)" title="保存">💾</button>
+                            <button class="slot-action-btn" onclick="loadFromSlot(3)" title="加载">📂</button>
+                            <button class="slot-action-btn danger" onclick="confirmDeleteSlot(3)" title="删除">🗑</button>
+                        </div>
+                    </div>
+                    <div class="slot-card" data-slot="4">
+                        <div class="slot-num">4</div>
+                        <div class="slot-body">
+                            <div class="slot-content" id="slotContent4"><span class="slot-empty">空</span></div>
+                        </div>
+                        <div class="slot-actions-row">
+                            <button class="slot-action-btn" onclick="saveToSlot(4)" title="保存">💾</button>
+                            <button class="slot-action-btn" onclick="loadFromSlot(4)" title="加载">📂</button>
+                            <button class="slot-action-btn danger" onclick="confirmDeleteSlot(4)" title="删除">🗑</button>
+                        </div>
+                    </div>
+                    <div class="slot-card" data-slot="5">
+                        <div class="slot-num">5</div>
+                        <div class="slot-body">
+                            <div class="slot-content" id="slotContent5"><span class="slot-empty">空</span></div>
+                        </div>
+                        <div class="slot-actions-row">
+                            <button class="slot-action-btn" onclick="saveToSlot(5)" title="保存">💾</button>
+                            <button class="slot-action-btn" onclick="loadFromSlot(5)" title="加载">📂</button>
+                            <button class="slot-action-btn danger" onclick="confirmDeleteSlot(5)" title="删除">🗑</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="saveTabBackup" class="save-tab-content">
+                <div class="slot-info">每 30 秒自动保存一次。最多保留 5 份备份，新备份会替换最旧的。</div>
+                <div class="backup-toggle-row">
+                    <label class="switch-label">
+                        <input type="checkbox" id="autoBackupToggle" checked onchange="toggleAutoBackup(this.checked)">
+                        <span>启用自动备份</span>
+                    </label>
+                    <span id="backupTimerText" class="backup-timer">下次备份：29s</span>
+                </div>
+                <div class="backup-grid" id="backupGrid">
+                    <div class="slot-item">
+                        <div class="slot-header">备份 1</div>
+                        <div class="slot-content" id="backupContent1"><span class="slot-empty">暂无备份</span></div>
+                        <div class="slot-actions">
+                            <button class="mini-btn" onclick="restoreFromBackup(1)">📂 恢复</button>
+                        </div>
+                    </div>
+                    <div class="slot-item">
+                        <div class="slot-header">备份 2</div>
+                        <div class="slot-content" id="backupContent2"><span class="slot-empty">暂无备份</span></div>
+                        <div class="slot-actions">
+                            <button class="mini-btn" onclick="restoreFromBackup(2)">📂 恢复</button>
+                        </div>
+                    </div>
+                    <div class="slot-item">
+                        <div class="slot-header">备份 3</div>
+                        <div class="slot-content" id="backupContent3"><span class="slot-empty">暂无备份</span></div>
+                        <div class="slot-actions">
+                            <button class="mini-btn" onclick="restoreFromBackup(3)">📂 恢复</button>
+                        </div>
+                    </div>
+                    <div class="slot-item">
+                        <div class="slot-header">备份 4</div>
+                        <div class="slot-content" id="backupContent4"><span class="slot-empty">暂无备份</span></div>
+                        <div class="slot-actions">
+                            <button class="mini-btn" onclick="restoreFromBackup(4)">📂 恢复</button>
+                        </div>
+                    </div>
+                    <div class="slot-item">
+                        <div class="slot-header">备份 5</div>
+                        <div class="slot-content" id="backupContent5"><span class="slot-empty">暂无备份</span></div>
+                        <div class="slot-actions">
+                            <button class="mini-btn" onclick="restoreFromBackup(5)">📂 恢复</button>
+                        </div>
+                    </div>
+                </div>
+                <div class="backup-actions">
+                    <button class="menu-btn secondary" onclick="doManualBackup()">立即备份</button>
+                </div>
+            </div>
+
+            <div id="saveTabImport" class="save-tab-content">
+                <div class="import-section">
+                    <div class="import-label">📥 导入存档文件</div>
+                    <p class="import-desc">选择一个 JSON 存档文件进行导入</p>
+                    <input type="file" id="saveFileInput" accept=".json" style="display:none" onchange="handleImportFile(event)">
+                    <button class="menu-btn secondary" onclick="triggerImportFile()">选择文件</button>
+                </div>
+                <div class="export-section">
+                    <div class="export-label">📤 导出存档</div>
+                    <p class="export-desc">将当前存档导出为 JSON 文件</p>
+                    <button class="menu-btn primary" onclick="exportSaveFile()">导出存档</button>
+                </div>
+            </div>
+
+            <div class="panel-modal-footer">
+                <button class="menu-btn primary" onclick="closeSaveManager()">关闭</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/utils.js?v=6"></script>
+    <script src="js/anti-cheat.js?v=6"></script>
+    <script src="js/save.js?v=6"></script>
+    <script src="js/coord.js?v=6"></script>
+    <script src="js/game.js?v=6"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            if (window.lucide) lucide.createIcons();
+            checkVersionAndShowParamButtons();
+            // 开发版显示开发者工具按钮
+            if (window.ENABLE_TOOLS) {
+                var devBtn = document.querySelector('.menu-btn-dev');
+                if (devBtn) devBtn.style.display = '';
+            }
+        });
+
+        async function checkVersionAndShowParamButtons() {
+            try {
+                if (window.electronAPI && window.electronAPI.isDevMode) {
+                    const isDev = await window.electronAPI.isDevMode();
+                    window.ENABLE_TOOLS = isDev;
+                    if (isDev) {
+                        document.getElementById('paramExportGroup').style.display = 'block';
+                        var devBtn = document.querySelector('.menu-btn-dev');
+                        if (devBtn) devBtn.style.display = '';
+                    } else {
+                        document.getElementById('paramImportGroup').style.display = 'block';
+                    }
+                }
+            } catch (e) {
+                console.log('版本检测失败:', e);
+                document.getElementById('paramImportGroup').style.display = 'block';
+            }
+        }
+
+        // 导出游戏参数（参数复制功能）
+        async function exportGameParams() {
+            try {
+                if (!window.electronAPI || !window.electronAPI.saveGameParams) {
+                    showNotification('导出功能不可用');
+                    return;
+                }
+                const paramsData = {
+                    WEAPONS: WEAPONS,
+                    ENEMY: gameParams.ENEMY,
+                    PLAYER: gameParams.PLAYER,
+                    MAP: gameParams.MAP,
+                    DROPS: gameParams.DROPS,
+                    BUFFS: gameParams.BUFFS
+                };
+                const result = await window.electronAPI.saveGameParams(paramsData);
+                showNotification(result.message);
+            } catch (e) {
+                showNotification('导出失败: ' + e.message);
+            }
+        }
+
+        // 导入游戏参数（参数校验功能）
+        async function importGameParams() {
+            try {
+                if (!window.electronAPI || !window.electronAPI.loadGameParams) {
+                    showNotification('导入功能不可用');
+                    return;
+                }
+                const result = await window.electronAPI.loadGameParams();
+                if (!result.success) {
+                    if (result.message !== '已取消') {
+                        showNotification(result.message);
+                    }
+                    return;
+                }
+
+                // 参数校验与修正
+                const data = result.data;
+                let corrected = false;
+
+                // 校验 ENEMY
+                if (data.ENEMY) {
+                    if (typeof data.ENEMY.health !== 'number' || data.ENEMY.health < 1) {
+                        data.ENEMY.health = 80;
+                        corrected = true;
+                    }
+                    if (typeof data.ENEMY.count !== 'number' || data.ENEMY.count < 1) {
+                        data.ENEMY.count = 8;
+                        corrected = true;
+                    }
+                }
+
+                // 校验 PLAYER
+                if (data.PLAYER) {
+                    if (typeof data.PLAYER.maxHealth !== 'number' || data.PLAYER.maxHealth < 1) {
+                        data.PLAYER.maxHealth = 100;
+                        corrected = true;
+                    }
+                }
+
+                // 校验 MAP
+                if (data.MAP) {
+                    if (typeof data.MAP.obstacleRate !== 'number' || data.MAP.obstacleRate < 0 || data.MAP.obstacleRate > 1) {
+                        data.MAP.obstacleRate = 0.08;
+                        corrected = true;
+                    }
+                }
+
+                // 保存到 localStorage
+                localStorage.setItem('deathTrench_game_params', JSON.stringify(data));
+
+                // 重新加载参数
+                loadGameParams();
+
+                const msg = corrected ? '参数已导入并修正' : '参数校验通过，已导入';
+                showNotification(msg + ' (' + result.filename + ')');
+            } catch (e) {
+                showNotification('导入失败: ' + e.message);
+            }
+        }
+    </script>
+
+    <div id="mailPanel" class="panel-modal">
+        <div class="panel-modal-content" style="width: min(960px, 92%);">
+            <div class="panel-modal-header">
+                <h2>📧 信箱 - 指挥部通讯</h2>
+                <button class="close-btn" onclick="closeAllPanels()">×</button>
+            </div>
+            <div class="mail-tab-bar">
+                <div class="mail-tab active" data-tab="inbox" onclick="switchMailTab('inbox')">📥 收件箱</div>
+                <div class="mail-tab" data-tab="compose" onclick="switchMailTab('compose')">✍️ 管理员编写</div>
+            </div>
+
+            <div id="mailInboxPanel" class="mail-panel-body">
+                <div style="display: grid; grid-template-columns: 260px 1fr; gap: 0; min-height: 480px;">
+                    <div class="mail-list">
+                        <div class="mail-list-header">
+                            <span>邮件列表</span>
+                            <button class="mini-btn" style="flex: 0 0 auto;" onclick="refreshMailList()">刷新</button>
+                        </div>
+                        <div id="mailListContainer"></div>
+                    </div>
+                    <div class="mail-reader" id="mailReader">
+                        <div class="mail-empty">
+                            <div style="font-size: 56px; margin-bottom: 14px;">📭</div>
+                            <div>请选择左侧邮件阅读</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="mailComposePanel" class="mail-panel-body" style="display:none; padding: 20px 25px;">
+                <div style="margin-bottom: 14px;"><label style="font-size: 13px; color: #8b949e;">发件人</label><input type="text" id="composeSender" placeholder="指挥部" style="width: 100%; margin-top: 6px; padding: 10px 12px; background: #161b22; border: 1px solid #30363d; border-radius: 6px; color: #c9d1d9;"></div>
+                <div style="margin-bottom: 14px;"><label style="font-size: 13px; color: #8b949e;">主题</label><input type="text" id="composeSubject" placeholder="关于本次行动的简报" style="width: 100%; margin-top: 6px; padding: 10px 12px; background: #161b22; border: 1px solid #30363d; border-radius: 6px; color: #c9d1d9;"></div>
+                <div style="margin-bottom: 14px;"><label style="font-size: 13px; color: #8b949e;">正文</label><textarea id="composeBody" rows="12" style="width: 100%; margin-top: 6px; padding: 12px; background: #161b22; border: 1px solid #30363d; border-radius: 6px; color: #c9d1d9; font-family: inherit; resize: vertical;"></textarea></div>
+                <div style="display: flex; gap: 10px; justify-content: flex-end;">
+                    <button class="menu-btn secondary" onclick="clearComposeMail()">清空</button>
+                    <button class="menu-btn primary" onclick="saveComposedMail()">保存到邮件列表</button>
+                </div>
+            </div>
+
+            <div class="panel-modal-footer">
+                <button class="menu-btn secondary" onclick="exportMailsAsJSON()">📤 导出邮件</button>
+                <button class="menu-btn primary" onclick="closeAllPanels()">关闭</button>
+            </div>
+        </div>
+    </div>
+
+
+
+    <div id="toolsPromptOverlay" class="tools-prompt-overlay">
+        <div class="tools-prompt-box">
+            <h2>🔐 开发者工具箱</h2>
+            <p>请输入访问密码以继续</p>
+            <div id="toolsPromptError" class="tools-prompt-error"></div>
+            <input type="password" id="toolsPasswordInput" placeholder="输入密码..." onkeydown="if (event.key==='Enter') verifyToolsPassword();" autofocus>
+            <div class="tools-prompt-actions">
+                <button class="menu-btn secondary" onclick="closeToolsPrompt()">取消</button>
+                <button class="menu-btn primary" onclick="verifyToolsPassword()">确认</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            init();
+        });
+    </script>
+
+    <!-- 通用弹窗系统 -->
+    <div id="confirmModal" class="popup-overlay" style="display:none;">
+        <div class="popup-box popup-confirm">
+            <div class="popup-title" id="confirmTitle">确认</div>
+            <div class="popup-message" id="confirmMessage">确定要执行此操作吗？</div>
+            <div class="popup-actions">
+                <button class="menu-btn secondary" onclick="closeConfirm(false)">取消</button>
+                <button class="menu-btn primary" onclick="closeConfirm(true)">确认</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="warmTipModal" class="popup-overlay" style="display:none;">
+        <div class="popup-box popup-tip">
+            <div class="popup-title">💡 温馨提示</div>
+            <div class="popup-message" id="warmTipMessage"></div>
+            <div class="popup-actions">
+                <button class="menu-btn primary" onclick="closeWarmTip()">知道了</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 更新公告弹窗 -->
+    <div id="announcementModal" class="popup-overlay" style="display:none;">
+        <div class="popup-box popup-announcement">
+            <div class="popup-title">📢 更新公告 <span class="announcement-version" id="announcementVersion"></span></div>
+            <div class="announcement-date" id="announcementDate"></div>
+            <div class="announcement-content" id="announcementContent"></div>
+            <div class="announcement-actions">
+                <label class="announcement-dont-show">
+                    <input type="checkbox" id="announcementDontShow"> 不再提示此版本
+                </label>
+                <button class="menu-btn primary" onclick="closeAnnouncement()">知道了</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="toastContainer" style="position:fixed;top:20px;left:50%;transform:translateX(-50%);z-index:9999;display:flex;flex-direction:column;gap:8px;pointer-events:none;"></div>
+
+    <!-- 新手教程覆盖层 -->
+    <div id="tutorialOverlay" class="tutorial-overlay" style="display:none;">
+        <div class="tutorial-backdrop"></div>
+        <div class="tutorial-highlight" id="tutorialHighlight"></div>
+        <div class="tutorial-tooltip" id="tutorialTooltip">
+            <div class="tutorial-step-indicator" id="tutorialStepIndicator"></div>
+            <div class="tutorial-content">
+                <div class="tutorial-title" id="tutorialTitle"></div>
+                <div class="tutorial-desc" id="tutorialDesc"></div>
+            </div>
+            <div class="tutorial-nav">
+                <button class="menu-btn tertiary" style="padding:6px 14px;font-size:12px;" onclick="skipTutorial()">跳过</button>
+                <button class="menu-btn tertiary" style="padding:6px 14px;font-size:12px;" id="tutorialPrev" onclick="prevTutorialStep()">上一步</button>
+                <button class="menu-btn primary" style="padding:6px 14px;font-size:12px;" id="tutorialNext" onclick="nextTutorialStep()">下一步</button>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
