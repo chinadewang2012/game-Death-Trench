@@ -2,13 +2,8 @@ const http = require('http');
 const fs = require('fs');
 const path = require('path');
 
-// 允许通过环境变量覆盖端口，避免多人/多实例共享开发机时的端口抢占
-const PORT = parseInt(process.env.DELTA_FORCE_PORT, 10) || 8080;
-// 安全地获取根目录：优先使用 __dirname（CommonJS），否则回退到 process.cwd()
-// 这样即使在某些运行方式下 __dirname 未定义也不会抛出异常（避免类死锁挂起）
 let __rootDir = (typeof __dirname !== 'undefined') ? __dirname : process.cwd();
-const DIST_DIR = path.resolve(__rootDir);
-// 预先规范化为以 '/' 结尾的绝对路径字符串（跨平台一致比较）
+const DIST_DIR = path.resolve(__rootDir, '网页');
 const DIST_DIR_NORM = path.normalize(DIST_DIR + path.sep);
 
 const contentTypeMap = {
@@ -42,28 +37,21 @@ function getContentType(filePath) {
     return contentTypeMap[ext] || 'application/octet-stream';
 }
 
-// 安全解析：规范化后验证不允许跳出 DIST_DIR，防止路径穿越攻击
 function safeResolve(requestPath) {
     try {
         if (typeof requestPath !== 'string') return null;
-        // 安全手动解码：支持百分号编码（如 %2e%2e 绕过）
         let clean = requestPath;
-        // 最多解码 3 次，防止 %25%32%65 形式的多层编码绕过
         for (let i = 0; i < 3; i++) {
             const before = clean;
             try { clean = decodeURIComponent(clean); } catch (e) { break; }
             if (clean === before) break;
         }
-        // 额外的硬拦截：解码后仍含 ".." 或 "/\\" 的话拒绝（避免 edge case）
         if (clean.indexOf('..') !== -1) return null;
         if (clean.indexOf('\x00') !== -1) return null;
-        // 去除 query / hash
         clean = clean.split('?')[0].split('#')[0];
-        // 去除开头的斜杠以便 path.join 正确拼接
         while (clean.startsWith('/') || clean.startsWith('\\')) clean = clean.slice(1);
         if (clean.length === 0) clean = '.';
         const absolute = path.resolve(DIST_DIR, clean);
-        // 校验结果必须仍位于 DIST_DIR 内（跨平台一致比较）
         const absNorm = path.normalize(absolute);
         if (absNorm !== DIST_DIR && !(absNorm + path.sep).startsWith(DIST_DIR_NORM)) {
             return null;
@@ -83,10 +71,7 @@ function serveFile(res, filePath) {
             if (!res.destroyed) res.end('404 Not Found');
             return;
         }
-        // 限制单个请求的最大体积，避免超大文件撑爆事件循环（类死锁）
-        const MAX_BYTES = 64 * 1024 * 1024; // 64MB
-        // 关键修复：size 必须是 fs.createReadStream 实际读取的字节数，
-        // 否则 Content-Length 与实际传输字节数不匹配，浏览器会等待剩余字节，造成连接挂起（类死锁）
+        const MAX_BYTES = 64 * 1024 * 1024;
         const fileSize = stat.size || 0;
         const size = Math.min(fileSize, MAX_BYTES);
         res.writeHead(200, {
@@ -95,16 +80,13 @@ function serveFile(res, filePath) {
             'Cache-Control': 'no-cache',
             'Connection': 'close'
         });
-        // 空文件直接结束，避免 stream "end" 永不触发（类死锁）
         if (size === 0) {
             try { if (!res.destroyed) res.end(); } catch (e) {}
             return;
         }
-        // 使用 [0, size - 1] 正好读取 size 字节，与 Content-Length 严格匹配
         const stream = fs.createReadStream(filePath, { start: 0, end: size - 1 });
-        // 文件流超时保护：超过10秒未完成则关闭连接，防止挂起
         let streamTimer = null;
-        const done = { finished: false }; // 对象而非布尔，确保闭包引用一致
+        const done = { finished: false };
         const safeMarkDone = () => {
             if (done.finished) return false;
             done.finished = true;
@@ -125,7 +107,6 @@ function serveFile(res, filePath) {
         });
         stream.on('end', () => { safeMarkDone(); });
         stream.on('close', () => { safeMarkDone(); });
-        // 关键修复：监听 res 的 finish/close，在响应已完成后阻止 stream 继续
         const onResDone = () => {
             if (!safeMarkDone()) return;
             try { stream.destroy(); } catch (e) {}
@@ -136,166 +117,294 @@ function serveFile(res, filePath) {
     });
 }
 
-const server = http.createServer((req, res) => {
-    // 关键修复：使用 Node 原生 setDefaultTimeout 等效的 req.setTimeout，
-    // 确保无论请求体还是响应阶段都有读/写超时兜底，
-    // 防止恶意慢速客户端占用连接（Slowloris 类死锁）。
+const GAME_CONFIG = {
+    version: 1,
+    AMMO_TYPES: { NORMAL: 'normal', AP: 'ap', EXP: 'exp', FIRE: 'fire' },
+    WEAPON_TYPES: { PISTOL: 'pistol', SMG: 'smg', RIFLE: 'rifle', AR: 'ar', LMG: 'lmg', SHOTGUN: 'shotgun', SNIPER: 'sniper', MELEE: 'melee' },
+    ITEM_TYPES: { CONSUMABLE: 'consumable', AMMO: 'ammo', MATERIAL: 'material', WEAPON: 'weapon', ARMOR: 'armor', MOD: 'mod', SKIN: 'skin', CURRENCY: 'currency', QUEST: 'quest' },
+    WEAPONS: [
+        { id: 'pistol', name: '手枪', type: 'pistol', damage: 25, fireRate: 250, clipSize: 15, range: 30, icon: '🔫', ammoType: 'normal', price: 0, unlocked: true, category: 'weapon', rarity: 'common' },
+        { id: 'smg', name: '冲锋枪', type: 'smg', damage: 18, fireRate: 80, clipSize: 35, range: 25, icon: '⚡', ammoType: 'normal', price: 800, unlocked: false, category: 'weapon', rarity: 'uncommon' },
+        { id: 'rifle', name: '步枪', type: 'rifle', damage: 30, fireRate: 150, clipSize: 30, range: 40, icon: '🔴', ammoType: 'normal', price: 0, unlocked: true, category: 'weapon', rarity: 'common' },
+        { id: 'ar', name: '突击步枪', type: 'ar', damage: 35, fireRate: 120, clipSize: 40, range: 45, icon: '🟥', ammoType: 'ap', price: 1500, unlocked: false, category: 'weapon', rarity: 'rare' },
+        { id: 'lmg', name: '轻机枪', type: 'lmg', damage: 28, fireRate: 60, clipSize: 100, range: 35, icon: '📦', ammoType: 'normal', price: 2500, unlocked: false, category: 'weapon', rarity: 'epic' },
+        { id: 'shotgun', name: '霰弹枪', type: 'shotgun', damage: 80, fireRate: 800, clipSize: 6, range: 15, icon: '💥', ammoType: 'normal', price: 1200, unlocked: false, pellets: 5, category: 'weapon', rarity: 'rare' },
+        { id: 'sniper', name: '狙击枪', type: 'sniper', damage: 120, fireRate: 1000, clipSize: 5, range: 60, icon: '🎯', ammoType: 'ap', price: 0, unlocked: true, category: 'weapon', rarity: 'rare' },
+        { id: 'knife', name: '战术匕首', type: 'melee', damage: 60, fireRate: 400, clipSize: 999, range: 2, icon: '🗡️', ammoType: null, price: 0, unlocked: true, isMelee: true, category: 'weapon', rarity: 'common' },
+        { id: 'machete', name: '砍刀', type: 'melee', damage: 90, fireRate: 600, clipSize: 999, range: 2.5, icon: '⚔️', ammoType: null, price: 800, unlocked: false, isMelee: true, category: 'weapon', rarity: 'uncommon' }
+    ],
+    ITEM_REGISTRY: {
+        medkit: { id: 'medkit', name: '医疗包', icon: '💊', type: 'consumable', rarity: 'uncommon', stackable: true, maxStack: 10, weight: 1, description: '回复一定生命值', usableInRaid: true, effect: { heal: 50 } },
+        grenade: { id: 'grenade', name: '手雷', icon: '💣', type: 'consumable', rarity: 'rare', stackable: true, maxStack: 5, weight: 2, description: '投掷造成范围伤害', usableInRaid: true, effect: { damage: 120, radius: 4 } },
+        ammoBox: { id: 'ammoBox', name: '弹药箱', icon: '📦', type: 'ammo', rarity: 'common', stackable: true, maxStack: 20, weight: 1, description: '补充普通弹药', usableInRaid: true, effect: { ammoNormal: 50 } },
+        speedBoost: { id: 'speedBoost', name: '加速针剂', icon: '⚡', type: 'consumable', rarity: 'rare', stackable: true, maxStack: 5, weight: 1, description: '短时间内提升移动速度', usableInRaid: true, effect: { speedMultiplier: 1.5, duration: 30000 } },
+        armor_light: { id: 'armor_light', name: '轻型护甲', icon: '🦺', type: 'armor', rarity: 'uncommon', stackable: false, maxStack: 1, weight: 5, description: '提供基础防护', usableInRaid: false, effect: { damageReduction: 0.15 } },
+        armor_heavy: { id: 'armor_heavy', name: '重型护甲', icon: '🛡️', type: 'armor', rarity: 'rare', stackable: false, maxStack: 1, weight: 10, description: '提供强力防护但降低移动速度', usableInRaid: false, effect: { damageReduction: 0.35, speedPenalty: 0.1 } },
+        copper_wire: { id: 'copper_wire', name: '铜线', icon: '🔌', type: 'material', rarity: 'common', stackable: true, maxStack: 50, weight: 0.2, description: '常见电子材料', usableInRaid: false },
+        circuit_board: { id: 'circuit_board', name: '电路板', icon: '🧩', type: 'material', rarity: 'uncommon', stackable: true, maxStack: 20, weight: 0.5, description: '中等价值电子元件', usableInRaid: false },
+        gold_watch: { id: 'gold_watch', name: '金表', icon: '⌚', type: 'material', rarity: 'epic', stackable: true, maxStack: 5, weight: 0.3, description: '高价值战利品', usableInRaid: false },
+        classified_docs: { id: 'classified_docs', name: '机密文件', icon: '📁', type: 'material', rarity: 'legendary', stackable: true, maxStack: 1, weight: 0.1, description: '极其稀有的情报', usableInRaid: false }
+    },
+    GAME_PARAMS: {
+        ENEMY: { health: 80, damage: { easy: 8, normal: 12, hard: 18 }, moveSpeed: 0.35, fireRate: 1500, spawnInterval: 3000, count: 8 },
+        PLAYER: { maxHealth: 100, moveSpeed: 100, bulletSpeed: 15, invincibilityTime: 1000 },
+        MAP: { obstacleRate: 0.08, coverRate: 0.14, buildingRate: 0.18, waterRate: 0.2, MAP_SIZE: 150 },
+        DROPS: { coinMin: 10, coinMax: 30, medkitHeal: 30, grenadeDamage: 150, grenadeRadius: 4, ammoRefillAll: 30, starScore: 500 },
+        BUFFS: { speedBoostMultiplier: 1.5, speedBoostDuration: 30000, damageReductionMultiplier: 0.5 }
+    },
+    MODIFICATIONS: {
+        scope: { name: '瞄准镜', icon: '🔭', effects: { rangeBonus: 1.3, damageBonus: 1.0 }, price: 500, description: '增加30%射程' },
+        extendedMag: { name: '扩容弹匣', icon: '📋', effects: { clipSizeBonus: 1.5, fireRateBonus: 0.9 }, price: 400, description: '增加50%弹容量，减少10%射速' },
+        suppressor: { name: '消音器', icon: '🔇', effects: { rangeBonus: 0.8, stealth: true }, price: 600, description: '减少声音，射程降低20%' },
+        grip: { name: '战术握把', icon: '✋', effects: { fireRateBonus: 1.2, spreadReduction: 0.7 }, price: 350, description: '增加20%射速，减少散布' },
+        apRounds: { name: '穿甲弹', icon: '🎯', effects: { damageBonus: 1.3, armorPenetration: true }, price: 800, description: '增加30%伤害，穿透护甲' },
+        stock: { name: '枪托', icon: '🪵', effects: { recoilReduction: 0.6, accuracyBonus: 1.15 }, price: 450, description: '大幅减少后坐力' }
+    },
+    MEDALS: [
+        { id: 'first_blood', name: '初露锋芒', icon: '🩸', description: '累计击杀10名敌人', rarity: 'bronze', conditionType: 'kills', threshold: 10, reward: { coins: 100 }, hidden: false, order: 1 },
+        { id: 'seasoned_fighter', name: '百战老兵', icon: '⚔️', description: '累计击杀100名敌人', rarity: 'silver', conditionType: 'kills', threshold: 100, reward: { coins: 500 }, hidden: false, order: 2 },
+        { id: 'legendary_soldier', name: '传奇战士', icon: '👑', description: '累计击杀1000名敌人', rarity: 'diamond', conditionType: 'kills', threshold: 1000, reward: { coins: 5000 }, hidden: false, order: 3 },
+        { id: 'wealthy', name: '小有积蓄', icon: '💰', description: '拥有金币达到1000', rarity: 'bronze', conditionType: 'coins', threshold: 1000, reward: { coins: 100 }, hidden: false, order: 4 },
+        { id: 'millionaire', name: '腰缠万贯', icon: '🏦', description: '拥有金币达到10000', rarity: 'gold', conditionType: 'coins', threshold: 10000, reward: { coins: 1000 }, hidden: false, order: 5 },
+        { id: 'survivor', name: '生存专家', icon: '🛡️', description: '累计游玩时间超过1小时', rarity: 'silver', conditionType: 'playtime', threshold: 3600, reward: { coins: 300 }, hidden: false, order: 6 },
+        { id: 'sharp_shooter', name: '神枪手', icon: '🎯', description: 'K/D 达到3.0', rarity: 'gold', conditionType: 'kd', threshold: 3.0, reward: { coins: 800 }, hidden: false, order: 7 },
+        { id: 'mission_accomplished', name: '任务达人', icon: '📋', description: '累计完成10个任务', rarity: 'silver', conditionType: 'missions', threshold: 10, reward: { coins: 400 }, hidden: false, order: 8 },
+        { id: 'lucky_draw', name: '幸运儿', icon: '🎰', description: '累计抽奖100次', rarity: 'gold', conditionType: 'lotteryDraws', threshold: 100, reward: { coins: 1000 }, hidden: false, order: 9 },
+        { id: 'jackpot', name: 'Jackpot！', icon: '💎', description: '抽奖获得传说品质奖励', rarity: 'platinum', conditionType: 'legendaryOwned', threshold: 1, reward: { coins: 2000 }, hidden: false, order: 10 }
+    ]
+};
+
+function sendJson(res, data, status = 200) {
     try {
-        req.setTimeout(30000, () => {
-            try { req.destroy(new Error('Request read timeout')); } catch (e) {}
-        });
-        res.setTimeout(30000, () => {
-            try { res.destroy(new Error('Response write timeout')); } catch (e) {}
-        });
+        if (!res.headersSent) {
+            res.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8', 'Connection': 'close', 'Access-Control-Allow-Origin': '*' });
+        }
+        if (!res.destroyed) res.end(JSON.stringify(data, null, 2));
     } catch (e) {}
+}
 
-    // 为每个请求设置30秒的整体超时兜底，避免任何未考虑到的路径导致连接挂起（类死锁）
-    let overallTimer = null;
-    let overallTimerCleared = false;
-    const clearOverallTimer = () => {
-        if (overallTimerCleared) return;
-        overallTimerCleared = true;
-        if (overallTimer) {
-            clearTimeout(overallTimer);
-            overallTimer = null;
-        }
-    };
-    overallTimer = setTimeout(() => {
-        try {
-            if (res.destroyed || res.finished) return;
-            if (!res.headersSent) {
-                res.writeHead(408, { 'Content-Type': 'text/plain; charset=utf-8', 'Connection': 'close' });
-                res.end('Request Timeout');
-            } else {
-                res.destroy(new Error('Request timeout'));
-            }
-        } catch (e) {}
-    }, 30000);
-
-    // 确保请求最终都会结束（无论 finish/close/error），避免连接挂起（类死锁）
-    res.on('finish', clearOverallTimer);
-    res.on('close', clearOverallTimer);
-    req.on('end', () => { clearOverallTimer(); /* 请求体结束，解除超时等待 */ });
-    req.on('error', () => {
-        clearOverallTimer();
-        // 关键修复：只有在 res 尚未结束/未发送响应时才尝试写 400；
-        // 否则之前的代码路径（例如 safeResolve → 403）已经 end，
-        // 再次 res.end 会触发 ERR_STREAM_WRITE_AFTER_END 并使进程崩溃。
-        try {
-            if (res.destroyed) return;
-            if (res.finished) return;
-            if (!res.headersSent) {
-                res.writeHead(400, { 'Content-Type': 'text/plain; charset=utf-8', 'Connection': 'close' });
-            }
-            res.end('Bad Request');
-        } catch (e) {}
-    });
-
-    // 过滤掉明显非法的请求（比如 Favicon 空路径等）
-    // 使用 WHATWG URL 替代 url.parse，避免 DEP0169 警告
-    let requestPath = '/';
+function setCorsHeaders(res) {
     try {
-        const parsedUrl = new URL(req.url, 'http://localhost');
-        requestPath = parsedUrl.pathname || '/';
-    } catch (e) {
-        if (!res.headersSent) res.writeHead(400, { 'Content-Type': 'text/plain; charset=utf-8' });
-        res.end('400 Bad Request');
-        return;
+        res.setHeader('Access-Control-Allow-Origin', '*');
+        res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+        res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+    } catch (e) {}
+}
+
+function handleConfigApi(req, res, requestPath) {
+    setCorsHeaders(res);
+
+    if (req.method === 'OPTIONS') {
+        res.writeHead(204, { 'Connection': 'close' });
+        res.end();
+        return true;
     }
 
-    let filePath = safeResolve(requestPath);
-    if (!filePath) {
-        res.writeHead(403, { 'Content-Type': 'text/plain; charset=utf-8' });
-        res.end('403 Forbidden');
-        return;
+    if (req.method !== 'GET') {
+        return false;
     }
 
-    // 处理目录：自动 index.html；处理文件不存在：404
-    try {
-        const stat = fs.existsSync(filePath) ? fs.statSync(filePath) : null;
-        if (stat && stat.isDirectory()) {
-            filePath = path.join(filePath, 'index.html');
-        } else if (requestPath === '/') {
-            // 根路径：回退到项目根的 index.html
-            const fallback = path.join(DIST_DIR, 'index.html');
-            if (fs.existsSync(fallback)) {
-                filePath = fallback;
-            }
-        } else if (!fs.existsSync(filePath)) {
-            // 具体文件不存在 → 直接返回 404，避免回退 index.html 误导
-            res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
-            res.end('404 Not Found: ' + requestPath);
-            return;
-        }
-    } catch (e) {
-        // 无视错误，继续后续处理
+    switch (requestPath) {
+        case '/api/config':
+            sendJson(res, { success: true, data: GAME_CONFIG });
+            return true;
+        case '/api/config/weapons':
+            sendJson(res, { success: true, data: GAME_CONFIG.WEAPONS });
+            return true;
+        case '/api/config/items':
+            sendJson(res, { success: true, data: GAME_CONFIG.ITEM_REGISTRY });
+            return true;
+        case '/api/config/params':
+            sendJson(res, { success: true, data: GAME_CONFIG.GAME_PARAMS });
+            return true;
+        case '/api/config/modifications':
+            sendJson(res, { success: true, data: GAME_CONFIG.MODIFICATIONS });
+            return true;
+        case '/api/config/medals':
+            sendJson(res, { success: true, data: GAME_CONFIG.MEDALS });
+            return true;
+        case '/api/config/ammo-types':
+            sendJson(res, { success: true, data: GAME_CONFIG.AMMO_TYPES });
+            return true;
+        case '/api/config/weapon-types':
+            sendJson(res, { success: true, data: GAME_CONFIG.WEAPON_TYPES });
+            return true;
+        case '/api/config/item-types':
+            sendJson(res, { success: true, data: GAME_CONFIG.ITEM_TYPES });
+            return true;
+        default:
+            return false;
     }
+}
 
-    serveFile(res, filePath);
-});
-
-// 监听错误处理：端口被占用时给出清晰提示
-server.on('error', (err) => {
-    if (err.code === 'EADDRINUSE') {
-        console.error(`[ERROR] 端口 ${PORT} 已被占用。请先关闭占用该端口的进程后再启动。`);
-        // 尝试列出占用端口的进程（Windows netstat 风格提示）
+function createServer(port, label, indexFile) {
+    const server = http.createServer((req, res) => {
         try {
-            const { exec } = require('child_process');
-            exec('netstat -ano | findstr :' + PORT, { windowsHide: true }, (_err, stdout) => {
-                if (!_err && stdout && stdout.trim()) {
-                    console.error('[INFO] 占用该端口的进程信息：\n' + stdout.trim());
-                }
-                // 关键修复：使用 gracefulShutdown 确保服务器完全关闭后再退出，
-                // 避免子进程未完成或连接未释放导致的端口残留
-                gracefulShutdown();
+            req.setTimeout(30000, () => {
+                try { req.destroy(new Error('Request read timeout')); } catch (e) {}
             });
-            return;
-        } catch (e) {
-            gracefulShutdown();
-        }
-    } else {
-        console.error('[ERROR] 服务器错误：', err.message);
-        gracefulShutdown();
-    }
-});
+            res.setTimeout(30000, () => {
+                try { res.destroy(new Error('Response write timeout')); } catch (e) {}
+            });
+        } catch (e) {}
 
-// 关键修复：全局连接超时必须在 server.listen 之前注册，
-// 否则在 listen 与事件注册之间建立的连接不会有超时处理，
-// 会变成悬挂连接（类死锁资源耗尽）。
-server.on('connection', (socket) => {
-    socket.setTimeout(60000);
-    socket.on('timeout', () => {
-        try { socket.destroy(); } catch (e) {}
-    });
-});
-
-server.listen(PORT, '0.0.0.0', () => {
-    console.log(`==================================================`);
-    console.log(` Death Trench 2D 静态服务器已启动`);
-    console.log(` 本地访问: http://localhost:${PORT}`);
-    console.log(` 根目录  : ${DIST_DIR}`);
-    console.log(`==================================================`);
-    // Windows 桌面环境下尝试打开浏览器；使用 setImmediate + 显式忽略回调
-    // 避免子进程阻塞事件循环或造成类死锁挂起；非桌面环境（无 START 命令）直接静默忽略。
-    if (process.platform === 'win32') {
-        setImmediate(() => {
+        let overallTimer = null;
+        let overallTimerCleared = false;
+        const clearOverallTimer = () => {
+            if (overallTimerCleared) return;
+            overallTimerCleared = true;
+            if (overallTimer) {
+                clearTimeout(overallTimer);
+                overallTimer = null;
+            }
+        };
+        overallTimer = setTimeout(() => {
             try {
-                const { exec } = require('child_process');
-                exec(`start "" "http://localhost:${PORT}"`, { windowsHide: true }, () => {});
+                if (res.destroyed || res.finished) return;
+                if (!res.headersSent) {
+                    res.writeHead(408, { 'Content-Type': 'text/plain; charset=utf-8', 'Connection': 'close' });
+                    res.end('Request Timeout');
+                } else {
+                    res.destroy(new Error('Request timeout'));
+                }
+            } catch (e) {}
+        }, 30000);
+
+        res.on('finish', clearOverallTimer);
+        res.on('close', clearOverallTimer);
+        req.on('end', () => { clearOverallTimer(); });
+        req.on('error', () => {
+            clearOverallTimer();
+            try {
+                if (res.destroyed) return;
+                if (res.finished) return;
+                if (!res.headersSent) {
+                    res.writeHead(400, { 'Content-Type': 'text/plain; charset=utf-8', 'Connection': 'close' });
+                }
+                res.end('Bad Request');
             } catch (e) {}
         });
-    }
-});
 
-// 关键修复：在主进程收到 SIGINT/SIGTERM 时优雅关闭服务器，
-// 避免 Ctrl+C 退出后 node 进程/端口残留（这正是之前 8080 被 PID 23832 占用的原因）。
+        let requestPath = '/';
+        try {
+            const parsedUrl = new URL(req.url, 'http://localhost');
+            requestPath = parsedUrl.pathname || '/';
+        } catch (e) {
+            if (!res.headersSent) res.writeHead(400, { 'Content-Type': 'text/plain; charset=utf-8' });
+            res.end('400 Bad Request');
+            return;
+        }
+
+        if (requestPath.startsWith('/api/config')) {
+            if (handleConfigApi(req, res, requestPath)) return;
+        }
+
+        let filePath = safeResolve(requestPath);
+        if (!filePath) {
+            res.writeHead(403, { 'Content-Type': 'text/plain; charset=utf-8' });
+            res.end('403 Forbidden');
+            return;
+        }
+
+        try {
+            const stat = fs.existsSync(filePath) ? fs.statSync(filePath) : null;
+            if (stat && stat.isDirectory()) {
+                filePath = path.join(filePath, indexFile);
+            } else if (requestPath === '/') {
+                const fallback = path.join(DIST_DIR, indexFile);
+                if (fs.existsSync(fallback)) {
+                    filePath = fallback;
+                }
+            } else if (!fs.existsSync(filePath)) {
+                res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
+                res.end('404 Not Found: ' + requestPath);
+                return;
+            }
+        } catch (e) {
+            // 无视错误，继续后续处理
+        }
+
+        serveFile(res, filePath);
+    });
+
+    server.on('error', (err) => {
+        if (err.code === 'EADDRINUSE') {
+            console.error(`[ERROR] [${label}] 端口 ${port} 已被占用。`);
+            try {
+                const { exec } = require('child_process');
+                exec('netstat -ano | findstr :' + port, { windowsHide: true }, (_err, stdout) => {
+                    if (!_err && stdout && stdout.trim()) {
+                        console.error(`[INFO] [${label}] 占用该端口的进程信息：\n` + stdout.trim());
+                    }
+                });
+            } catch (e) {}
+        } else {
+            console.error(`[ERROR] [${label}] 服务器错误：`, err.message);
+        }
+    });
+
+    server.on('connection', (socket) => {
+        socket.setTimeout(60000);
+        socket.on('timeout', () => {
+            try { socket.destroy(); } catch (e) {}
+        });
+    });
+
+    return server;
+}
+
+const servers = [];
+
+const normalServer = createServer(8080, '普通版', 'index.html');
+normalServer.listen(8080, '0.0.0.0', () => {
+    console.log(`✅ [普通版] http://localhost:8080`);
+});
+servers.push(normalServer);
+
+const devServer = createServer(3030, '开发版', 'index-dev.html');
+devServer.listen(3030, '0.0.0.0', () => {
+    console.log(`✅ [开发版] http://localhost:3030`);
+});
+servers.push(devServer);
+
+console.log(`\n==================================================`);
+console.log(`  死亡战壕 2D - 双版本服务器`);
+console.log(`==================================================`);
+console.log(`  普通版 (无编辑器): http://localhost:8080`);
+console.log(`  开发版 (带编辑器): http://localhost:3030`);
+console.log(`  根目录: ${DIST_DIR}`);
+console.log(`==================================================\n`);
+
+if (process.platform === 'win32') {
+    setImmediate(() => {
+        try {
+            const { exec } = require('child_process');
+            exec(`start "" "http://localhost:8080"`, { windowsHide: true }, () => {});
+        } catch (e) {}
+    });
+}
+
 function gracefulShutdown() {
     console.log('\n[SERVER] 收到关闭信号，正在释放端口...');
-    server.close(() => {
-        console.log('[SERVER] HTTP 服务器已关闭，端口已释放。');
-        process.exit(0);
+    let closed = 0;
+    const total = servers.length;
+    servers.forEach((s, i) => {
+        try {
+            s.close(() => {
+                closed++;
+                if (closed >= total) {
+                    console.log('[SERVER] 所有服务器已关闭，端口已释放。');
+                    process.exit(0);
+                }
+            });
+        } catch (e) {
+            closed++;
+            if (closed >= total) {
+                console.log('[SERVER] 所有服务器已关闭，端口已释放。');
+                process.exit(0);
+            }
+        }
     });
-    // 兜底：如果 close 回调未触发（仍有未完成连接），3 秒后强制退出
     setTimeout(() => {
         console.log('[SERVER] 强制退出。');
         process.exit(0);

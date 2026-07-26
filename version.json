@@ -1,0 +1,13 @@
+{
+  "version": "2.0.0",
+  "releaseDate": "2026-06-22",
+  "downloadUrl": "https://gitee.com/wang-zirui-from-beijing/death-trench-ai-game/releases",
+  "changelog": [
+    "新增武器系统：冲锋枪、突击步枪、轻机枪、霰弹枪",
+    "新增改装系统：瞄准镜、扩容弹匣、消音器、握把、穿甲弹、枪托",
+    "新增皮肤系统：武器皮肤和角色皮肤",
+    "新增弹药系统：普通弹、穿甲弹、爆破弹、燃烧弹",
+    "优化武器属性计算，改装后属性实时生效",
+    "黑市新增弹药购买选项"
+  ]
+}
