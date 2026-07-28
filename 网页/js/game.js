@@ -833,6 +833,10 @@ window.settings = settings;
 let gameMode = 'mission';
 window.gameMode = gameMode;
 
+// 搜打撤临时数据：战利品背包、当前出战配装
+let raidLoot = [];
+let currentRaidLoadout = null;
+
 const DEFAULT_TITLES_GAME = [
     { id: 't0', name: '新兵', icon: '🎖️', color: '#ffffff', bg1: 'rgba(139,148,158,0.5)', bg2: 'rgba(139,148,158,0.3)', borderColor: '#8b949e', pattern: 'none', conditionType: 'default', threshold: 0, reqText: '初始' },
     { id: 't1', name: '士兵', icon: '⚔️', color: '#ffffff', bg1: '#58a6ff', bg2: '#1f6feb', borderColor: '#58a6ff', pattern: 'gradient', conditionType: 'kills', threshold: 10, reqText: '击杀10人' },
@@ -1231,6 +1235,9 @@ let playerData = {
     selectedMode: 'mission',
     teammateCount: 0,
     equippedWeapons: { primary: 'rifle', secondary: 'pistol' },
+    raidLoadout: {
+        consumables: { medkits: 0, grenades: 0, speedBoost: 0 }
+    },
     avatar: {
         source: 'default', // 'default' | 'file' | 'url'
         dataUrl: '',
@@ -1283,6 +1290,14 @@ function loadPlayerData() {
                     playerData[key] = legacy[key];
                 }
             }
+        }
+
+        // 初始化搜打撤出战配装
+        if (!playerData.raidLoadout) {
+            playerData.raidLoadout = { consumables: { medkits: 0, grenades: 0, speedBoost: 0 } };
+        }
+        if (!playerData.raidLoadout.consumables) {
+            playerData.raidLoadout.consumables = { medkits: 0, grenades: 0, speedBoost: 0 };
         }
 
         savePlayerData();
@@ -3188,6 +3203,31 @@ function actuallyStartGame() {
     gameMode = playerData.selectedMode || 'mission';
     window.gameMode = gameMode;
 
+    // 重置搜打撤临时数据
+    raidLoot = [];
+    currentRaidLoadout = null;
+
+    if (gameMode === 'raid') {
+        // 记录本局出战配装（武器、护甲、消耗品）
+        currentRaidLoadout = {
+            weapons: { ...(playerData.equippedWeapons || { primary: 'rifle', secondary: 'pistol' }) },
+            armor: playerData.equippedArmor || '',
+            consumables: { ...(playerData.raidLoadout && playerData.raidLoadout.consumables ? playerData.raidLoadout.consumables : { medkits: 0, grenades: 0, speedBoost: 0 }) }
+        };
+
+        // 扣除带入的消耗品（护甲在 equipArmor 时已扣除，这里不再重复）
+        const inv = playerData.inventory;
+        const rc = currentRaidLoadout.consumables;
+        for (const key of Object.keys(rc)) {
+            const take = rc[key] || 0;
+            if (take > 0) {
+                inv[key] = Math.max(0, (inv[key] || 0) - take);
+            }
+        }
+        savePlayerData();
+        updateSupplyUI();
+    }
+
     // 隐藏大厅和所有面板
     const lobby = document.getElementById('lobby');
     if (lobby) {
@@ -4621,6 +4661,9 @@ function draw() {
     // 绘制队友
     drawTeammates();
 
+    // 绘制队友离屏方向指示箭头
+    drawTeammateIndicators();
+
     // 绘制摸金箱子
     drawLootCrates();
 
@@ -5326,6 +5369,14 @@ function gameOver() {
     playerMods.equippedMods = {};
     savePlayerMods();
 
+    // 搜打撤模式死亡惩罚：丢失出战装备与本次战利品
+    if (gameMode === 'raid' && currentRaidLoadout) {
+        playerData.equippedWeapons = { primary: 'rifle', secondary: 'pistol' };
+        playerData.equippedArmor = '';
+        raidLoot = [];
+        showNotification('⚠️ 搜打撤行动失败：出战装备与战利品全部丢失', 'error');
+    }
+
     playerData.totalKills += player.kills;
     playerData.totalScore += player.score;
     playerData.coins += Math.floor(player.score / 10);
@@ -5369,6 +5420,12 @@ function extractionSuccess() {
         playerData.playTimeSeconds += Math.floor((Date.now() - gameStartTime) / 1000);
     }
     updatePlayerTitle();
+
+    // 搜打撤模式：成功撤离时结算战利品
+    if (gameMode === 'raid') {
+        applyRaidLoot();
+    }
+
     savePlayerData();
 
     // 对象池已在cleanupGameState中清理，这里无需重复
@@ -5387,7 +5444,13 @@ function extractionSuccess() {
         const titleEl = extractPanel.querySelector('h2');
         if (titleEl) titleEl.textContent = '🎖️ 撤离成功';
         const subtitleEl = extractPanel.querySelector('p');
-        if (subtitleEl) subtitleEl.textContent = `击杀 ${player.kills} 人 | 得分 ${player.score} | 获得 ${Math.floor(player.score / 5)} 金币`;
+        if (subtitleEl) {
+            if (gameMode === 'raid') {
+                subtitleEl.textContent = `搜打撤撤离成功！装备与战利品已安全带回仓库`;
+            } else {
+                subtitleEl.textContent = `击杀 ${player.kills} 人 | 得分 ${player.score} | 获得 ${Math.floor(player.score / 5)} 金币`;
+            }
+        }
         extractPanel.style.display = 'block';
     }
 }
@@ -5407,7 +5470,13 @@ function endGame() {
         gameOver();
         return;
     }
-    
+
+    // 搜打撤模式必须撤离，不能 ESC 直接安全退出
+    if (gameMode === 'raid') {
+        showNotification('搜打撤模式无法主动退出，请前往撤离点撤离');
+        return;
+    }
+
     // 先清理游戏状态
     cleanupGameState();
     
@@ -6449,6 +6518,7 @@ function setGameMode(mode) {
     savePlayerData();
     updateGameModeUI();
     updateReadyRoomMission();
+    updateRaidLoadoutUI();
 }
 
 function updateGameModeUI() {
@@ -6675,6 +6745,49 @@ function updateSupplyUI() {
     }
 }
 
+// ============================================================
+// 搜打撤：战前配装 UI
+// ============================================================
+function updateRaidLoadoutUI() {
+    const isRaid = (playerData.selectedMode || 'mission') === 'raid';
+    const title = document.getElementById('raidConsumablesTitle');
+    const panel = document.getElementById('raidConsumablesPanel');
+    if (title) title.style.display = isRaid ? 'block' : 'none';
+    if (panel) panel.style.display = isRaid ? 'block' : 'none';
+    if (!isRaid) return;
+
+    const inv = playerData.inventory || {};
+    const loadout = playerData.raidLoadout && playerData.raidLoadout.consumables ? playerData.raidLoadout.consumables : { medkits: 0, grenades: 0, speedBoost: 0 };
+
+    const fields = [
+        { key: 'medkits', ui: 'raidMedkits', owned: 'ownedMedkits' },
+        { key: 'grenades', ui: 'raidGrenades', owned: 'ownedGrenades' },
+        { key: 'speedBoost', ui: 'raidSpeedBoost', owned: 'ownedSpeedBoost' }
+    ];
+    for (const f of fields) {
+        const uiEl = document.getElementById(f.ui);
+        const ownedEl = document.getElementById(f.owned);
+        if (uiEl) uiEl.textContent = loadout[f.key] || 0;
+        if (ownedEl) ownedEl.textContent = inv[f.key] || 0;
+    }
+}
+
+function adjustRaidConsumable(key, delta) {
+    if (!playerData.raidLoadout) playerData.raidLoadout = { consumables: { medkits: 0, grenades: 0, speedBoost: 0 } };
+    if (!playerData.raidLoadout.consumables) playerData.raidLoadout.consumables = { medkits: 0, grenades: 0, speedBoost: 0 };
+    const loadout = playerData.raidLoadout.consumables;
+    const inv = playerData.inventory || {};
+    const current = loadout[key] || 0;
+    const owned = inv[key] || 0;
+    let next = current + delta;
+    if (next < 0) next = 0;
+    if (next > owned) next = owned;
+    if (next > 5) next = 5; // 单种消耗品最多带 5 个
+    loadout[key] = next;
+    savePlayerData();
+    updateRaidLoadoutUI();
+}
+
 let currentNotificationEl = null;
 let notificationTimeout = null;
 let notificationMessages = [];
@@ -6857,6 +6970,8 @@ function showReadyRoom() {
     updateReadyRoomMission();
     // 更新战备中心武器装备显示
     updateReadyRoomLoadout();
+    // 更新搜打撤出战补给面板
+    updateRaidLoadoutUI();
     // 更新队友配置显示
     updateTeammateCountUI();
     updateTeammateLoadoutPreview();
@@ -6968,6 +7083,8 @@ window.setTeammateCount = setTeammateCount;
 window.updateTeammateCountUI = updateTeammateCountUI;
 window.setGameMode = setGameMode;
 window.updateGameModeUI = updateGameModeUI;
+window.updateRaidLoadoutUI = updateRaidLoadoutUI;
+window.adjustRaidConsumable = adjustRaidConsumable;
 
 function hideLobbyBottom() {
     const lobbyBottom = document.querySelector('.lobby-bottom');
@@ -9793,6 +9910,72 @@ function drawTeammates() {
 }
 
 // ============================================================
+// 队友离屏指示箭头
+// ============================================================
+function drawTeammateIndicators() {
+    if (!player || teammates.length === 0 || !canvas || !ctx) return;
+    const w = canvas.width;
+    const h = canvas.height;
+    const cx = w / 2;
+    const cy = h / 2;
+    const pad = 28;
+    const maxHalfW = w / 2 - pad;
+    const maxHalfH = h / 2 - pad;
+
+    for (let i = 0; i < teammates.length; i++) {
+        const tm = teammates[i];
+        if (!tm.alive) continue;
+
+        const pdx = (tm.x - player.x) * TILE_SIZE;
+        const pdy = (tm.y - player.y) * TILE_SIZE;
+
+        // 在视野内不显示指示器
+        if (Math.abs(pdx) < maxHalfW && Math.abs(pdy) < maxHalfH) continue;
+
+        const angle = Math.atan2(pdy, pdx);
+        let t = Infinity;
+        if (Math.abs(Math.cos(angle)) > 0.0001) {
+            t = Math.min(t, maxHalfW / Math.abs(Math.cos(angle)));
+        }
+        if (Math.abs(Math.sin(angle)) > 0.0001) {
+            t = Math.min(t, maxHalfH / Math.abs(Math.sin(angle)));
+        }
+        if (!isFinite(t) || t < 0) t = 0;
+
+        const ex = cx + Math.cos(angle) * t;
+        const ey = cy + Math.sin(angle) * t;
+        const dist = Math.floor(Math.sqrt((tm.x - player.x) * (tm.x - player.x) + (tm.y - player.y) * (tm.y - player.y)));
+
+        ctx.save();
+        ctx.translate(ex, ey);
+        ctx.rotate(angle);
+        ctx.fillStyle = '#4dabf7';
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 2;
+        ctx.shadowColor = '#4dabf7';
+        ctx.shadowBlur = 10;
+
+        const size = 10;
+        ctx.beginPath();
+        ctx.moveTo(size, 0);
+        ctx.lineTo(-size, -size * 0.7);
+        ctx.lineTo(-size * 0.4, 0);
+        ctx.lineTo(-size, size * 0.7);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+        ctx.shadowBlur = 0;
+
+        ctx.fillStyle = '#ffffff';
+        ctx.font = 'bold 11px Arial';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(dist + 'm', 0, -size - 10);
+        ctx.restore();
+    }
+}
+
+// ============================================================
 // 搜打撤实验：摸金箱子
 // ============================================================
 function generateLootCrates(count) {
@@ -9873,6 +10056,7 @@ function openLootCrate(crate) {
     const drops = LOOT_CRATE_DROP_TABLE[crate.rarity] || LOOT_CRATE_DROP_TABLE.common;
     const lootCount = Math.max(1, Math.floor(LOOT_CRATE_LOOT_COUNT * rarityInfo.lootMul));
     const lootMessages = [];
+    const isRaid = gameMode === 'raid';
 
     function pickDrop() {
         const totalWeight = drops.reduce((sum, d) => sum + d.weight, 0);
@@ -9889,8 +10073,13 @@ function openLootCrate(crate) {
         switch (drop.type) {
             case 'coins': {
                 const coins = drop.min + Math.floor(Math.random() * (drop.max - drop.min + 1));
-                playerData.coins += coins;
-                lootMessages.push(`+${coins} 金币`);
+                if (isRaid) {
+                    raidLoot.push({ type: 'coins', value: coins });
+                    lootMessages.push(`待撤离 +${coins} 金币`);
+                } else {
+                    playerData.coins += coins;
+                    lootMessages.push(`+${coins} 金币`);
+                }
                 break;
             }
             case 'heal': {
@@ -9909,8 +10098,14 @@ function openLootCrate(crate) {
                             drop.itemId === 'medkit' ? 'medkits' :
                             drop.itemId === 'grenade' ? 'grenades' :
                             drop.itemId === 'speedBoost' ? 'speedBoost' : drop.itemId;
-                playerData.inventory[key] = (playerData.inventory[key] || 0) + (drop.value || 1);
-                lootMessages.push(`+${drop.value || 1} ${itemName(drop.itemId)}`);
+                const value = drop.value || 1;
+                if (isRaid) {
+                    raidLoot.push({ type: 'item', key: key, value: value });
+                    lootMessages.push(`待撤离 +${value} ${itemName(drop.itemId)}`);
+                } else {
+                    playerData.inventory[key] = (playerData.inventory[key] || 0) + value;
+                    lootMessages.push(`+${value} ${itemName(drop.itemId)}`);
+                }
                 break;
             }
             case 'ammo': {
@@ -9936,11 +10131,21 @@ function openLootCrate(crate) {
                 if (modList.length > 0) {
                     const modId = modList[Math.floor(Math.random() * modList.length)];
                     const mod = MODIFICATIONS[modId];
-                    playerMods.ownedMods[modId] = (playerMods.ownedMods[modId] || 0) + 1;
-                    lootMessages.push(`+1 ${mod ? mod.name : modId} 配件`);
+                    if (isRaid) {
+                        raidLoot.push({ type: 'mod', modId: modId });
+                        lootMessages.push(`待撤离 +1 ${mod ? mod.name : modId} 配件`);
+                    } else {
+                        playerMods.ownedMods[modId] = (playerMods.ownedMods[modId] || 0) + 1;
+                        lootMessages.push(`+1 ${mod ? mod.name : modId} 配件`);
+                    }
                 } else {
-                    playerData.coins += 100;
-                    lootMessages.push('+100 金币');
+                    if (isRaid) {
+                        raidLoot.push({ type: 'coins', value: 100 });
+                        lootMessages.push('待撤离 +100 金币');
+                    } else {
+                        playerData.coins += 100;
+                        lootMessages.push('+100 金币');
+                    }
                 }
                 break;
             }
@@ -9950,25 +10155,91 @@ function openLootCrate(crate) {
                     const skin = skinTemplates[Math.floor(Math.random() * skinTemplates.length)];
                     const skinId = 'skin_' + skin.id;
                     if (!playerMods.ownedSkins.includes(skinId)) {
-                        playerMods.ownedSkins.push(skinId);
-                        lootMessages.push(`🎨 皮肤碎片：${skin.name}`);
+                        if (isRaid) {
+                            raidLoot.push({ type: 'skin', skinId: skinId });
+                            lootMessages.push(`🎨 待撤离 皮肤碎片：${skin.name}`);
+                        } else {
+                            playerMods.ownedSkins.push(skinId);
+                            lootMessages.push(`🎨 皮肤碎片：${skin.name}`);
+                        }
                     } else {
-                        playerData.coins += 50;
-                        lootMessages.push('+50 金币（重复皮肤）');
+                        if (isRaid) {
+                            raidLoot.push({ type: 'coins', value: 50 });
+                            lootMessages.push('待撤离 +50 金币（重复皮肤）');
+                        } else {
+                            playerData.coins += 50;
+                            lootMessages.push('+50 金币（重复皮肤）');
+                        }
                     }
                 } else {
-                    playerData.coins += 80;
-                    lootMessages.push('+80 金币');
+                    if (isRaid) {
+                        raidLoot.push({ type: 'coins', value: 80 });
+                        lootMessages.push('待撤离 +80 金币');
+                    } else {
+                        playerData.coins += 80;
+                        lootMessages.push('+80 金币');
+                    }
                 }
                 break;
             }
             default:
-                playerData.coins += 10;
-                lootMessages.push('+10 金币');
+                if (isRaid) {
+                    raidLoot.push({ type: 'coins', value: 10 });
+                    lootMessages.push('待撤离 +10 金币');
+                } else {
+                    playerData.coins += 10;
+                    lootMessages.push('+10 金币');
+                }
         }
     }
     showNotification(`${rarityInfo.icon} ${rarityInfo.label}物资箱：${lootMessages.join(' / ')}`, 'success');
     updateHUD();
+}
+
+// ============================================================
+// 搜打撤：战利品结算
+// ============================================================
+function applyRaidLoot() {
+    if (!raidLoot || raidLoot.length === 0) return;
+    const summary = { coins: 0, items: [], mods: 0, skins: 0 };
+    for (const loot of raidLoot) {
+        switch (loot.type) {
+            case 'coins':
+                playerData.coins += loot.value || 0;
+                summary.coins += loot.value || 0;
+                break;
+            case 'item':
+                if (loot.key) {
+                    playerData.inventory[loot.key] = (playerData.inventory[loot.key] || 0) + (loot.value || 1);
+                    summary.items.push(`${loot.value || 1} ${itemName(loot.key)}`);
+                }
+                break;
+            case 'mod':
+                if (loot.modId) {
+                    playerMods.ownedMods[loot.modId] = (playerMods.ownedMods[loot.modId] || 0) + 1;
+                    summary.mods++;
+                }
+                break;
+            case 'skin':
+                if (loot.skinId && !playerMods.ownedSkins.includes(loot.skinId)) {
+                    playerMods.ownedSkins.push(loot.skinId);
+                    summary.skins++;
+                }
+                break;
+        }
+    }
+    raidLoot = [];
+    savePlayerData();
+    savePlayerMods();
+
+    const parts = [];
+    if (summary.coins > 0) parts.push(`金币 +${summary.coins}`);
+    if (summary.items.length > 0) parts.push(summary.items.join('、'));
+    if (summary.mods > 0) parts.push(`配件 +${summary.mods}`);
+    if (summary.skins > 0) parts.push(`皮肤 +${summary.skins}`);
+    if (parts.length > 0) {
+        showNotification(`🎒 成功带回战利品：${parts.join(' / ')}`, 'success');
+    }
 }
 
 function itemName(id) {

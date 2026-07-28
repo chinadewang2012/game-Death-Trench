@@ -461,6 +461,31 @@
                             <div class="supply-item"><span class="supply-icon">⭐</span><span class="supply-name">幸运星</span><span class="supply-count" id="supplyStar">0</span></div>
                         </div>
 
+                        <div class="section-title" id="raidConsumablesTitle" style="display:none;">出战补给（搜打撤）</div>
+                        <div class="supply-list raid-consumables" id="raidConsumablesPanel" style="display:none;">
+                            <div class="supply-item">
+                                <span class="supply-icon">💊</span><span class="supply-name">医疗包</span>
+                                <button class="raid-btn" onclick="adjustRaidConsumable('medkits',-1)">-</button>
+                                <span class="supply-count" id="raidMedkits">0</span>
+                                <button class="raid-btn" onclick="adjustRaidConsumable('medkits',1)">+</button>
+                                <span class="raid-owned">拥有 <span id="ownedMedkits">0</span></span>
+                            </div>
+                            <div class="supply-item">
+                                <span class="supply-icon">💣</span><span class="supply-name">手雷</span>
+                                <button class="raid-btn" onclick="adjustRaidConsumable('grenades',-1)">-</button>
+                                <span class="supply-count" id="raidGrenades">0</span>
+                                <button class="raid-btn" onclick="adjustRaidConsumable('grenades',1)">+</button>
+                                <span class="raid-owned">拥有 <span id="ownedGrenades">0</span></span>
+                            </div>
+                            <div class="supply-item">
+                                <span class="supply-icon">⚡</span><span class="supply-name">加速针剂</span>
+                                <button class="raid-btn" onclick="adjustRaidConsumable('speedBoost',-1)">-</button>
+                                <span class="supply-count" id="raidSpeedBoost">0</span>
+                                <button class="raid-btn" onclick="adjustRaidConsumable('speedBoost',1)">+</button>
+                                <span class="raid-owned">拥有 <span id="ownedSpeedBoost">0</span></span>
+                            </div>
+                        </div>
+
                         <div class="section-title">队伍配置</div>
                         <div class="teammate-config compact" id="teammateConfig">
                             <div class="teammate-label">补齐队友 <span id="teammateCountLabel">单人作战</span></div>
