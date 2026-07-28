@@ -139,6 +139,12 @@
             </div>
             <div class="weapon-hint">按住 Shift + W/A/S/D 使用物资</div>
         </div>
+
+        <!-- 摸金箱子交互提示 -->
+        <div id="lootPrompt">
+            <div class="loot-prompt-text">靠近按 <span class="loot-prompt-key">E</span> 搜索物资箱</div>
+            <div class="loot-progress-wrap"><div class="loot-progress-fill" id="lootProgressFill"></div></div>
+        </div>
     </div>
 
     <!-- 操作说明面板（游戏中显示，CSS 中以 #controls 定义样式） -->
@@ -146,9 +152,10 @@
         <div class="control-row"><span>WASD / 方向键</span><span>移动</span></div>
         <div class="control-row"><span>鼠标右键</span><span>单发射击</span></div>
         <div class="control-row"><span>空格</span><span>自动射击开关</span></div>
-        <div class="control-row"><span>1 / 2 / 3</span><span>切换武器</span></div>
+        <div class="control-row"><span>1 / 2 / 3 / 4</span><span>切换武器</span></div>
         <div class="control-row"><span>R</span><span>换弹</span></div>
         <div class="control-row"><span>G</span><span>投掷手雷</span></div>
+        <div class="control-row"><span>E</span><span>搜索物资箱</span></div>
         <div class="control-row"><span>Shift + WASD</span><span>使用物资</span></div>
         <div class="control-row"><span>ESC</span><span>结束游戏</span></div>
     </div>
@@ -440,6 +447,18 @@
                             <div class="supply-item"><span class="supply-icon">🔋</span><span class="supply-name">弹药</span><span class="supply-count" id="supplyAmmo">∞</span></div>
                             <div class="supply-item"><span class="supply-icon">💣</span><span class="supply-name">手雷</span><span class="supply-count" id="supplyGrenade">0</span></div>
                             <div class="supply-item"><span class="supply-icon">⭐</span><span class="supply-name">幸运星</span><span class="supply-count" id="supplyStar">0</span></div>
+                        </div>
+
+                        <div class="section-title">队伍配置</div>
+                        <div class="teammate-config compact" id="teammateConfig">
+                            <div class="teammate-label">补齐队友 <span id="teammateCountLabel">单人作战</span></div>
+                            <div class="teammate-count-btns">
+                                <button class="teammate-count-btn" data-count="0" onclick="setTeammateCount(0)">0</button>
+                                <button class="teammate-count-btn" data-count="1" onclick="setTeammateCount(1)">1</button>
+                                <button class="teammate-count-btn" data-count="2" onclick="setTeammateCount(2)">2</button>
+                            </div>
+                            <div class="teammate-hint">一队最多 3 人（含玩家），队友装备随机</div>
+                            <div class="teammate-preview" id="teammateLoadoutPreview"></div>
                         </div>
 
                         <div class="start-area">
@@ -1453,6 +1472,63 @@
             <div id="loadoutWeaponGrid" class="market-grid loadout-weapon-grid" style="max-height:320px;overflow-y:auto;"></div>
             <div class="popup-actions">
                 <button class="menu-btn tertiary" onclick="closeLoadoutWeaponSelector()">取消</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 通用弹窗系统 -->
+    <div id="confirmModal" class="popup-overlay" style="display:none;">
+        <div class="popup-box popup-confirm">
+            <div class="popup-title" id="confirmTitle">确认</div>
+            <div class="popup-message" id="confirmMessage">确定要执行此操作吗？</div>
+            <div class="popup-actions">
+                <button class="menu-btn secondary" onclick="closeConfirm(false)">取消</button>
+                <button class="menu-btn primary" onclick="closeConfirm(true)">确认</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="warmTipModal" class="popup-overlay" style="display:none;">
+        <div class="popup-box popup-tip">
+            <div class="popup-title">💡 温馨提示</div>
+            <div class="popup-message" id="warmTipMessage"></div>
+            <div class="popup-actions">
+                <button class="menu-btn primary" onclick="closeWarmTip()">知道了</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 更新公告弹窗 -->
+    <div id="announcementModal" class="popup-overlay" style="display:none;">
+        <div class="popup-box popup-announcement">
+            <div class="popup-title">📢 更新公告 <span class="announcement-version" id="announcementVersion"></span></div>
+            <div class="announcement-date" id="announcementDate"></div>
+            <div class="announcement-content" id="announcementContent"></div>
+            <div class="announcement-actions">
+                <label class="announcement-dont-show">
+                    <input type="checkbox" id="announcementDontShow"> 不再提示此版本
+                </label>
+                <button class="menu-btn primary" onclick="closeAnnouncement()">知道了</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="toastContainer" style="position:fixed;top:20px;left:50%;transform:translateX(-50%);z-index:9999;display:flex;flex-direction:column;gap:8px;pointer-events:none;"></div>
+
+    <!-- 新手教程覆盖层 -->
+    <div id="tutorialOverlay" class="tutorial-overlay" style="display:none;">
+        <div class="tutorial-backdrop"></div>
+        <div class="tutorial-highlight" id="tutorialHighlight"></div>
+        <div class="tutorial-tooltip" id="tutorialTooltip">
+            <div class="tutorial-step-indicator" id="tutorialStepIndicator"></div>
+            <div class="tutorial-content">
+                <div class="tutorial-title" id="tutorialTitle"></div>
+                <div class="tutorial-desc" id="tutorialDesc"></div>
+            </div>
+            <div class="tutorial-nav">
+                <button class="menu-btn tertiary" style="padding:6px 14px;font-size:12px;" onclick="skipTutorial()">跳过</button>
+                <button class="menu-btn tertiary" style="padding:6px 14px;font-size:12px;" id="tutorialPrev" onclick="prevTutorialStep()">上一步</button>
+                <button class="menu-btn primary" style="padding:6px 14px;font-size:12px;" id="tutorialNext" onclick="nextTutorialStep()">下一步</button>
             </div>
         </div>
     </div>

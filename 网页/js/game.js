@@ -487,6 +487,41 @@ const POOL_BULLET_MAX = 500;
 const POOL_EXPLOSION_MAX = 100;
 const POOL_DROP_MAX = 100;
 
+// 搜打撤实验参数
+const TEAM_MAX_SIZE = 3;                 // 队伍上限（含玩家）
+const LOOT_CRATE_SEARCH_TIME = 1500;     // 开箱时间（毫秒）
+const LOOT_CRATE_NOISE_RADIUS = 18;      // 开箱吸引敌人的半径
+const LOOT_CRATE_LOOT_COUNT = 3;         // 每个箱子掉落物数量
+const LOOT_CRATE_RARITY = {
+    COMMON: { id: 'common', chance: 0.70, color: '#b8860b', glow: '#daa520', icon: '🧰', lootMul: 1, label: '普通' },
+    RARE:   { id: 'rare',   chance: 0.25, color: '#4dabf7', glow: '#91d5ff', icon: '💼', lootMul: 1.5, label: '稀有' },
+    LEGENDARY: { id: 'legendary', chance: 0.05, color: '#ff6b00', glow: '#ffaa00', icon: '👑', lootMul: 2.5, label: '传说' }
+};
+const LOOT_CRATE_DROP_TABLE = {
+    common: [
+        { type: 'coins',  weight: 40, min: 15, max: 35 },
+        { type: 'heal',   weight: 25, min: 20, max: 35 },
+        { type: 'item',   weight: 20, itemId: 'grenade',  value: 1 },
+        { type: 'item',   weight: 15, itemId: 'speedBoost', value: 1 }
+    ],
+    rare: [
+        { type: 'coins',  weight: 30, min: 40, max: 80 },
+        { type: 'heal',   weight: 20, min: 40, max: 60 },
+        { type: 'ammo',   weight: 25, min: 30, max: 60 },
+        { type: 'item',   weight: 15, itemId: 'grenade', value: 2 },
+        { type: 'armor',  weight: 10, value: 30 }
+    ],
+    legendary: [
+        { type: 'coins',  weight: 25, min: 100, max: 200 },
+        { type: 'fullHeal', weight: 15 },
+        { type: 'ammo',   weight: 20, min: 80, max: 150, special: true },
+        { type: 'item',   weight: 15, itemId: 'ammoBox', value: 1 },
+        { type: 'item',   weight: 10, itemId: 'medkit', value: 2 },
+        { type: 'mod',    weight: 10 },
+        { type: 'skin',   weight: 5 }
+    ]
+};
+
 // 游戏版本
 const GAME_VERSION = '2.0.0';
 const UPDATE_CHECK_URL = 'https://gitee.com/wang-zirui-from-beijing/death-trench-ai-game/raw/main/version.json';
@@ -754,8 +789,11 @@ let player;
 // 使用数组 + alive 标记实现对象池（避免频繁 filter 分配）
 let bullets = [];
 let enemies = [];
+let teammates = [];
 let drops = [];
 let explosions = [];
+let lootCrates = [];
+let activeCrate = null;
 
 let gameRunning = false;
 let animationId;
@@ -1186,6 +1224,8 @@ let playerData = {
     title: '新兵',
     equippedArmor: '',
     selectedMap: 'desert',
+    teammateCount: 0,
+    equippedWeapons: { primary: 'rifle', secondary: 'pistol' },
     avatar: {
         source: 'default', // 'default' | 'file' | 'url'
         dataUrl: '',
@@ -1260,7 +1300,7 @@ function savePlayerData() {
 
         // 同步一份无签名的 legacy 数据到 deathTrench_playerData，供旧版面板兼容读取
         const legacy = JSON.parse(localStorage.getItem('deathTrench_playerData') || '{}');
-        const syncFields = ['playerName', 'coins', 'totalKills', 'totalDeaths', 'totalScore', 'playTimeSeconds', 'title', 'equippedArmor', 'selectedMap', 'avatar', 'inventory', 'backpack', 'equippedWeapons', 'ammo', 'ownedSkins', 'equippedSkin', 'weaponAmmoSlots'];
+        const syncFields = ['playerName', 'coins', 'totalKills', 'totalDeaths', 'totalScore', 'playTimeSeconds', 'title', 'equippedArmor', 'selectedMap', 'teammateCount', 'avatar', 'inventory', 'backpack', 'equippedWeapons', 'ammo', 'ownedSkins', 'equippedSkin', 'weaponAmmoSlots'];
         for (const key of syncFields) {
             if (playerData[key] !== undefined) legacy[key] = playerData[key];
         }
@@ -3257,9 +3297,18 @@ function actuallyStartGame() {
     // 重置对象池数组，防止旧引用造成问题
     bullets = [];
     enemies = [];
+    teammates = [];
     drops = [];
     explosions = [];
+    lootCrates = [];
+    activeCrate = null;
     lastEnemySpawn = Date.now();
+
+    // 生成队友与摸金箱子（难度影响物资箱数量）
+    spawnTeammates(playerData.teammateCount || 0);
+    const difficultyCrateBonus = settings.difficulty === 'hard' ? 4 : (settings.difficulty === 'easy' ? -2 : 0);
+    const crateCount = Math.max(6, 10 + Math.floor(Math.random() * 5) + difficultyCrateBonus);
+    generateLootCrates(crateCount);
 
     // 清空按键状态与冲刺状态
     keys.clear();
@@ -3341,9 +3390,12 @@ function cleanupGameState() {
     // 清理对象池
     bullets = [];
     enemies = [];
+    teammates = [];
     drops = [];
     explosions = [];
-    
+    lootCrates = [];
+    activeCrate = null;
+
     // 重置时间相关状态
     lastTickTime = 0;
     tickAccumulator = 0;
@@ -3516,6 +3568,11 @@ function update() {
             }
         }
 
+        // 远离屏幕的子弹仅累计距离，跳过碰撞与渲染级计算
+        if (Math.abs(bullet.x - player.x) > VIEW_RANGE_X + 8 || Math.abs(bullet.y - player.y) > VIEW_RANGE_Y + 8) {
+            continue;
+        }
+
         const newX = bullet.x + Math.cos(bullet.angle) * bullet.speed;
         const newY = bullet.y + Math.sin(bullet.angle) * bullet.speed;
 
@@ -3532,7 +3589,7 @@ function update() {
         bullet.x = newX;
         bullet.y = newY;
 
-        if (bullet.owner === 'player' && bullet.type !== 'grenade') {
+        if ((bullet.owner === 'player' || bullet.owner === 'teammate') && bullet.type !== 'grenade') {
             let hit = false;
             for (let j = 0; j < enemies.length; j++) {
                 const enemy = enemies[j];
@@ -3560,6 +3617,8 @@ function update() {
                     }
                     enemy.health -= damage;
                     enemy.hitFlash = 5; // 受击闪烁帧数
+                    // 敌人受击会提醒周围同伴前来协防/调查
+                    alertNearbyEnemies(enemy.x, enemy.y, 10);
 
                     // 爆裂弹：范围伤害
                     if (ammoType === 'exp') {
@@ -3625,6 +3684,16 @@ function update() {
                     damage = Math.max(1, Math.floor(damage * (1 - player.buffs.damageReduction)));
                 }
                 player.health -= damage;
+                // 受到伤害中断搜索物资箱
+                if (activeCrate && activeCrate.state === 'opening') {
+                    activeCrate.state = 'closed';
+                    activeCrate.searchStart = 0;
+                    activeCrate.progress = 0;
+                    activeCrate = null;
+                    showNotification('受到伤害，搜索中断！', 'warning');
+                    const fill = document.getElementById('lootProgressFill');
+                    if (fill) fill.style.width = '0%';
+                }
                 poolPushExplosion({ x: player.x, y: player.y, radius: 5, alpha: 1, color: '#ff0000' });
                 if (player.health <= 0) {
                     gameOver();
@@ -3632,6 +3701,25 @@ function update() {
                 bullet.alive = false;
                 continue;
             }
+            // 敌人子弹也会命中队友
+            for (let k = 0; k < teammates.length; k++) {
+                const tm = teammates[k];
+                if (!tm.alive) continue;
+                const dxm = bullet.x - tm.x;
+                const dym = bullet.y - tm.y;
+                if (dxm * dxm + dym * dym < 1.0) {
+                    tm.health -= bullet.damage;
+                    tm.hitFlash = 5;
+                    poolPushExplosion({ x: tm.x, y: tm.y, radius: 4, alpha: 1, color: '#ff0000' });
+                    if (tm.health <= 0) {
+                        tm.alive = false;
+                        showNotification(tm.name + ' 阵亡');
+                    }
+                    bullet.alive = false;
+                    break;
+                }
+            }
+            if (!bullet.alive) continue;
         }
     }
 
@@ -3640,10 +3728,11 @@ function update() {
         if (!enemies[i].alive) enemies.splice(i, 1);
     }
 
-    // 生成敌人
+    // 生成敌人：根据难度和队友数量调整上限与间隔
     const difficultyMul = settings.difficulty === 'hard' ? 1.8 : settings.difficulty === 'easy' ? 0.6 : 1;
-    const enemyCount = Math.floor((gameParams.ENEMY.count || 5) * difficultyMul);
-    const spawnInterval = Math.floor((gameParams.ENEMY.spawnInterval || 3500) / difficultyMul);
+    const teammateMul = 1 + (teammates ? teammates.length : 0) * 0.35;
+    const enemyCount = Math.floor((gameParams.ENEMY.count || 5) * difficultyMul * teammateMul);
+    const spawnInterval = Math.floor((gameParams.ENEMY.spawnInterval || 3500) / (difficultyMul * teammateMul));
 
     if (enemies.length < enemyCount && now - lastEnemySpawn > spawnInterval) {
         spawnEnemy();
@@ -3801,248 +3890,362 @@ function update() {
 
     for (let i = 0; i < enemies.length; i++) {
         const enemy = enemies[i];
-        const dxE = player.x - enemy.x;
-        const dyE = player.y - enemy.y;
-        const distSq = dxE * dxE + dyE * dyE;
-        const dist = distSq > 0 ? Math.sqrt(distSq) : 0.01;
 
+        // 状态字段初始化与清理
         if (typeof enemy.speedMul === 'undefined') {
             enemy.speedMul = 0.85 + Math.random() * 0.3;
         }
         const curEnemySpeed = enemyMoveSpeed * enemy.speedMul;
+        if (typeof enemy.aiState !== 'string') {
+            enemy.aiState = 'chase';
+            enemy.aiStateTimer = 0;
+        }
+        if (typeof enemy.aiStateTimer !== 'number') enemy.aiStateTimer = 0;
+        if (!enemy.investigateTarget) enemy.investigateTarget = null;
+        if (!enemy.coverTarget) enemy.coverTarget = null;
 
-        if (dist < 30) {
+        // 1. 目标选择：玩家或最近的威胁（队友）
+        let target = player;
+        if (typeof getNearestEnemyThreat === 'function') {
+            const t = getNearestEnemyThreat(enemy);
+            if (t) target = t;
+        }
+
+        const dxE = target.x - enemy.x;
+        const dyE = target.y - enemy.y;
+        const distSq = dxE * dxE + dyE * dyE;
+        const dist = distSq > 0 ? Math.sqrt(distSq) : 0.01;
+
+        // 远距离敌人：不做完整 AI，仅直接向目标靠近，减少每帧计算
+        if (dist >= 30 && dist < 70) {
             enemy.angle = Math.atan2(dyE, dxE);
+            const stepX = (dxE / dist) * curEnemySpeed * 0.6;
+            const stepY = (dyE / dist) * curEnemySpeed * 0.6;
+            const enemyRadius = getEnemyRadius(enemy);
+            if (!isBlockedCircle(enemy.x + stepX, enemy.y, enemyRadius)) enemy.x += stepX;
+            if (!isBlockedCircle(enemy.x, enemy.y + stepY, enemyRadius)) enemy.y += stepY;
+            continue;
+        }
+        if (dist >= 70) continue;
 
-            const directChase = dist < 10 && hasLineOfSight(enemy.x, enemy.y, player.x, player.y);
+        const hasVisibleTarget = hasLineOfSight(enemy.x, enemy.y, target.x, target.y);
+        enemy.angle = Math.atan2(dyE, dxE);
 
-            if (!directChase) {
-                const dynamicInterval = dist < 8 ? 400 : (dist < 15 ? 700 : 1200);
-                const pathInterval = typeof enemy.pathUpdateInterval === 'number'
-                    ? enemy.pathUpdateInterval
-                    : dynamicInterval;
-                const timeOk = (now - (enemy.lastPathUpdate || 0)) > pathInterval;
-                const isSelected = (i === pathfinderIndex) || !enemy.path;
-                if (isSelected && timeOk && !pathComputedThisFrame) {
-                    const enemyGridX = Math.floor(enemy.x);
-                    const enemyGridY = Math.floor(enemy.y);
-                    const playerGridX = Math.floor(player.x);
-                    const playerGridY = Math.floor(player.y);
-                    enemy.path = aStarPath(enemyGridX, enemyGridY, playerGridX, playerGridY);
-                    enemy.pathIndex = 1;
-                    enemy.lastPathUpdate = now;
-                    pathComputedThisFrame = true;
-                    window.__nextEnemyPathfinder = (pathfinderIndex + 1) % Math.max(1, enemies.length);
-                }
-            } else {
+        const healthPercent = enemy.health / enemy.maxHealth;
+
+        // flee 超时恢复 chase
+        if (enemy.aiState === 'flee' && now > enemy.aiStateTimer) {
+            enemy.aiState = 'chase';
+            enemy.coverTarget = null;
+            enemy.path = null;
+        }
+        // investigate 超时清理
+        if (enemy.investigateTarget && now > enemy.investigateTarget.until) {
+            enemy.investigateTarget = null;
+            if (enemy.aiState === 'investigate') {
+                enemy.aiState = 'chase';
+                enemy.path = null;
+            }
+        }
+
+        // 状态切换
+        if (hasVisibleTarget) {
+            enemy.investigateTarget = null;
+            if (enemy.aiState === 'investigate') {
+                enemy.aiState = 'chase';
                 enemy.path = null;
             }
 
-            // 沿路径移动
-            if (enemy.path && enemy.pathIndex < enemy.path.length) {
-                const lookAhead = Math.min(4, enemy.path.length - enemy.pathIndex);
-                let targetX = 0, targetY = 0;
-                for (let k = 0; k < lookAhead; k++) {
-                    targetX += enemy.path[enemy.pathIndex + k].x + 0.5;
-                    targetY += enemy.path[enemy.pathIndex + k].y + 0.5;
+            // 3. 低血量非 Boss 概率寻找掩体 flee
+            if (enemy.aiState !== 'flee' && enemy.aiState !== 'investigate' &&
+                healthPercent < 0.30 && !enemy.isBoss && Math.random() < 0.02) {
+                enemy.aiState = 'flee';
+                enemy.aiStateTimer = now + 2000 + Math.random() * 2000;
+                enemy.path = null;
+                const cover = findNearestCover(enemy.x, enemy.y, target.x, target.y, 12);
+                enemy.coverTarget = cover ? { x: cover.x, y: cover.y } : null;
+                if (!enemy.coverTarget) {
+                    // 找不到掩体时向远离目标的方向跑
+                    enemy.coverTarget = { x: enemy.x - dxE * 5, y: enemy.y - dyE * 5 };
                 }
-                targetX /= lookAhead;
-                targetY /= lookAhead;
+            }
+        } else if (enemy.investigateTarget && enemy.aiState !== 'flee') {
+            // 2. 没有可见目标且存在噪音源时进入 investigate
+            if (enemy.aiState !== 'investigate') {
+                enemy.aiState = 'investigate';
+                enemy.path = null;
+            }
+        }
 
-                const dxPath = targetX - enemy.x;
-                const dyPath = targetY - enemy.y;
-                const distToTarget = Math.sqrt(dxPath * dxPath + dyPath * dyPath);
-                const nextNode = enemy.path[enemy.pathIndex];
-                const distToNext = Math.sqrt(
-                    (nextNode.x + 0.5 - enemy.x) ** 2 +
-                    (nextNode.y + 0.5 - enemy.y) ** 2
-                );
+        // 5. A* 目标：chase 时追目标，flee 时去掩体，investigate 时去噪音源
+        let destX = target.x;
+        let destY = target.y;
+        if (enemy.aiState === 'flee' && enemy.coverTarget) {
+            destX = enemy.coverTarget.x;
+            destY = enemy.coverTarget.y;
+        } else if (enemy.aiState === 'investigate' && enemy.investigateTarget) {
+            destX = enemy.investigateTarget.x;
+            destY = enemy.investigateTarget.y;
+        }
 
-                if (typeof enemy.stuckTimer === 'undefined') {
-                    enemy.stuckTimer = 0;
-                    enemy.lastPosX = enemy.x;
-                    enemy.lastPosY = enemy.y;
-                }
-                const movedDist = Math.sqrt(
-                    (enemy.x - enemy.lastPosX) ** 2 + (enemy.y - enemy.lastPosY) ** 2
-                );
-                if (movedDist < 0.02) {
-                    enemy.stuckTimer++;
-                    if (enemy.stuckTimer > 30) {
-                        enemy.pathIndex++;
-                        enemy.stuckTimer = 0;
-                    }
-                } else {
-                    enemy.stuckTimer = 0;
-                }
+        const directChase = (enemy.aiState !== 'flee' && enemy.aiState !== 'investigate')
+            && dist < 10 && hasVisibleTarget;
+
+        if (!directChase) {
+            const dynamicInterval = dist < 8 ? 400 : (dist < 15 ? 700 : 1200);
+            const pathInterval = typeof enemy.pathUpdateInterval === 'number'
+                ? enemy.pathUpdateInterval
+                : dynamicInterval;
+            const timeOk = (now - (enemy.lastPathUpdate || 0)) > pathInterval;
+            const isSelected = (i === pathfinderIndex) || !enemy.path;
+            if (isSelected && timeOk && !pathComputedThisFrame) {
+                const enemyGridX = Math.floor(enemy.x);
+                const enemyGridY = Math.floor(enemy.y);
+                const destGridX = Math.floor(destX);
+                const destGridY = Math.floor(destY);
+                enemy.path = aStarPath(enemyGridX, enemyGridY, destGridX, destGridY);
+                enemy.pathIndex = 1;
+                enemy.lastPathUpdate = now;
+                pathComputedThisFrame = true;
+                window.__nextEnemyPathfinder = (pathfinderIndex + 1) % Math.max(1, enemies.length);
+            }
+        } else {
+            enemy.path = null;
+        }
+
+        // 沿路径移动
+        if (enemy.path && enemy.pathIndex < enemy.path.length) {
+            const lookAhead = Math.min(4, enemy.path.length - enemy.pathIndex);
+            let targetX = 0, targetY = 0;
+            for (let k = 0; k < lookAhead; k++) {
+                targetX += enemy.path[enemy.pathIndex + k].x + 0.5;
+                targetY += enemy.path[enemy.pathIndex + k].y + 0.5;
+            }
+            targetX /= lookAhead;
+            targetY /= lookAhead;
+
+            const dxPath = targetX - enemy.x;
+            const dyPath = targetY - enemy.y;
+            const distToTarget = Math.sqrt(dxPath * dxPath + dyPath * dyPath);
+            const nextNode = enemy.path[enemy.pathIndex];
+            const distToNext = Math.sqrt(
+                (nextNode.x + 0.5 - enemy.x) ** 2 +
+                (nextNode.y + 0.5 - enemy.y) ** 2
+            );
+
+            if (typeof enemy.stuckTimer === 'undefined') {
+                enemy.stuckTimer = 0;
                 enemy.lastPosX = enemy.x;
                 enemy.lastPosY = enemy.y;
-
-                if (distToNext < 0.4) {
+            }
+            const movedDist = Math.sqrt(
+                (enemy.x - enemy.lastPosX) ** 2 + (enemy.y - enemy.lastPosY) ** 2
+            );
+            if (movedDist < 0.02) {
+                enemy.stuckTimer++;
+                if (enemy.stuckTimer > 30) {
                     enemy.pathIndex++;
                     enemy.stuckTimer = 0;
-                } else if (distToTarget > 0.01) {
-                    const stepX = (dxPath / distToTarget) * curEnemySpeed;
-                    const stepY = (dyPath / distToTarget) * curEnemySpeed;
-                    const enemyRadius = getEnemyRadius(enemy);
-                    let movedAny = false;
-                    const testX = enemy.x + stepX;
-                    if (!isBlockedCircle(testX, enemy.y, enemyRadius)) {
-                        enemy.x = testX;
-                        movedAny = true;
-                    }
-                    const testY = enemy.y + stepY;
-                    if (!isBlockedCircle(enemy.x, testY, enemyRadius)) {
-                        enemy.y = testY;
-                        movedAny = true;
-                    }
-                    if (!movedAny) {
-                        const tryOffsets = [
-                            [stepY, -stepX], [-stepY, stepX]
-                        ];
-                        for (const [ox, oy] of tryOffsets) {
-                            const altX = enemy.x + ox;
-                            const altY = enemy.y + oy;
-                            if (!isBlockedCircle(altX, altY, enemyRadius)) {
-                                enemy.x = altX;
-                                enemy.y = altY;
-                                movedAny = true;
-                                break;
-                            }
-                        }
-                        if (!movedAny) enemy.path = null;
-                    }
                 }
             } else {
-                // 无路径：根据玩家武器与敌人状态决定移动方向
-                const healthPercent = enemy.health / enemy.maxHealth;
-                if (typeof enemy.aiState !== 'string') { enemy.aiState = 'chase'; enemy.aiStateTimer = 0; }
-                if (enemy.aiState === 'flee' && now > enemy.aiStateTimer) enemy.aiState = 'chase';
-                if (enemy.aiState !== 'flee' && healthPercent < 0.25 && !enemy.isBoss && Math.random() < 0.02) {
-                    enemy.aiState = 'flee';
-                    enemy.aiStateTimer = now + 2000 + Math.random() * 2000;
-                }
+                enemy.stuckTimer = 0;
+            }
+            enemy.lastPosX = enemy.x;
+            enemy.lastPosY = enemy.y;
 
-                const playerWeapon = player.weapons[player.currentWeapon];
-                const pwt = playerWeapon ? playerWeapon.type : WEAPON_TYPES.RIFLE;
-                const isPlayerMelee = pwt === WEAPON_TYPES.MELEE;
-                const isPlayerShotgun = pwt === WEAPON_TYPES.SHOTGUN;
-                const isPlayerSniper = pwt === WEAPON_TYPES.SNIPER;
-
-                let desiredAngle;
-                if (enemy.aiState === 'flee') {
-                    desiredAngle = Math.atan2(-dyE, -dxE);
-                } else if (isPlayerMelee) {
-                    if (dist < 5) desiredAngle = Math.atan2(-dyE, -dxE);
-                    else if (dist > 9) desiredAngle = Math.atan2(dyE, dxE);
-                    else desiredAngle = Math.atan2(dyE, dxE) + Math.PI / 2;
-                } else if (isPlayerShotgun) {
-                    if (dist < 7) desiredAngle = Math.atan2(-dyE, -dxE);
-                    else desiredAngle = Math.atan2(dyE, dxE) + (Math.sin(now * 0.003 + i) > 0 ? 1 : -1) * Math.PI / 3;
-                } else if (isPlayerSniper) {
-                    if (dist > 14) desiredAngle = Math.atan2(dyE, dxE);
-                    else desiredAngle = Math.atan2(dyE, dxE) + (Math.sin(now * 0.006 + i) > 0 ? 1 : -1) * Math.PI / 2.2;
-                } else {
-                    desiredAngle = Math.atan2(dyE, dxE);
-                }
-
-                let moveX = 0, moveY = 0;
-                if (enemy.aiState === 'flee') {
-                    moveX = Math.cos(desiredAngle) * curEnemySpeed * 1.3;
-                    moveY = Math.sin(desiredAngle) * curEnemySpeed * 1.3;
-                } else if (isPlayerMelee) {
-                    if (dist > 12 || dist < 5) {
-                        moveX = Math.cos(desiredAngle) * curEnemySpeed;
-                        moveY = Math.sin(desiredAngle) * curEnemySpeed;
-                    } else {
-                        moveX = Math.cos(desiredAngle) * curEnemySpeed * 0.4;
-                        moveY = Math.sin(desiredAngle) * curEnemySpeed * 0.4;
-                    }
-                } else if (isPlayerShotgun && dist < 10) {
-                    moveX = Math.cos(desiredAngle) * curEnemySpeed;
-                    moveY = Math.sin(desiredAngle) * curEnemySpeed;
-                } else if (isPlayerSniper) {
-                    moveX = Math.cos(desiredAngle) * curEnemySpeed * 1.1;
-                    moveY = Math.sin(desiredAngle) * curEnemySpeed * 1.1;
-                } else {
-                    if (dist > 12) {
-                        moveX = Math.cos(desiredAngle) * curEnemySpeed;
-                        moveY = Math.sin(desiredAngle) * curEnemySpeed;
-                    } else if (dist < 3) {
-                        moveX = -(dxE / dist) * curEnemySpeed;
-                        moveY = -(dyE / dist) * curEnemySpeed;
-                    } else {
-                        const perp = Math.sin(now * 0.002 + i) > 0 ? 1 : -1;
-                        moveX = -dyE / dist * curEnemySpeed * 0.3 * perp;
-                        moveY = dxE / dist * curEnemySpeed * 0.3 * perp;
-                    }
-                }
+            if (distToNext < 0.4) {
+                enemy.pathIndex++;
+                enemy.stuckTimer = 0;
+            } else if (distToTarget > 0.01) {
+                const stepX = (dxPath / distToTarget) * curEnemySpeed;
+                const stepY = (dyPath / distToTarget) * curEnemySpeed;
                 const enemyRadius = getEnemyRadius(enemy);
                 let movedAny = false;
-                const testX = enemy.x + moveX;
+                const testX = enemy.x + stepX;
                 if (!isBlockedCircle(testX, enemy.y, enemyRadius)) {
                     enemy.x = testX;
                     movedAny = true;
                 }
-                const testY = enemy.y + moveY;
+                const testY = enemy.y + stepY;
                 if (!isBlockedCircle(enemy.x, testY, enemyRadius)) {
                     enemy.y = testY;
                     movedAny = true;
                 }
                 if (!movedAny) {
-                    const tryOffsets = [[moveY, -moveX], [-moveY, moveX]];
+                    const tryOffsets = [
+                        [stepY, -stepX], [-stepY, stepX]
+                    ];
                     for (const [ox, oy] of tryOffsets) {
                         const altX = enemy.x + ox;
                         const altY = enemy.y + oy;
                         if (!isBlockedCircle(altX, altY, enemyRadius)) {
                             enemy.x = altX;
                             enemy.y = altY;
+                            movedAny = true;
                             break;
                         }
                     }
+                    if (!movedAny) enemy.path = null;
                 }
             }
+        } else {
+            // 4. 武器类型战术：目标是玩家时读取其当前武器，目标是队友时按步枪默认处理
+            const targetWeapon = (target === player && player.weapons && player.weapons[player.currentWeapon])
+                ? player.weapons[player.currentWeapon]
+                : null;
+            const twt = targetWeapon ? targetWeapon.type : WEAPON_TYPES.RIFLE;
+            const isTargetMelee = twt === WEAPON_TYPES.MELEE;
+            const isTargetShotgun = twt === WEAPON_TYPES.SHOTGUN;
+            const isTargetSniper = twt === WEAPON_TYPES.SNIPER;
 
-            // 敌人分离：避免重叠；Boss 体积大、分离半径也更大
+            let desiredAngle;
+            if (enemy.aiState === 'flee' && enemy.coverTarget) {
+                const cdx = enemy.coverTarget.x - enemy.x;
+                const cdy = enemy.coverTarget.y - enemy.y;
+                desiredAngle = Math.atan2(cdy, cdx);
+            } else if (enemy.aiState === 'flee') {
+                desiredAngle = Math.atan2(-dyE, -dxE);
+            } else if (enemy.aiState === 'investigate' && enemy.investigateTarget) {
+                const idx = enemy.investigateTarget.x - enemy.x;
+                const idy = enemy.investigateTarget.y - enemy.y;
+                desiredAngle = Math.atan2(idy, idx);
+            } else if (isTargetMelee) {
+                if (dist < 5) desiredAngle = Math.atan2(-dyE, -dxE);
+                else if (dist > 9) desiredAngle = Math.atan2(dyE, dxE);
+                else desiredAngle = Math.atan2(dyE, dxE) + Math.PI / 2;
+            } else if (isTargetShotgun) {
+                if (dist < 7) desiredAngle = Math.atan2(-dyE, -dxE);
+                else desiredAngle = Math.atan2(dyE, dxE) + (Math.sin(now * 0.003 + i) > 0 ? 1 : -1) * Math.PI / 3;
+            } else if (isTargetSniper) {
+                if (dist > 14) desiredAngle = Math.atan2(dyE, dxE);
+                else desiredAngle = Math.atan2(dyE, dxE) + (Math.sin(now * 0.006 + i) > 0 ? 1 : -1) * Math.PI / 2.2;
+            } else {
+                desiredAngle = Math.atan2(dyE, dxE);
+            }
+
+            let moveX = 0, moveY = 0;
+            if (enemy.aiState === 'flee') {
+                moveX = Math.cos(desiredAngle) * curEnemySpeed * 1.3;
+                moveY = Math.sin(desiredAngle) * curEnemySpeed * 1.3;
+            } else if (enemy.aiState === 'investigate') {
+                moveX = Math.cos(desiredAngle) * curEnemySpeed;
+                moveY = Math.sin(desiredAngle) * curEnemySpeed;
+            } else if (isTargetMelee) {
+                if (dist > 12 || dist < 5) {
+                    moveX = Math.cos(desiredAngle) * curEnemySpeed;
+                    moveY = Math.sin(desiredAngle) * curEnemySpeed;
+                } else {
+                    moveX = Math.cos(desiredAngle) * curEnemySpeed * 0.4;
+                    moveY = Math.sin(desiredAngle) * curEnemySpeed * 0.4;
+                }
+            } else if (isTargetShotgun && dist < 10) {
+                moveX = Math.cos(desiredAngle) * curEnemySpeed;
+                moveY = Math.sin(desiredAngle) * curEnemySpeed;
+            } else if (isTargetSniper) {
+                moveX = Math.cos(desiredAngle) * curEnemySpeed * 1.1;
+                moveY = Math.sin(desiredAngle) * curEnemySpeed * 1.1;
+            } else {
+                if (dist > 12) {
+                    moveX = Math.cos(desiredAngle) * curEnemySpeed;
+                    moveY = Math.sin(desiredAngle) * curEnemySpeed;
+                } else if (dist < 3) {
+                    moveX = -(dxE / dist) * curEnemySpeed;
+                    moveY = -(dyE / dist) * curEnemySpeed;
+                } else {
+                    const perp = Math.sin(now * 0.002 + i) > 0 ? 1 : -1;
+                    moveX = -dyE / dist * curEnemySpeed * 0.3 * perp;
+                    moveY = dxE / dist * curEnemySpeed * 0.3 * perp;
+                }
+            }
             const enemyRadius = getEnemyRadius(enemy);
-            const sepRadius = enemy.isBoss ? 2.5 : 1.2;
-            const sepForce = enemyMoveSpeed * 0.4;
-            for (let j = 0; j < enemies.length; j++) {
-                if (j === i) continue;
-                const other = enemies[j];
-                if (!other.alive) continue;
-                const sdx = enemy.x - other.x;
-                const sdy = enemy.y - other.y;
-                const sdist = Math.sqrt(sdx * sdx + sdy * sdy);
-                if (sdist > 0 && sdist < sepRadius) {
-                    const push = (sepRadius - sdist) / sepRadius * sepForce;
-                    const pdx = (sdx / sdist) * push;
-                    const pdy = (sdy / sdist) * push;
-                    if (!isBlockedCircle(enemy.x + pdx, enemy.y, enemyRadius)) enemy.x += pdx;
-                    if (!isBlockedCircle(enemy.x, enemy.y + pdy, enemyRadius)) enemy.y += pdy;
+            let movedAny = false;
+            const testX = enemy.x + moveX;
+            if (!isBlockedCircle(testX, enemy.y, enemyRadius)) {
+                enemy.x = testX;
+                movedAny = true;
+            }
+            const testY = enemy.y + moveY;
+            if (!isBlockedCircle(enemy.x, testY, enemyRadius)) {
+                enemy.y = testY;
+                movedAny = true;
+            }
+            if (!movedAny) {
+                const tryOffsets = [[moveY, -moveX], [-moveY, moveX]];
+                for (const [ox, oy] of tryOffsets) {
+                    const altX = enemy.x + ox;
+                    const altY = enemy.y + oy;
+                    if (!isBlockedCircle(altX, altY, enemyRadius)) {
+                        enemy.x = altX;
+                        enemy.y = altY;
+                        break;
+                    }
                 }
             }
-
-            // 在 3~12 格范围内射击
-            if (dist >= 3 && dist <= 12 && now - enemy.lastShot > enemy.fireRate) {
-                poolPushBullet({
-                    x: enemy.x + Math.cos(enemy.angle) * 0.5,
-                    y: enemy.y + Math.sin(enemy.angle) * 0.5,
-                    angle: enemy.angle,
-                    speed: 0.5,
-                    damage: enemyDamage,
-                    range: 20,
-                    distance: 0,
-                    owner: 'enemy',
-                    type: 'bullet'
-                });
-                enemy.lastShot = now;
-            }
-
-            // 受击闪烁逐帧衰减
-            if (enemy.hitFlash > 0) enemy.hitFlash--;
         }
+
+        // 2/3. 到达/超时后的状态清理
+        if (enemy.aiState === 'investigate' && enemy.investigateTarget) {
+            const ix = enemy.investigateTarget.x - enemy.x;
+            const iy = enemy.investigateTarget.y - enemy.y;
+            if (Math.sqrt(ix * ix + iy * iy) < 2 || now > enemy.investigateTarget.until) {
+                enemy.aiState = 'chase';
+                enemy.investigateTarget = null;
+                enemy.path = null;
+            }
+        }
+        if (enemy.aiState === 'flee' && enemy.coverTarget) {
+            const cx = enemy.coverTarget.x - enemy.x;
+            const cy = enemy.coverTarget.y - enemy.y;
+            if (Math.sqrt(cx * cx + cy * cy) < 1) {
+                enemy.aiState = 'chase';
+                enemy.coverTarget = null;
+                enemy.path = null;
+            }
+        }
+
+        // 敌人分离：避免重叠；Boss 体积大、分离半径也更大
+        const enemyRadius = getEnemyRadius(enemy);
+        const sepRadius = enemy.isBoss ? 2.5 : 1.2;
+        const sepForce = enemyMoveSpeed * 0.4;
+        for (let j = 0; j < enemies.length; j++) {
+            if (j === i) continue;
+            const other = enemies[j];
+            if (!other.alive) continue;
+            const sdx = enemy.x - other.x;
+            const sdy = enemy.y - other.y;
+            const sdist = Math.sqrt(sdx * sdx + sdy * sdy);
+            if (sdist > 0 && sdist < sepRadius) {
+                const push = (sepRadius - sdist) / sepRadius * sepForce;
+                const pdx = (sdx / sdist) * push;
+                const pdy = (sdy / sdist) * push;
+                if (!isBlockedCircle(enemy.x + pdx, enemy.y, enemyRadius)) enemy.x += pdx;
+                if (!isBlockedCircle(enemy.x, enemy.y + pdy, enemyRadius)) enemy.y += pdy;
+            }
+        }
+
+        // 6. 在 3~12 格范围内射击（需要视线）
+        if (dist >= 3 && dist <= 12 && now - enemy.lastShot > enemy.fireRate && hasVisibleTarget) {
+            poolPushBullet({
+                x: enemy.x + Math.cos(enemy.angle) * 0.5,
+                y: enemy.y + Math.sin(enemy.angle) * 0.5,
+                angle: enemy.angle,
+                speed: 0.5,
+                damage: enemyDamage,
+                range: 20,
+                distance: 0,
+                owner: 'enemy',
+                type: 'bullet'
+            });
+            enemy.lastShot = now;
+        }
+
+        // 受击闪烁逐帧衰减
+        if (enemy.hitFlash > 0) enemy.hitFlash--;
     }
+
+    // 更新队友 AI 与摸金箱子
+    updateTeammates(now);
+    updateLootCrates(now);
 
     // 燃烧弹：持续伤害（DOT）
     for (let i = 0; i < enemies.length; i++) {
@@ -4078,6 +4281,11 @@ function update() {
     for (let i = 0; i < explosions.length; i++) {
         const exp = explosions[i];
         if (!exp.alive) continue;
+        // 远离屏幕的爆炸效果快速淡出，减少无效计算
+        if (Math.abs(exp.x - player.x) > VIEW_RANGE_X + 5 || Math.abs(exp.y - player.y) > VIEW_RANGE_Y + 5) {
+            exp.alive = false;
+            continue;
+        }
         exp.radius += 0.5;
         exp.alpha -= 0.1;
         if (exp.alpha <= 0) exp.alive = false;
@@ -4087,6 +4295,7 @@ function update() {
     for (let i = 0; i < drops.length; i++) {
         const drop = drops[i];
         if (!drop.alive) continue;
+        if (Math.abs(drop.x - player.x) > VIEW_RANGE_X + 3 || Math.abs(drop.y - player.y) > VIEW_RANGE_Y + 3) continue;
         const dxd = player.x - drop.x;
         const dyd = player.y - drop.y;
         if (dxd * dxd + dyd * dyd < 4) {
@@ -4107,6 +4316,8 @@ function update() {
 function explodeGrenade(x, y) {
     const grenadeRadius = gameParams.DROPS.grenadeRadius || 4;
     const grenadeDamage = gameParams.DROPS.grenadeDamage || 150;
+    // 爆炸声会吸引远处敌人
+    alertNearbyEnemies(x, y, grenadeRadius * 4 + 8);
     poolPushExplosion({ x, y, radius: grenadeRadius, alpha: 1, color: '#ff8800' });
     poolPushExplosion({ x, y, radius: grenadeRadius / 2, alpha: 1, color: '#ffdd00' });
 
@@ -4397,6 +4608,12 @@ function draw() {
 
     // 绘制玩家
     drawPlayer();
+
+    // 绘制队友
+    drawTeammates();
+
+    // 绘制摸金箱子
+    drawLootCrates();
 
     // 绘制敌人
     for (let i = 0; i < enemies.length; i++) {
@@ -4806,6 +5023,10 @@ function shoot() {
 
     weapon.currentAmmo--;
     lastShot = Date.now();
+
+    // 玩家枪声会吸引附近敌人前来调查（不同武器声音半径不同）
+    const noiseRadiusTable = { pistol: 14, smg: 16, rifle: 20, ar: 20, lmg: 22, shotgun: 24, sniper: 26 };
+    alertNearbyEnemies(player.x, player.y, noiseRadiusTable[weapon.type] || 16);
 }
 
 function meleeAttack(weapon) {
@@ -5016,10 +5237,11 @@ function spawnEnemy() {
     const enemyHealth = gameParams.ENEMY.health || 80;
     const enemyFireRate = gameParams.ENEMY.fireRate || 2000;
 
+    const difficultyHealthMul = settings.difficulty === 'hard' ? 1.3 : (settings.difficulty === 'easy' ? 0.75 : 1);
     enemies.push({
         x, y,
-        health: isBoss ? enemyHealth * 3 : (settings.difficulty === 'hard' ? enemyHealth * 1.2 : enemyHealth),
-        maxHealth: isBoss ? enemyHealth * 3 : (settings.difficulty === 'hard' ? enemyHealth * 1.2 : enemyHealth),
+        health: isBoss ? enemyHealth * 3 * difficultyHealthMul : enemyHealth * difficultyHealthMul,
+        maxHealth: isBoss ? enemyHealth * 3 * difficultyHealthMul : enemyHealth * difficultyHealthMul,
         angle: Math.random() * Math.PI * 2,
         lastShot: 0,
         fireRate: isBoss ? enemyFireRate * 0.75 : enemyFireRate,
@@ -6608,6 +6830,9 @@ function showReadyRoom() {
     updateReadyRoomMission();
     // 更新战备中心武器装备显示
     updateReadyRoomLoadout();
+    // 更新队友配置显示
+    updateTeammateCountUI();
+    updateTeammateLoadoutPreview();
     // 根据当前地图高亮地图卡
     if (playerData.selectedMap) {
         document.querySelectorAll('#readyPresetMapGrid .map-card, #readyCustomMapGrid .map-card').forEach(c => c.classList.remove('selected'));
@@ -6712,6 +6937,8 @@ window.openLoadoutWeaponSelector = openLoadoutWeaponSelector;
 window.closeLoadoutWeaponSelector = closeLoadoutWeaponSelector;
 window.selectLoadoutWeapon = selectLoadoutWeapon;
 window.buyAndEquipWeapon = buyAndEquipWeapon;
+window.setTeammateCount = setTeammateCount;
+window.updateTeammateCountUI = updateTeammateCountUI;
 
 function hideLobbyBottom() {
     const lobbyBottom = document.querySelector('.lobby-bottom');
@@ -7090,6 +7317,24 @@ function drawMinimap() {
         mctx.beginPath();
         mctx.arc(ex, ey, 5 + pulse * 4, 0, Math.PI * 2);
         mctx.stroke();
+    }
+
+    // 绘制摸金箱子（按稀有度着色）
+    if (typeof lootCrates !== 'undefined') {
+        for (let i = 0; i < lootCrates.length; i++) {
+            const c = lootCrates[i];
+            if (!c || c.state === 'opened') continue;
+            const rarityInfo = LOOT_CRATE_RARITY[c.rarity.toUpperCase()] || LOOT_CRATE_RARITY.COMMON;
+            const cx = c.x * scale;
+            const cy = c.y * scale;
+            mctx.fillStyle = rarityInfo.color;
+            mctx.shadowColor = rarityInfo.glow;
+            mctx.shadowBlur = c.rarity === 'legendary' ? 5 : 3;
+            mctx.beginPath();
+            mctx.arc(cx, cy, c.rarity === 'legendary' ? 2.5 : 2, 0, Math.PI * 2);
+            mctx.fill();
+            mctx.shadowBlur = 0;
+        }
     }
 
     // 绘制掉落物/物资（黄色小点）
@@ -9036,6 +9281,7 @@ function init() {
 
         if (e.code === 'KeyR' && gameRunning) reload();
         if (e.code === 'KeyG' && gameRunning) throwGrenade();
+        if (e.code === 'KeyE' && gameRunning) tryInteractLootCrate();
         if (e.code === 'Digit1' && gameRunning) switchWeapon(0);
         if (e.code === 'Digit2' && gameRunning) switchWeapon(1);
         if (e.code === 'Digit3' && gameRunning) switchWeapon(2);
@@ -9194,6 +9440,648 @@ function setupMissionPanelDrag() {
         localStorage.setItem('deathTrench_missionPanel_pos',
             JSON.stringify({ left: rect.left, top: rect.top }));
     });
+}
+
+// ============================================================
+// 搜打撤实验：队友系统
+// ============================================================
+function setTeammateCount(n) {
+    n = Math.max(0, Math.min(TEAM_MAX_SIZE - 1, n));
+    playerData.teammateCount = n;
+    updateTeammateCountUI();
+    updateTeammateLoadoutPreview();
+    savePlayerData();
+}
+
+function updateTeammateCountUI() {
+    const count = typeof playerData.teammateCount === 'number' ? playerData.teammateCount : 0;
+    document.querySelectorAll('.teammate-count-btn').forEach(btn => {
+        btn.classList.toggle('active', parseInt(btn.dataset.count) === count);
+    });
+    const label = document.getElementById('teammateCountLabel');
+    if (label) label.textContent = count === 0 ? '单人作战' : count === 1 ? '1 名队友' : '2 名队友';
+}
+
+function updateTeammateLoadoutPreview() {
+    const preview = document.getElementById('teammateLoadoutPreview');
+    if (!preview) return;
+    const count = typeof playerData.teammateCount === 'number' ? playerData.teammateCount : 0;
+    if (count <= 0) {
+        preview.innerHTML = '';
+        return;
+    }
+    const armorMap = { none: '无甲', light: '轻型护甲', heavy: '重型护甲' };
+    const parts = [];
+    for (let i = 0; i < count; i++) {
+        const loadout = generateRandomTeammateLoadout();
+        parts.push(`队友${i + 1}：${loadout.weapon.icon} ${loadout.weapon.name} · ${armorMap[loadout.armor] || loadout.armor}`);
+    }
+    preview.innerHTML = parts.join('<br>');
+}
+
+function generateRandomTeammateLoadout() {
+    let candidates = WEAPONS.filter(w => !w.isMelee && w.type !== WEAPON_TYPES.MELEE && w.unlocked);
+    if (candidates.length === 0) {
+        candidates = WEAPONS.filter(w => w.id === 'rifle' || w.id === 'pistol');
+    }
+    const baseWeapon = candidates[Math.floor(Math.random() * candidates.length)];
+    const weapon = { ...baseWeapon };
+    const armorRoll = Math.random();
+    const armor = armorRoll < 0.5 ? 'none' : (armorRoll < 0.8 ? 'light' : 'heavy');
+    const armorBonus = armor === 'heavy' ? 60 : armor === 'light' ? 30 : 0;
+    return { weapon, armor, maxHealth: (gameParams.PLAYER.maxHealth || 100) + armorBonus };
+}
+
+function spawnTeammates(count) {
+    teammates = [];
+    if (!count || count <= 0 || !player) return;
+    const startX = player.x;
+    const startY = player.y;
+    for (let i = 0; i < count; i++) {
+        let x, y, attempts = 0;
+        do {
+            const angle = Math.random() * Math.PI * 2;
+            const dist = 2 + Math.random() * 2.5;
+            x = startX + Math.cos(angle) * dist;
+            y = startY + Math.sin(angle) * dist;
+            attempts++;
+        } while ((isBlockedCircle(x, y, 0.45) || Math.abs(x - startX) + Math.abs(y - startY) < 1.5) && attempts < 30);
+        const loadout = generateRandomTeammateLoadout();
+        teammates.push({
+            x, y,
+            angle: Math.random() * Math.PI * 2,
+            health: loadout.maxHealth,
+            maxHealth: loadout.maxHealth,
+            radius: 0.45,
+            speedMul: 0.8 + Math.random() * 0.25,
+            weapon: loadout.weapon,
+            currentAmmo: loadout.weapon.clipSize || 30,
+            lastShot: 0,
+            alive: true,
+            hitFlash: 0,
+            targetEnemy: null,
+            name: '队友' + (i + 1),
+            armor: loadout.armor
+        });
+    }
+}
+
+function getNearestTeammateTarget(x, y, maxRange) {
+    let best = null;
+    let bestDist = maxRange * maxRange;
+    for (let i = 0; i < enemies.length; i++) {
+        const e = enemies[i];
+        if (!e || !e.alive) continue;
+        const dx = e.x - x;
+        const dy = e.y - y;
+        const d2 = dx * dx + dy * dy;
+        if (d2 < bestDist) {
+            bestDist = d2;
+            best = e;
+        }
+    }
+    return best;
+}
+
+function updateTeammates(now) {
+    if (!gameRunning || !player || teammates.length === 0) return;
+    const baseSpeed = (gameParams.ENEMY && gameParams.ENEMY.moveSpeed ? gameParams.ENEMY.moveSpeed : 0.35) * 0.9;
+
+    // 找到对玩家威胁最大的敌人，队友会优先协防
+    let threatToPlayer = null;
+    let threatDistSq = 20 * 20;
+    for (let k = 0; k < enemies.length; k++) {
+        const e = enemies[k];
+        if (!e || !e.alive) continue;
+        const dx = e.x - player.x;
+        const dy = e.y - player.y;
+        const d2 = dx * dx + dy * dy;
+        if (d2 < threatDistSq) {
+            threatDistSq = d2;
+            threatToPlayer = e;
+        }
+    }
+
+    for (let i = 0; i < teammates.length; i++) {
+        const tm = teammates[i];
+        if (!tm.alive) continue;
+
+        // 初始化换弹状态
+        if (typeof tm.isReloading === 'undefined') tm.isReloading = false;
+        if (typeof tm.reloadStart === 'undefined') tm.reloadStart = 0;
+
+        // 选择目标：优先攻击对玩家威胁最大的敌人，其次才是离自己最近的敌人
+        let target = threatToPlayer;
+        if (!target || Math.random() < 0.4) {
+            target = getNearestTeammateTarget(tm.x, tm.y, tm.weapon.range || 35);
+        }
+        tm.targetEnemy = target;
+
+        const speed = baseSpeed * tm.speedMul;
+        let desiredX, desiredY;
+
+        if (target) {
+            // 计算以玩家-目标连线为基准的侧翼位置，左右分散
+            const angleToTarget = Math.atan2(target.y - player.y, target.x - player.x);
+            const side = (i % 2 === 0) ? 1 : -1;
+            const flankAngle = angleToTarget + side * (Math.PI / 3 + Math.sin(now / 1000 + i) * 0.2);
+            const followDist = Math.min(7, (tm.weapon.range || 35) * 0.4);
+            desiredX = player.x + Math.cos(flankAngle) * followDist;
+            desiredY = player.y + Math.sin(flankAngle) * followDist;
+
+            // 如果期望位置没有视线，尝试向目标靠近一点
+            if (!hasLineOfSight(desiredX, desiredY, target.x, target.y)) {
+                const approachAngle = Math.atan2(target.y - tm.y, target.x - tm.x);
+                desiredX = tm.x + Math.cos(approachAngle) * speed * 2;
+                desiredY = tm.y + Math.sin(approachAngle) * speed * 2;
+            }
+        } else {
+            // 无目标时呈扇形护卫玩家
+            const offsetAngle = (i / Math.max(1, teammates.length)) * Math.PI * 2 + player.angle + Math.PI / 4;
+            desiredX = player.x + Math.cos(offsetAngle) * 3;
+            desiredY = player.y + Math.sin(offsetAngle) * 3;
+        }
+
+        // 受击时向侧向闪避
+        if (tm.hitFlash > 0 && target) {
+            const dodgeAngle = Math.atan2(target.y - tm.y, target.x - tm.x) + (Math.random() < 0.5 ? Math.PI / 2 : -Math.PI / 2);
+            desiredX = tm.x + Math.cos(dodgeAngle) * 1.5;
+            desiredY = tm.y + Math.sin(dodgeAngle) * 1.5;
+        }
+
+        // 向期望位置移动
+        const dx = desiredX - tm.x;
+        const dy = desiredY - tm.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        if (dist > 0.3) {
+            let moveX = (dx / dist) * speed;
+            let moveY = (dy / dist) * speed;
+            let moved = false;
+            if (!isBlockedCircle(tm.x + moveX, tm.y, tm.radius)) {
+                tm.x += moveX; moved = true;
+            }
+            if (!isBlockedCircle(tm.x, tm.y + moveY, tm.radius)) {
+                tm.y += moveY; moved = true;
+            }
+            if (!moved) {
+                const perpX = -moveY, perpY = moveX;
+                if (!isBlockedCircle(tm.x + perpX, tm.y, tm.radius)) tm.x += perpX;
+                else if (!isBlockedCircle(tm.x - perpX, tm.y, tm.radius)) tm.x -= perpX;
+                if (!isBlockedCircle(tm.x, tm.y + perpY, tm.radius)) tm.y += perpY;
+                else if (!isBlockedCircle(tm.x, tm.y - perpY, tm.radius)) tm.y -= perpY;
+            }
+        }
+
+        // 与玩家/其他队友分离
+        const separateTargets = [player].concat(teammates.filter((t, idx) => idx !== i && t.alive));
+        for (const other of separateTargets) {
+            const sdx = tm.x - other.x;
+            const sdy = tm.y - other.y;
+            const sd = Math.sqrt(sdx * sdx + sdy * sdy);
+            if (sd > 0 && sd < 1.2) {
+                const push = (1.2 - sd) / 1.2 * speed * 0.5;
+                const px = (sdx / sd) * push;
+                const py = (sdy / sd) * push;
+                if (!isBlockedCircle(tm.x + px, tm.y, tm.radius)) tm.x += px;
+                if (!isBlockedCircle(tm.x, tm.y + py, tm.radius)) tm.y += py;
+            }
+        }
+
+        // 换弹逻辑
+        if (tm.isReloading) {
+            const reloadTime = tm.weapon.reloadTime || tm.weapon.fireRate * 4 || 1000;
+            if (now - tm.reloadStart >= reloadTime) {
+                tm.currentAmmo = tm.weapon.clipSize || 30;
+                tm.isReloading = false;
+            }
+            if (tm.hitFlash > 0) tm.hitFlash--;
+            continue;
+        }
+
+        // 射击
+        if (target) {
+            tm.angle = Math.atan2(target.y - tm.y, target.x - tm.x);
+            const tdx = target.x - tm.x;
+            const tdy = target.y - tm.y;
+            const tdist = Math.sqrt(tdx * tdx + tdy * tdy);
+            if (tdist <= (tm.weapon.range || 35) && hasLineOfSight(tm.x, tm.y, target.x, target.y) && now - tm.lastShot > (tm.weapon.fireRate || 300)) {
+                if (tm.currentAmmo > 0) {
+                    const pellets = tm.weapon.pellets || 1;
+                    for (let p = 0; p < pellets; p++) {
+                        const spread = pellets > 1 ? (Math.random() - 0.5) * 0.25 : 0;
+                        poolPushBullet({
+                            x: tm.x + Math.cos(tm.angle) * 0.5,
+                            y: tm.y + Math.sin(tm.angle) * 0.5,
+                            angle: tm.angle + spread,
+                            speed: 1,
+                            damage: tm.weapon.damage || 20,
+                            range: tm.weapon.range || 30,
+                            distance: 0,
+                            owner: 'teammate',
+                            type: getWeaponAmmoType(tm.weapon.id) || 'normal',
+                            weaponType: tm.weapon.type
+                        });
+                    }
+                    tm.currentAmmo--;
+                    tm.lastShot = now;
+                    alertNearbyEnemies(tm.x, tm.y, 12);
+                }
+                if (tm.currentAmmo <= 0) {
+                    tm.isReloading = true;
+                    tm.reloadStart = now;
+                }
+            }
+        }
+
+        if (tm.hitFlash > 0) tm.hitFlash--;
+    }
+
+    // 清理死亡队友
+    for (let i = teammates.length - 1; i >= 0; i--) {
+        if (!teammates[i].alive) teammates.splice(i, 1);
+    }
+}
+
+function drawTeammates() {
+    if (!player || teammates.length === 0) return;
+    for (let i = 0; i < teammates.length; i++) {
+        const tm = teammates[i];
+        if (!tm.alive) continue;
+        if (Math.abs(tm.x - player.x) > VIEW_RANGE_X + 2 || Math.abs(tm.y - player.y) > VIEW_RANGE_Y + 2) continue;
+        const screenX = canvas.width / 2 + (tm.x - player.x) * TILE_SIZE;
+        const screenY = canvas.height / 2 + (tm.y - player.y) * TILE_SIZE;
+        ctx.save();
+        ctx.translate(screenX, screenY);
+        ctx.rotate(tm.angle);
+
+        const bodyColor = '#4dabf7';
+        const glowColor = '#91d5ff';
+        if (tm.hitFlash > 0) ctx.fillStyle = '#ffffff';
+        else ctx.fillStyle = bodyColor;
+        ctx.strokeStyle = glowColor;
+        ctx.lineWidth = 2;
+        ctx.shadowColor = glowColor;
+        ctx.shadowBlur = 8;
+        ctx.beginPath();
+        ctx.moveTo(PLAYER_SIZE * TILE_SIZE, 0);
+        ctx.lineTo(-PLAYER_SIZE * TILE_SIZE * 0.7, -PLAYER_SIZE * TILE_SIZE * 0.7);
+        ctx.lineTo(-PLAYER_SIZE * TILE_SIZE * 0.5, 0);
+        ctx.lineTo(-PLAYER_SIZE * TILE_SIZE * 0.7, PLAYER_SIZE * TILE_SIZE * 0.7);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+        ctx.shadowBlur = 0;
+
+        // 生命条
+        ctx.restore();
+        const hpPercent = Math.max(0, tm.health / tm.maxHealth);
+        ctx.fillStyle = 'rgba(0,0,0,0.5)';
+        ctx.fillRect(screenX - 14, screenY - 22, 28, 4);
+        ctx.fillStyle = hpPercent > 0.5 ? '#00cc66' : '#ff4444';
+        ctx.fillRect(screenX - 14, screenY - 22, 28 * hpPercent, 4);
+        ctx.fillStyle = '#91d5ff';
+        ctx.font = '10px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText(tm.name, screenX, screenY - 26);
+
+        // 换弹提示
+        if (tm.isReloading) {
+            ctx.fillStyle = '#ffaa00';
+            ctx.font = '9px Arial';
+            ctx.fillText('换弹中', screenX, screenY - 36);
+        }
+    }
+}
+
+// ============================================================
+// 搜打撤实验：摸金箱子
+// ============================================================
+function generateLootCrates(count) {
+    lootCrates = [];
+    const startX = player.x;
+    const startY = player.y;
+    const rarityList = Object.values(LOOT_CRATE_RARITY);
+    for (let i = 0; i < count; i++) {
+        let x, y, attempts = 0;
+        do {
+            x = Math.floor(Math.random() * MAP_SIZE);
+            y = Math.floor(Math.random() * MAP_SIZE);
+            attempts++;
+            const tile = getTile(x, y);
+            const distStart = Math.abs(x - startX) + Math.abs(y - startY);
+            const distExtract = Math.abs(x - extractX) + Math.abs(y - extractY);
+            if (!tile || (tile.type !== 'ground' && tile.type !== 'cover')) continue;
+            if (distStart < 10 || distExtract < 5) continue;
+            // 避免与其他箱子过近
+            let tooClose = false;
+            for (const c of lootCrates) {
+                if (Math.abs(c.x - x) + Math.abs(c.y - y) < 8) { tooClose = true; break; }
+            }
+            if (tooClose) continue;
+            x += 0.5; y += 0.5;
+            break;
+        } while (attempts < 80);
+        if (attempts >= 80) continue;
+        const roll = Math.random();
+        let cumulative = 0;
+        let rarity = rarityList[0];
+        for (const r of rarityList) {
+            cumulative += r.chance;
+            if (roll < cumulative) { rarity = r; break; }
+        }
+        lootCrates.push({
+            x, y,
+            state: 'closed',
+            progress: 0,
+            searchStart: 0,
+            icon: rarity.icon,
+            rarity: rarity.id
+        });
+    }
+}
+
+function tryInteractLootCrate() {
+    if (!gameRunning || !player) return;
+    if (activeCrate && activeCrate.state === 'opening') return;
+    let nearest = null;
+    let nearestDist = 2.5 * 2.5;
+    for (const crate of lootCrates) {
+        if (crate.state !== 'closed') continue;
+        const dx = crate.x - player.x;
+        const dy = crate.y - player.y;
+        const d2 = dx * dx + dy * dy;
+        if (d2 < nearestDist) {
+            nearestDist = d2;
+            nearest = crate;
+        }
+    }
+    if (nearest) {
+        nearest.state = 'opening';
+        nearest.searchStart = Date.now();
+        activeCrate = nearest;
+        alertNearbyEnemies(nearest.x, nearest.y, LOOT_CRATE_NOISE_RADIUS);
+        showNotification('正在搜索物资箱...');
+    }
+}
+
+function openLootCrate(crate) {
+    crate.state = 'opened';
+    crate.progress = 1;
+    activeCrate = null;
+    alertNearbyEnemies(crate.x, crate.y, LOOT_CRATE_NOISE_RADIUS * 1.2);
+
+    const rarityInfo = LOOT_CRATE_RARITY[crate.rarity.toUpperCase()] || LOOT_CRATE_RARITY.COMMON;
+    const drops = LOOT_CRATE_DROP_TABLE[crate.rarity] || LOOT_CRATE_DROP_TABLE.common;
+    const lootCount = Math.max(1, Math.floor(LOOT_CRATE_LOOT_COUNT * rarityInfo.lootMul));
+    const lootMessages = [];
+
+    function pickDrop() {
+        const totalWeight = drops.reduce((sum, d) => sum + d.weight, 0);
+        let roll = Math.random() * totalWeight;
+        for (const drop of drops) {
+            roll -= drop.weight;
+            if (roll <= 0) return drop;
+        }
+        return drops[0];
+    }
+
+    for (let i = 0; i < lootCount; i++) {
+        const drop = pickDrop();
+        switch (drop.type) {
+            case 'coins': {
+                const coins = drop.min + Math.floor(Math.random() * (drop.max - drop.min + 1));
+                playerData.coins += coins;
+                lootMessages.push(`+${coins} 金币`);
+                break;
+            }
+            case 'heal': {
+                const heal = drop.min + Math.floor(Math.random() * (drop.max - drop.min + 1));
+                player.health = Math.min(player.maxHealth, player.health + heal);
+                lootMessages.push(`+${heal} 生命`);
+                break;
+            }
+            case 'fullHeal': {
+                player.health = player.maxHealth;
+                lootMessages.push('生命全满');
+                break;
+            }
+            case 'item': {
+                const key = drop.itemId === 'ammoBox' ? 'ammoBox' :
+                            drop.itemId === 'medkit' ? 'medkits' :
+                            drop.itemId === 'grenade' ? 'grenades' :
+                            drop.itemId === 'speedBoost' ? 'speedBoost' : drop.itemId;
+                playerData.inventory[key] = (playerData.inventory[key] || 0) + (drop.value || 1);
+                lootMessages.push(`+${drop.value || 1} ${itemName(drop.itemId)}`);
+                break;
+            }
+            case 'ammo': {
+                const w = player.weapons[player.currentWeapon];
+                if (w && !w.isMelee && w.type !== WEAPON_TYPES.MELEE) {
+                    const ammoType = getWeaponAmmoType(w.id);
+                    const amount = drop.min + Math.floor(Math.random() * (drop.max - drop.min + 1));
+                    ammoInventory[ammoType] = (ammoInventory[ammoType] || 0) + amount;
+                    lootMessages.push(`+${amount} ${ammoType} 弹药`);
+                } else {
+                    playerData.inventory.grenades = (playerData.inventory.grenades || 0) + 1;
+                    lootMessages.push('+1 手雷');
+                }
+                break;
+            }
+            case 'armor': {
+                player.health = Math.min(player.maxHealth, player.health + (drop.value || 30));
+                lootMessages.push(`+${drop.value || 30} 护甲/生命`);
+                break;
+            }
+            case 'mod': {
+                const modList = Object.keys(MODIFICATIONS || {});
+                if (modList.length > 0) {
+                    const modId = modList[Math.floor(Math.random() * modList.length)];
+                    const mod = MODIFICATIONS[modId];
+                    playerMods.ownedMods[modId] = (playerMods.ownedMods[modId] || 0) + 1;
+                    lootMessages.push(`+1 ${mod ? mod.name : modId} 配件`);
+                } else {
+                    playerData.coins += 100;
+                    lootMessages.push('+100 金币');
+                }
+                break;
+            }
+            case 'skin': {
+                const skinTemplates = SKIN_TEMPLATES.filter(s => s.id !== 'default' && s.price > 0);
+                if (skinTemplates.length > 0) {
+                    const skin = skinTemplates[Math.floor(Math.random() * skinTemplates.length)];
+                    const skinId = 'skin_' + skin.id;
+                    if (!playerMods.ownedSkins.includes(skinId)) {
+                        playerMods.ownedSkins.push(skinId);
+                        lootMessages.push(`🎨 皮肤碎片：${skin.name}`);
+                    } else {
+                        playerData.coins += 50;
+                        lootMessages.push('+50 金币（重复皮肤）');
+                    }
+                } else {
+                    playerData.coins += 80;
+                    lootMessages.push('+80 金币');
+                }
+                break;
+            }
+            default:
+                playerData.coins += 10;
+                lootMessages.push('+10 金币');
+        }
+    }
+    showNotification(`${rarityInfo.icon} ${rarityInfo.label}物资箱：${lootMessages.join(' / ')}`, 'success');
+    updateHUD();
+}
+
+function itemName(id) {
+    const map = { ammoBox: '弹药箱', medkit: '医疗包', grenade: '手雷', speedBoost: '加速卡' };
+    return map[id] || id;
+}
+
+function updateLootCrates(now) {
+    const prompt = document.getElementById('lootPrompt');
+    const fill = document.getElementById('lootProgressFill');
+    let nearClosed = null;
+    let nearestDist = 2.5 * 2.5;
+    for (const crate of lootCrates) {
+        if (crate.state !== 'closed') continue;
+        const dx = crate.x - player.x;
+        const dy = crate.y - player.y;
+        const d2 = dx * dx + dy * dy;
+        if (d2 < nearestDist) {
+            nearestDist = d2;
+            nearClosed = crate;
+        }
+    }
+
+    if (nearClosed && (!activeCrate || activeCrate.state !== 'opening')) {
+        if (prompt) prompt.classList.add('active');
+        if (fill) fill.style.width = '0%';
+    } else {
+        if (prompt) prompt.classList.remove('active');
+    }
+
+    if (activeCrate && activeCrate.state === 'opening') {
+        const dx = activeCrate.x - player.x;
+        const dy = activeCrate.y - player.y;
+        if (dx * dx + dy * dy > 3 * 3) {
+            activeCrate.state = 'closed';
+            activeCrate.searchStart = 0;
+            activeCrate = null;
+            showNotification('已远离物资箱，搜索取消');
+            if (prompt) prompt.classList.remove('active');
+            return;
+        }
+        const elapsed = now - activeCrate.searchStart;
+        activeCrate.progress = Math.min(1, elapsed / LOOT_CRATE_SEARCH_TIME);
+        if (fill) fill.style.width = (activeCrate.progress * 100) + '%';
+        if (prompt) prompt.classList.add('active');
+        if (activeCrate.progress >= 1) {
+            openLootCrate(activeCrate);
+            if (fill) fill.style.width = '0%';
+        }
+    }
+}
+
+function drawLootCrates() {
+    if (!player || lootCrates.length === 0) return;
+    const now = Date.now();
+    for (let i = 0; i < lootCrates.length; i++) {
+        const crate = lootCrates[i];
+        if (crate.state === 'opened') continue;
+        if (Math.abs(crate.x - player.x) > VIEW_RANGE_X + 2 || Math.abs(crate.y - player.y) > VIEW_RANGE_Y + 2) continue;
+        const screenX = canvas.width / 2 + (crate.x - player.x) * TILE_SIZE;
+        const screenY = canvas.height / 2 + (crate.y - player.y) * TILE_SIZE;
+        const rarityInfo = LOOT_CRATE_RARITY[crate.rarity.toUpperCase()] || LOOT_CRATE_RARITY.COMMON;
+        const pulse = crate.rarity === 'legendary' ? (Math.sin(now / 250) + 1) * 0.5 :
+                      crate.rarity === 'rare' ? (Math.sin(now / 400) + 1) * 0.5 : 0;
+        const glowBlur = 10 + pulse * 12;
+
+        ctx.save();
+        ctx.fillStyle = rarityInfo.color;
+        ctx.shadowColor = rarityInfo.glow;
+        ctx.shadowBlur = glowBlur;
+        ctx.fillRect(screenX - 10, screenY - 10, 20, 20);
+        ctx.strokeStyle = rarityInfo.glow;
+        ctx.lineWidth = crate.rarity === 'legendary' ? 2 : 1;
+        ctx.strokeRect(screenX - 10, screenY - 10, 20, 20);
+        ctx.shadowBlur = 0;
+
+        // 传说箱子额外旋转星芒装饰
+        if (crate.rarity === 'legendary') {
+            ctx.strokeStyle = rarityInfo.glow;
+            ctx.lineWidth = 1.5;
+            const rot = now / 800;
+            for (let a = 0; a < 4; a++) {
+                const angle = rot + a * Math.PI / 2;
+                ctx.beginPath();
+                ctx.moveTo(screenX + Math.cos(angle) * 14, screenY + Math.sin(angle) * 14);
+                ctx.lineTo(screenX + Math.cos(angle) * 18, screenY + Math.sin(angle) * 18);
+                ctx.stroke();
+            }
+        }
+
+        ctx.font = '14px Arial';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(crate.icon, screenX, screenY);
+        ctx.restore();
+    }
+}
+
+// ============================================================
+// 搜打撤实验：AI 增强辅助
+// ============================================================
+function getNearestEnemyThreat(enemy) {
+    let best = player;
+    let bestDist = (player.x - enemy.x) * (player.x - enemy.x) + (player.y - enemy.y) * (player.y - enemy.y);
+    for (let i = 0; i < teammates.length; i++) {
+        const tm = teammates[i];
+        if (!tm || !tm.alive) continue;
+        const d2 = (tm.x - enemy.x) * (tm.x - enemy.x) + (tm.y - enemy.y) * (tm.y - enemy.y);
+        if (d2 < bestDist) {
+            bestDist = d2;
+            best = tm;
+        }
+    }
+    return best;
+}
+
+function alertNearbyEnemies(x, y, radius) {
+    if (!enemies || enemies.length === 0) return;
+    const r2 = radius * radius;
+    const now = Date.now();
+    for (let i = 0; i < enemies.length; i++) {
+        const e = enemies[i];
+        if (!e || !e.alive) continue;
+        const dx = e.x - x;
+        const dy = e.y - y;
+        if (dx * dx + dy * dy < r2) {
+            e.investigateTarget = { x, y, until: now + 4000 + Math.random() * 2000 };
+        }
+    }
+}
+
+function findNearestCover(x, y, fromX, fromY, radius) {
+    let best = null;
+    let bestScore = Infinity;
+    const r = Math.ceil(radius);
+    for (let dy = -r; dy <= r; dy++) {
+        for (let dx = -r; dx <= r; dx++) {
+            const tx = Math.floor(x + dx);
+            const ty = Math.floor(y + dy);
+            if (tx < 0 || tx >= MAP_SIZE || ty < 0 || ty >= MAP_SIZE) continue;
+            const tile = getTile(tx, ty);
+            if (tile.type !== 'obstacle' && tile.type !== 'building') continue;
+            // 需要该掩体能够遮挡来自 fromX,fromY 的视线
+            if (hasLineOfSight(fromX, fromY, tx + 0.5, ty + 0.5)) continue;
+            const d = Math.sqrt(dx * dx + dy * dy);
+            if (d < bestScore) {
+                bestScore = d;
+                best = { x: tx + 0.5, y: ty + 0.5 };
+            }
+        }
+    }
+    return best;
 }
 
 // ============================================================
