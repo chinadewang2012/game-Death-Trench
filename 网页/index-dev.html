@@ -362,6 +362,16 @@
                     <h2>🎮 战备中心</h2>
                     <button class="menu-btn tertiary" onclick="exitReadyRoom()">返回大厅</button>
                 </div>
+                <div class="mode-select-row" id="modeSelectRow">
+                    <button class="mode-btn active" data-mode="mission" onclick="setGameMode('mission')">
+                        <span class="mode-icon">📋</span>
+                        <span class="mode-name">普通任务</span>
+                    </button>
+                    <button class="mode-btn" data-mode="raid" onclick="setGameMode('raid')">
+                        <span class="mode-icon">🎒</span>
+                        <span class="mode-name">搜打撤</span>
+                    </button>
+                </div>
                 <div class="ready-layout">
                     <div class="ready-left">
                         <div class="section-title">选择战场</div>

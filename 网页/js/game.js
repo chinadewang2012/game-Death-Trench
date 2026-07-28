@@ -829,6 +829,10 @@ let settings = {
 };
 window.settings = settings;
 
+// 游戏模式：mission 普通任务 / raid 搜打撤
+let gameMode = 'mission';
+window.gameMode = gameMode;
+
 const DEFAULT_TITLES_GAME = [
     { id: 't0', name: '新兵', icon: '🎖️', color: '#ffffff', bg1: 'rgba(139,148,158,0.5)', bg2: 'rgba(139,148,158,0.3)', borderColor: '#8b949e', pattern: 'none', conditionType: 'default', threshold: 0, reqText: '初始' },
     { id: 't1', name: '士兵', icon: '⚔️', color: '#ffffff', bg1: '#58a6ff', bg2: '#1f6feb', borderColor: '#58a6ff', pattern: 'gradient', conditionType: 'kills', threshold: 10, reqText: '击杀10人' },
@@ -1224,6 +1228,7 @@ let playerData = {
     title: '新兵',
     equippedArmor: '',
     selectedMap: 'desert',
+    selectedMode: 'mission',
     teammateCount: 0,
     equippedWeapons: { primary: 'rifle', secondary: 'pistol' },
     avatar: {
@@ -3179,6 +3184,10 @@ function startGame() {
 }
 
 function actuallyStartGame() {
+    // 确定当前游戏模式
+    gameMode = playerData.selectedMode || 'mission';
+    window.gameMode = gameMode;
+
     // 隐藏大厅和所有面板
     const lobby = document.getElementById('lobby');
     if (lobby) {
@@ -6433,6 +6442,22 @@ function setDifficulty(diff) {
     if (btn) btn.classList.add('active');
 }
 
+function setGameMode(mode) {
+    if (mode !== 'mission' && mode !== 'raid') return;
+    playerData.selectedMode = mode;
+    gameMode = mode;
+    savePlayerData();
+    updateGameModeUI();
+    updateReadyRoomMission();
+}
+
+function updateGameModeUI() {
+    const mode = playerData.selectedMode || 'mission';
+    document.querySelectorAll('#modeSelectRow .mode-btn').forEach(b => {
+        b.classList.toggle('active', b.dataset.mode === mode);
+    });
+}
+
 function selectMap(mapName) {
     playerData.selectedMap = mapName;
     document.querySelectorAll('.map-card').forEach(c => c.classList.remove('selected'));
@@ -6826,6 +6851,8 @@ function showReadyRoom() {
     renderReadyRoomMapPreviews();
     // 渲染物资数据
     updateSupplyUI();
+    // 更新模式选择按钮
+    updateGameModeUI();
     // 更新任务信息
     updateReadyRoomMission();
     // 更新战备中心武器装备显示
@@ -6939,6 +6966,8 @@ window.selectLoadoutWeapon = selectLoadoutWeapon;
 window.buyAndEquipWeapon = buyAndEquipWeapon;
 window.setTeammateCount = setTeammateCount;
 window.updateTeammateCountUI = updateTeammateCountUI;
+window.setGameMode = setGameMode;
+window.updateGameModeUI = updateGameModeUI;
 
 function hideLobbyBottom() {
     const lobbyBottom = document.querySelector('.lobby-bottom');
@@ -8772,8 +8801,18 @@ function updateReadyRoomMission() {
     const rewardEl = document.getElementById('readyRoomMissionReward');
     const cardEl = document.getElementById('readyRoomMissionCard');
 
-    if (!nameEl || !currentMission) {
-        if (nameEl) nameEl.textContent = '暂无进行中的任务';
+    if (!nameEl) return;
+
+    if ((playerData.selectedMode || 'mission') === 'raid') {
+        nameEl.textContent = '搜打撤行动';
+        descEl.textContent = '进入地图搜索物资、击败敌人，并在撤离点安全撤离。成功撤离才能带走战利品！';
+        rewardEl.textContent = '奖励: 战利品可带回仓库并出售';
+        if (cardEl) cardEl.style.borderColor = '#ffaa00';
+        return;
+    }
+
+    if (!currentMission) {
+        nameEl.textContent = '暂无进行中的任务';
         if (descEl) descEl.textContent = '选择地图以开始新任务';
         if (rewardEl) rewardEl.textContent = '';
         return;
