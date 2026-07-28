@@ -837,6 +837,10 @@ window.gameMode = gameMode;
 let raidLoot = [];
 let currentRaidLoadout = null;
 
+// Round 3：地图事件与 AI 埋伏
+let mapEvents = [];
+let nextMapEventAt = 0;
+
 const DEFAULT_TITLES_GAME = [
     { id: 't0', name: '新兵', icon: '🎖️', color: '#ffffff', bg1: 'rgba(139,148,158,0.5)', bg2: 'rgba(139,148,158,0.3)', borderColor: '#8b949e', pattern: 'none', conditionType: 'default', threshold: 0, reqText: '初始' },
     { id: 't1', name: '士兵', icon: '⚔️', color: '#ffffff', bg1: '#58a6ff', bg2: '#1f6feb', borderColor: '#58a6ff', pattern: 'gradient', conditionType: 'kills', threshold: 10, reqText: '击杀10人' },
@@ -3359,6 +3363,9 @@ function actuallyStartGame() {
     const crateCount = Math.max(6, 10 + Math.floor(Math.random() * 5) + difficultyCrateBonus);
     generateLootCrates(crateCount);
 
+    // Round 3：初始化搜打撤地图事件
+    initMapEvents();
+
     // 清空按键状态与冲刺状态
     keys.clear();
     shiftHeld = false;
@@ -3444,6 +3451,8 @@ function cleanupGameState() {
     explosions = [];
     lootCrates = [];
     activeCrate = null;
+    mapEvents = [];
+    nextMapEventAt = 0;
 
     // 重置时间相关状态
     lastTickTime = 0;
@@ -3786,6 +3795,11 @@ function update() {
     if (enemies.length < enemyCount && now - lastEnemySpawn > spawnInterval) {
         spawnEnemy();
         lastEnemySpawn = now;
+    }
+
+    // Round 3：搜打撤地图事件与 AI 埋伏
+    if (gameMode === 'raid') {
+        updateMapEvents(now);
     }
 
     // ==================== A* 寻路算法（替代原 DFS，避免随机分支造成的性能死锁） ====================
@@ -4666,6 +4680,9 @@ function draw() {
 
     // 绘制摸金箱子
     drawLootCrates();
+
+    // 绘制地图事件标记（搜打撤）
+    drawMapEvents();
 
     // 绘制敌人
     for (let i = 0; i < enemies.length; i++) {
@@ -10336,6 +10353,165 @@ function drawLootCrates() {
         ctx.fillText(crate.icon, screenX, screenY);
         ctx.restore();
     }
+}
+
+// ============================================================
+// Round 3：地图事件与 AI 埋伏
+// ============================================================
+const MAP_EVENT_TYPES = [
+    { id: 'patrol', weight: 40 },
+    { id: 'ambush', weight: 35 },
+    { id: 'supply_drop', weight: 25 }
+];
+const MAP_EVENT_INTERVAL_MIN = 20000;
+const MAP_EVENT_INTERVAL_MAX = 45000;
+
+function initMapEvents() {
+    mapEvents = [];
+    nextMapEventAt = Date.now() + 15000 + Math.random() * 10000; // 开局 15-25s 触发第一个事件
+}
+
+function updateMapEvents(now) {
+    if (now < nextMapEventAt) return;
+    nextMapEventAt = now + MAP_EVENT_INTERVAL_MIN + Math.random() * (MAP_EVENT_INTERVAL_MAX - MAP_EVENT_INTERVAL_MIN);
+
+    const totalWeight = MAP_EVENT_TYPES.reduce((sum, t) => sum + t.weight, 0);
+    let roll = Math.random() * totalWeight;
+    let selected = MAP_EVENT_TYPES[0];
+    for (const t of MAP_EVENT_TYPES) {
+        roll -= t.weight;
+        if (roll <= 0) { selected = t; break; }
+    }
+    triggerMapEvent(selected.id, now);
+}
+
+function spawnEventEnemy(x, y, target) {
+    const enemyHealth = gameParams.ENEMY.health || 80;
+    const enemyFireRate = gameParams.ENEMY.fireRate || 2000;
+    const difficultyHealthMul = settings.difficulty === 'hard' ? 1.3 : (settings.difficulty === 'easy' ? 0.75 : 1);
+    const now = Date.now();
+    const e = {
+        x, y,
+        health: enemyHealth * difficultyHealthMul,
+        maxHealth: enemyHealth * difficultyHealthMul,
+        angle: Math.random() * Math.PI * 2,
+        lastShot: 0,
+        fireRate: enemyFireRate,
+        isBoss: false,
+        alive: true,
+        path: null,
+        pathIndex: 0,
+        lastPathUpdate: 0,
+        pathUpdateInterval: 500,
+        aiState: 'chase',
+        investigateTarget: target ? { x: target.x, y: target.y, until: now + 60000 } : null
+    };
+    enemies.push(e);
+    return e;
+}
+
+function pickRandomGroundPos(minDistFromPlayer, maxDistFromPlayer) {
+    const px = player.x;
+    const py = player.y;
+    for (let i = 0; i < 80; i++) {
+        const x = Math.floor(Math.random() * MAP_SIZE) + 0.5;
+        const y = Math.floor(Math.random() * MAP_SIZE) + 0.5;
+        const tile = getTile(Math.floor(x), Math.floor(y));
+        if (!tile || (tile.type !== 'ground' && tile.type !== 'cover')) continue;
+        const d = Math.sqrt((x - px) * (x - px) + (y - py) * (y - py));
+        if (d < minDistFromPlayer) continue;
+        if (maxDistFromPlayer > 0 && d > maxDistFromPlayer) continue;
+        return { x, y };
+    }
+    return null;
+}
+
+function triggerMapEvent(type, now) {
+    if (type === 'patrol') {
+        const count = 3 + Math.floor(Math.random() * 2); // 3-4
+        const side = Math.floor(Math.random() * 4);
+        for (let i = 0; i < count; i++) {
+            let x, y;
+            const offset = Math.random() * MAP_SIZE;
+            switch (side) {
+                case 0: x = 2 + Math.random() * 4; y = offset; break;
+                case 1: x = MAP_SIZE - 2 - Math.random() * 4; y = offset; break;
+                case 2: x = offset; y = 2 + Math.random() * 4; break;
+                default: x = offset; y = MAP_SIZE - 2 - Math.random() * 4; break;
+            }
+            if (isBlocked(x, y)) continue;
+            spawnEventEnemy(x, y, player);
+        }
+        showNotification('⚠️ 巡逻队接近！', 'warning');
+        mapEvents.push({ type: 'patrol', x: player.x, y: player.y, until: now + 5000 });
+    } else if (type === 'ambush') {
+        const count = 4 + Math.floor(Math.random() * 3); // 4-6
+        const baseAngle = Math.random() * Math.PI * 2;
+        for (let i = 0; i < count; i++) {
+            const angle = baseAngle + (i / count) * Math.PI * 2 + (Math.random() - 0.5) * 0.5;
+            const dist = 12 + Math.random() * 8;
+            let x = player.x + Math.cos(angle) * dist;
+            let y = player.y + Math.sin(angle) * dist;
+            x = Math.max(2, Math.min(MAP_SIZE - 2, x));
+            y = Math.max(2, Math.min(MAP_SIZE - 2, y));
+            if (isBlocked(x, y)) {
+                const alt = pickRandomGroundPos(8, 20);
+                if (alt) { x = alt.x; y = alt.y; }
+            }
+            spawnEventEnemy(x, y, player);
+        }
+        showNotification('🚨 遭遇埋伏！', 'error');
+        mapEvents.push({ type: 'ambush', x: player.x, y: player.y, until: now + 6000 });
+    } else if (type === 'supply_drop') {
+        const pos = pickRandomGroundPos(15, 60);
+        if (pos) {
+            lootCrates.push({
+                x: pos.x,
+                y: pos.y,
+                state: 'closed',
+                progress: 0,
+                searchStart: 0,
+                icon: '📦',
+                rarity: 'legendary',
+                isSupplyDrop: true
+            });
+            alertNearbyEnemies(pos.x, pos.y, 30);
+            showNotification('🪂 空投补给已降临！', 'success');
+            mapEvents.push({ type: 'supply_drop', x: pos.x, y: pos.y, until: now + 60000 });
+        }
+    }
+}
+
+function drawMapEvents() {
+    if (!player || mapEvents.length === 0) return;
+    const now = Date.now();
+    const cx = canvas.width / 2;
+    const cy = canvas.height / 2;
+    ctx.save();
+    for (let i = mapEvents.length - 1; i >= 0; i--) {
+        const ev = mapEvents[i];
+        if (now > ev.until) { mapEvents.splice(i, 1); continue; }
+
+        const sx = cx + (ev.x - player.x) * TILE_SIZE;
+        const sy = cy + (ev.y - player.y) * TILE_SIZE;
+        const t = (ev.until - now) / 6000;
+        const alpha = Math.max(0, Math.min(1, t));
+
+        ctx.globalAlpha = alpha;
+        ctx.beginPath();
+        ctx.arc(sx, sy, 18 + Math.sin(now / 200) * 3, 0, Math.PI * 2);
+        ctx.strokeStyle = ev.type === 'ambush' ? '#ff4444' : (ev.type === 'patrol' ? '#ffaa00' : '#44ff44');
+        ctx.lineWidth = 2;
+        ctx.stroke();
+
+        ctx.font = '16px Arial';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillStyle = '#ffffff';
+        const icon = ev.type === 'ambush' ? '🚨' : (ev.type === 'patrol' ? '⚠️' : '🪂');
+        ctx.fillText(icon, sx, sy);
+    }
+    ctx.restore();
 }
 
 // ============================================================
