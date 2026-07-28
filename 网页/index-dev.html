@@ -16,6 +16,24 @@
     <div id="gameContainer">
         <canvas id="gameCanvas" tabindex="0"></canvas>
 
+        <!-- 受击红色闪烁层 -->
+        <div id="damageFlash" style="position:absolute;inset:0;z-index:50;pointer-events:none;
+            background:radial-gradient(ellipse at center, transparent 40%, rgba(204,51,51,0.3) 100%);
+            opacity:0; transition:opacity 0.1s;"></div>
+
+        <!-- 持久红色暗角（随血量变化） -->
+        <div id="damageVignette" style="position:absolute;inset:0;z-index:49;pointer-events:none;
+            background:radial-gradient(ellipse at center, transparent 30%, rgba(204,51,51,0.15) 100%);
+            opacity:0;"></div>
+
+        <!-- 小地图 -->
+        <div id="minimap" style="position:absolute;top:20px;left:20px;z-index:100;
+            width:180px;height:180px;background:rgba(0,0,0,0.75);
+            border:1px solid rgba(74,93,35,0.5);border-radius:8px;overflow:hidden;display:block;">
+            <div style="position:absolute;top:4px;left:6px;font-size:10px;color:rgba(255,255,255,0.3);z-index:2;">地图</div>
+            <canvas id="minimapCanvas" width="180" height="180" style="width:100%;height:100%;"></canvas>
+        </div>
+
         <div class="mission-panel" id="missionPanel">
             <div class="mission-header">
                 <span class="mission-icon">📋</span>
@@ -126,8 +144,8 @@
     <!-- 操作说明面板（游戏中显示，CSS 中以 #controls 定义样式） -->
     <div id="controls" style="display:none;">
         <div class="control-row"><span>WASD / 方向键</span><span>移动</span></div>
-        <div class="control-row"><span>鼠标右键</span><span>射击</span></div>
-        <div class="control-row"><span>空格</span><span>连发开关</span></div>
+        <div class="control-row"><span>鼠标右键</span><span>单发射击</span></div>
+        <div class="control-row"><span>空格</span><span>自动射击开关</span></div>
         <div class="control-row"><span>1 / 2 / 3</span><span>切换武器</span></div>
         <div class="control-row"><span>R</span><span>换弹</span></div>
         <div class="control-row"><span>G</span><span>投掷手雷</span></div>
@@ -306,6 +324,10 @@
                     <i data-lucide="dices" style="width:24px;height:24px;color:var(--brand-accent);"></i>
                     <span>抽奖</span>
                 </button>
+                <button class="lobby-func-btn" onclick="showRedeemCodePanel()">
+                    <i data-lucide="gift" style="width:24px;height:24px;color:var(--brand-accent);"></i>
+                    <span>兑换码</span>
+                </button>
                 <button class="lobby-func-btn" onclick="showAmmoPanel()">
                     <i data-lucide="box" style="width:24px;height:24px;color:var(--brand-accent);"></i>
                     <span>弹药库</span>
@@ -392,9 +414,13 @@
 
                         <div class="section-title">装备</div>
                         <div class="equip-slots compact">
-                            <div class="equip-slot">
-                                <span class="slot-icon">🔫</span>
-                                <span class="slot-name">突击步枪</span>
+                            <div class="equip-slot" id="readyPrimarySlot" onclick="openLoadoutWeaponSelector('primary')" style="cursor:pointer;" title="点击切换主武器">
+                                <span class="slot-icon" id="readyPrimaryIcon">🔫</span>
+                                <span class="slot-name" id="readyPrimaryName">主武器</span>
+                            </div>
+                            <div class="equip-slot" id="readySecondarySlot" onclick="openLoadoutWeaponSelector('secondary')" style="cursor:pointer;" title="点击切换副武器">
+                                <span class="slot-icon" id="readySecondaryIcon">🔫</span>
+                                <span class="slot-name" id="readySecondaryName">副武器</span>
                             </div>
                             <div class="equip-slot">
                                 <span class="slot-icon">🛡️</span>
@@ -1415,6 +1441,18 @@
             <div class="popup-actions">
                 <button class="menu-btn tertiary" onclick="closeRedeemCodePanel()">取消</button>
                 <button class="menu-btn primary" onclick="submitRedeemCode()">兑换</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 战备中心武器选择弹窗 -->
+    <div id="loadoutWeaponModal" class="popup-overlay" style="display:none;">
+        <div class="popup-box popup-loadout-weapon">
+            <div class="popup-title">选择 <span id="loadoutWeaponSlotLabel">主武器</span></div>
+            <div class="popup-message" style="margin-bottom:12px;">点击已拥有的武器直接装备；未拥有的武器可先购买</div>
+            <div id="loadoutWeaponGrid" class="market-grid loadout-weapon-grid" style="max-height:320px;overflow-y:auto;"></div>
+            <div class="popup-actions">
+                <button class="menu-btn tertiary" onclick="closeLoadoutWeaponSelector()">取消</button>
             </div>
         </div>
     </div>

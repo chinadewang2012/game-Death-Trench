@@ -1162,6 +1162,16 @@ body {
     border-radius: 8px;
     font-size: 13px;
     color: #e6edf3;
+    cursor: pointer;
+    pointer-events: auto;
+    position: relative;
+    user-select: none;
+    transition: border-color 0.15s, background 0.15s;
+}
+
+.equip-slots.compact .equip-slot:hover {
+    border-color: var(--brand-accent, #00cc66);
+    background: rgba(0, 204, 102, 0.08);
 }
 
 .equip-slots.compact .equip-slot .slot-icon {

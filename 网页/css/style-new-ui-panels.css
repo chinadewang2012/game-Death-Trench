@@ -2789,6 +2789,19 @@
     font-family: var(--font-body) !important;
 }
 
+/* 战备中心武器选择弹窗 */
+.popup-loadout-weapon .market-item.equipped {
+    border-color: var(--brand-accent) !important;
+    box-shadow: 0 0 8px rgba(0, 204, 102, 0.35) !important;
+}
+
+.popup-loadout-weapon .market-item.equipped .buy-btn {
+    background: var(--brand-accent) !important;
+    color: #000 !important;
+    opacity: 0.8 !important;
+    cursor: default !important;
+}
+
 /* 新手教程 */
 .tutorial-overlay {
     position: fixed !important;

@@ -3224,9 +3224,21 @@ function actuallyStartGame() {
     // 渲染武器按钮，与 player.weapons 保持同步
     renderWeaponButtons();
 
-    // 撤离点：玩家出生位置
-    extractX = startX;
-    extractY = startY;
+    // 撤离点：地图边缘随机位置（与出生点保持一定距离，营造搜打撤体验）
+    const edgePositions = [
+        { x: 5, y: Math.floor(MAP_SIZE / 2) },
+        { x: MAP_SIZE - 5, y: Math.floor(MAP_SIZE / 2) },
+        { x: Math.floor(MAP_SIZE / 2), y: 5 },
+        { x: Math.floor(MAP_SIZE / 2), y: MAP_SIZE - 5 }
+    ];
+    const farEdges = edgePositions.filter(function(p) {
+        return Math.abs(p.x - startX) + Math.abs(p.y - startY) > MAP_SIZE / 3;
+    });
+    const extractPos = farEdges.length > 0
+        ? farEdges[Math.floor(Math.random() * farEdges.length)]
+        : edgePositions[0];
+    extractX = extractPos.x;
+    extractY = extractPos.y;
     isExtracting = false;
     extractStartTime = 0;
     extractProgress = 0;
@@ -3255,6 +3267,9 @@ function actuallyStartGame() {
     ctrlHeld = false;
     sprintMultiplier = 1.0;
     lastSprintUpdate = Date.now();
+
+    // 进入战斗后显示小地图
+    toggleMinimap(true);
 
     gameRunning = true;
     gameStartTime = Date.now();
@@ -3316,6 +3331,9 @@ function cleanupGameState() {
     isExtracting = false;
     extractProgress = 0;
     extractStartTime = 0;
+
+    // 隐藏小地图
+    toggleMinimap(false);
     
     // 清理按键状态
     keys.clear();
@@ -4423,6 +4441,9 @@ function draw() {
 
     // 恢复屏幕震动前的绘制状态
     ctx.restore();
+
+    // 绘制小地图（在屏幕震动恢复后绘制，避免震动影响）
+    drawMinimap();
 }
 
 function drawExtractionZone() {
@@ -4480,7 +4501,12 @@ function drawPlayer() {
     const skin = SKINS.players.find(s => s.id === playerMods.equippedPlayerSkin);
     const glowColor = skin && skin.color ? lightenColor(skin.color, 30) : '#00ff88';
 
+    // 身体：应用皮肤颜色，带发光描边，确保深色皮肤在战场上也能看清
     ctx.fillStyle = skinColor;
+    ctx.strokeStyle = glowColor;
+    ctx.lineWidth = 2;
+    ctx.shadowColor = glowColor;
+    ctx.shadowBlur = 8;
     ctx.beginPath();
     ctx.moveTo(PLAYER_SIZE * TILE_SIZE, 0);
     ctx.lineTo(-PLAYER_SIZE * TILE_SIZE * 0.7, -PLAYER_SIZE * TILE_SIZE * 0.7);
@@ -4488,12 +4514,15 @@ function drawPlayer() {
     ctx.lineTo(-PLAYER_SIZE * TILE_SIZE * 0.7, PLAYER_SIZE * TILE_SIZE * 0.7);
     ctx.closePath();
     ctx.fill();
+    ctx.stroke();
+    ctx.shadowBlur = 0;
 
+    // 核心：高亮发光，突出皮肤主题色
     ctx.fillStyle = glowColor;
     ctx.shadowColor = glowColor;
-    ctx.shadowBlur = 10;
+    ctx.shadowBlur = 12;
     ctx.beginPath();
-    ctx.arc(0, 0, PLAYER_SIZE * TILE_SIZE * 0.5, 0, Math.PI * 2);
+    ctx.arc(0, 0, PLAYER_SIZE * TILE_SIZE * 0.45, 0, Math.PI * 2);
     ctx.fill();
     ctx.shadowBlur = 0;
 
@@ -6577,6 +6606,8 @@ function showReadyRoom() {
     updateSupplyUI();
     // 更新任务信息
     updateReadyRoomMission();
+    // 更新战备中心武器装备显示
+    updateReadyRoomLoadout();
     // 根据当前地图高亮地图卡
     if (playerData.selectedMap) {
         document.querySelectorAll('#readyPresetMapGrid .map-card, #readyCustomMapGrid .map-card').forEach(c => c.classList.remove('selected'));
@@ -6591,6 +6622,96 @@ function exitReadyRoom() {
     if (lobby) lobby.classList.remove('lobby-in-ready');
     showLobby();
 }
+
+function updateReadyRoomLoadout() {
+    if (!playerData.equippedWeapons) {
+        playerData.equippedWeapons = { primary: 'rifle', secondary: 'pistol' };
+    }
+    const primary = WEAPONS.find(function(w) { return w.id === playerData.equippedWeapons.primary; }) || WEAPONS.find(function(w) { return w.id === 'rifle'; });
+    const secondary = WEAPONS.find(function(w) { return w.id === playerData.equippedWeapons.secondary; }) || WEAPONS.find(function(w) { return w.id === 'pistol'; });
+
+    const pIcon = document.getElementById('readyPrimaryIcon');
+    const pName = document.getElementById('readyPrimaryName');
+    const sIcon = document.getElementById('readySecondaryIcon');
+    const sName = document.getElementById('readySecondaryName');
+
+    if (pIcon) pIcon.textContent = primary ? primary.icon : '🔫';
+    if (pName) pName.textContent = primary ? primary.name : '主武器';
+    if (sIcon) sIcon.textContent = secondary ? secondary.icon : '🔫';
+    if (sName) sName.textContent = secondary ? secondary.name : '副武器';
+}
+
+let _loadoutSelectingSlot = 'primary';
+
+function openLoadoutWeaponSelector(slot) {
+    _loadoutSelectingSlot = slot || 'primary';
+    const modal = document.getElementById('loadoutWeaponModal');
+    const label = document.getElementById('loadoutWeaponSlotLabel');
+    const grid = document.getElementById('loadoutWeaponGrid');
+    if (!modal || !grid) return;
+
+    if (label) label.textContent = slot === 'secondary' ? '副武器' : '主武器';
+    grid.innerHTML = '';
+
+    // 列出所有非近战枪械
+    WEAPONS.forEach(function(weapon) {
+        if (weapon.type === WEAPON_TYPES.MELEE) return;
+
+        const isOwned = weapon.unlocked;
+        const isEquipped = playerData.equippedWeapons && playerData.equippedWeapons[_loadoutSelectingSlot] === weapon.id;
+        const priceText = isOwned ? (isEquipped ? '当前装备' : '已拥有') : '🪙 ' + weapon.price;
+        const btnText = isOwned ? (isEquipped ? '已装备' : '装备') : '购买并装备';
+
+        const item = document.createElement('div');
+        item.className = 'market-item' + (isEquipped ? ' equipped' : '') + (isOwned ? ' unlocked' : '');
+        item.innerHTML = '<div class="item-icon">' + weapon.icon + '</div>' +
+            '<div class="item-info"><div class="item-name">' + weapon.name + '</div>' +
+            '<div class="item-desc">伤害: ' + weapon.damage + ' | 射速: ' + weapon.fireRate + '</div></div>' +
+            '<div class="item-price">' + priceText + '</div>' +
+            '<button class="buy-btn">' + btnText + '</button>';
+
+        const btn = item.querySelector('.buy-btn');
+        btn.onclick = function() {
+            if (isOwned) {
+                selectLoadoutWeapon(_loadoutSelectingSlot, weapon.id);
+            } else {
+                buyAndEquipWeapon(weapon.id, _loadoutSelectingSlot);
+            }
+        };
+        grid.appendChild(item);
+    });
+
+    modal.style.display = 'flex';
+}
+
+function closeLoadoutWeaponSelector() {
+    const modal = document.getElementById('loadoutWeaponModal');
+    if (modal) modal.style.display = 'none';
+}
+
+function selectLoadoutWeapon(slot, weaponId) {
+    if (!playerData.equippedWeapons) playerData.equippedWeapons = { primary: 'rifle', secondary: 'pistol' };
+    playerData.equippedWeapons[slot] = weaponId;
+    savePlayerData();
+    updateReadyRoomLoadout();
+    closeLoadoutWeaponSelector();
+    showNotification(slot === 'secondary' ? '副武器已切换' : '主武器已切换');
+}
+
+function buyAndEquipWeapon(weaponId, slot) {
+    const result = buyWeapon(weaponId);
+    if (result && result.success) {
+        selectLoadoutWeapon(slot, weaponId);
+    } else {
+        showNotification(result && result.message ? result.message : '购买失败');
+    }
+}
+
+window.updateReadyRoomLoadout = updateReadyRoomLoadout;
+window.openLoadoutWeaponSelector = openLoadoutWeaponSelector;
+window.closeLoadoutWeaponSelector = closeLoadoutWeaponSelector;
+window.selectLoadoutWeapon = selectLoadoutWeapon;
+window.buyAndEquipWeapon = buyAndEquipWeapon;
 
 function hideLobbyBottom() {
     const lobbyBottom = document.querySelector('.lobby-bottom');
@@ -6900,66 +7021,150 @@ function updateDamageVignette(healthPercent) {
     }
 }
 
-// 小地图绘制
+// 小地图绘制（搜打撤风格）
 function drawMinimap() {
     const canvas = document.getElementById('minimapCanvas');
     const minimap = document.getElementById('minimap');
-    if (!canvas || !minimap) return;
-    
-    const ctx = canvas.getContext('2d');
-    const scale = canvas.width / (typeof mapWidth !== 'undefined' ? mapWidth : 2000);
-    
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    
-    // 绘制地形底色
-    ctx.fillStyle = '#1a2a1a';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-    
-    // 绘制网格
-    ctx.strokeStyle = 'rgba(74, 93, 35, 0.2)';
-    for (let x = 0; x < canvas.width; x += 20) {
-        ctx.beginPath();
-        ctx.moveTo(x, 0);
-        ctx.lineTo(x, canvas.height);
-        ctx.stroke();
+    if (!canvas || !minimap || minimap.style.display === 'none') return;
+
+    const mctx = canvas.getContext('2d');
+    const mapSize = typeof MAP_SIZE !== 'undefined' ? MAP_SIZE : 150;
+    const scale = canvas.width / mapSize;
+    const px = player ? player.x : mapSize / 2;
+    const py = player ? player.y : mapSize / 2;
+
+    mctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    // 深色战术背景
+    mctx.fillStyle = '#0d140d';
+    mctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    // 动态扫描线
+    const scanOffset = (Date.now() / 25) % canvas.height;
+    mctx.fillStyle = 'rgba(0, 255, 136, 0.06)';
+    mctx.fillRect(0, scanOffset, canvas.width, 1);
+
+    // 战术网格
+    mctx.strokeStyle = 'rgba(74, 93, 35, 0.12)';
+    mctx.lineWidth = 0.5;
+    const gridCount = 6;
+    const gridStep = canvas.width / gridCount;
+    for (let i = 1; i < gridCount; i++) {
+        const x = i * gridStep;
+        mctx.beginPath(); mctx.moveTo(x, 0); mctx.lineTo(x, canvas.height); mctx.stroke();
+        const y = i * gridStep;
+        mctx.beginPath(); mctx.moveTo(0, y); mctx.lineTo(canvas.width, y); mctx.stroke();
     }
-    for (let y = 0; y < canvas.height; y += 20) {
-        ctx.beginPath();
-        ctx.moveTo(0, y);
-        ctx.lineTo(canvas.width, y);
-        ctx.stroke();
-    }
-    
-    // 绘制建筑物（如果有的话）
-    if (typeof buildings !== 'undefined' && buildings.length > 0) {
-        buildings.forEach(b => {
-            ctx.fillStyle = '#333';
-            ctx.fillRect(b.x * scale, b.y * scale, Math.max(4, b.w * scale), Math.max(4, b.h * scale));
-        });
-    }
-    
-    // 绘制敌人
-    if (typeof enemies !== 'undefined') {
-        enemies.forEach(e => {
-            if (!e.dead) {
-                ctx.fillStyle = '#cc3333';
-                ctx.beginPath();
-                ctx.arc(e.x * scale, e.y * scale, 2, 0, Math.PI * 2);
-                ctx.fill();
+
+    // 绘制主要建筑/障碍轮廓（降采样，避免性能问题）
+    if (typeof mapData !== 'undefined' && mapData) {
+        mctx.fillStyle = 'rgba(60, 55, 45, 0.55)';
+        const step = Math.max(2, Math.floor(mapSize / 30));
+        for (let y = 0; y < mapSize; y += step) {
+            for (let x = 0; x < mapSize; x += step) {
+                const key = x + '_' + y;
+                const tile = mapData[key];
+                if (tile && (tile.type === 'obstacle' || tile.type === 'building' || tile.type === 'cover')) {
+                    mctx.fillRect(x * scale, y * scale, Math.max(2, step * scale), Math.max(2, step * scale));
+                }
             }
-        });
+        }
     }
-    
-    // 绘制玩家
-    if (typeof player !== 'undefined') {
-        ctx.fillStyle = '#00ff88';
-        ctx.shadowColor = '#00ff88';
-        ctx.shadowBlur = 6;
-        ctx.beginPath();
-        ctx.arc(player.x * scale, player.y * scale, 4, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.shadowBlur = 0;
+
+    // 绘制撤离点（蓝色光圈）
+    if (typeof extractX !== 'undefined' && typeof extractY !== 'undefined') {
+        const ex = extractX * scale;
+        const ey = extractY * scale;
+        mctx.strokeStyle = '#00ccff';
+        mctx.lineWidth = 1.5;
+        mctx.beginPath();
+        mctx.arc(ex, ey, 5, 0, Math.PI * 2);
+        mctx.stroke();
+        mctx.fillStyle = 'rgba(0, 204, 255, 0.35)';
+        mctx.beginPath();
+        mctx.arc(ex, ey, 3, 0, Math.PI * 2);
+        mctx.fill();
+        // 撤离点脉冲环
+        const pulse = (Math.sin(Date.now() / 300) + 1) * 0.5;
+        mctx.strokeStyle = 'rgba(0, 204, 255, ' + (0.2 + pulse * 0.3) + ')';
+        mctx.beginPath();
+        mctx.arc(ex, ey, 5 + pulse * 4, 0, Math.PI * 2);
+        mctx.stroke();
     }
+
+    // 绘制掉落物/物资（黄色小点）
+    if (typeof drops !== 'undefined') {
+        mctx.fillStyle = '#ffcc00';
+        for (let i = 0; i < drops.length; i++) {
+            const d = drops[i];
+            if (!d || !d.alive) continue;
+            mctx.beginPath();
+            mctx.arc(d.x * scale, d.y * scale, 1.8, 0, Math.PI * 2);
+            mctx.fill();
+        }
+    }
+
+    // 绘制敌人（红色光点）
+    if (typeof enemies !== 'undefined') {
+        for (let i = 0; i < enemies.length; i++) {
+            const e = enemies[i];
+            if (!e || e.dead) continue;
+            mctx.fillStyle = e.isBoss ? '#ff00ff' : '#ff3333';
+            mctx.shadowColor = e.isBoss ? '#ff00ff' : '#ff3333';
+            mctx.shadowBlur = e.isBoss ? 6 : 3;
+            mctx.beginPath();
+            mctx.arc(e.x * scale, e.y * scale, e.isBoss ? 3.5 : 2, 0, Math.PI * 2);
+            mctx.fill();
+            mctx.shadowBlur = 0;
+        }
+    }
+
+    // 绘制玩家（带视野扇形与朝向箭头，颜色跟随当前皮肤）
+    if (player) {
+        const x = px * scale;
+        const y = py * scale;
+        mctx.save();
+        mctx.translate(x, y);
+        mctx.rotate(player.angle || 0);
+
+        const pSkinColor = getPlayerSkinColor();
+        const pSkin = SKINS.players.find(s => s.id === playerMods.equippedPlayerSkin);
+        const pGlowColor = pSkin && pSkin.color ? lightenColor(pSkin.color, 30) : '#00ff88';
+
+        // 视野扇形
+        mctx.fillStyle = pSkinColor;
+        mctx.globalAlpha = 0.12;
+        mctx.beginPath();
+        mctx.moveTo(0, 0);
+        mctx.arc(0, 0, 28, -Math.PI / 5, Math.PI / 5);
+        mctx.closePath();
+        mctx.fill();
+        mctx.globalAlpha = 1.0;
+
+        // 玩家点
+        mctx.fillStyle = pSkinColor;
+        mctx.shadowColor = pGlowColor;
+        mctx.shadowBlur = 8;
+        mctx.beginPath();
+        mctx.arc(0, 0, 3.5, 0, Math.PI * 2);
+        mctx.fill();
+        mctx.shadowBlur = 0;
+
+        // 朝向箭头
+        mctx.strokeStyle = pGlowColor;
+        mctx.lineWidth = 1.5;
+        mctx.beginPath();
+        mctx.moveTo(0, 0);
+        mctx.lineTo(7, 0);
+        mctx.stroke();
+
+        mctx.restore();
+    }
+
+    // 外框
+    mctx.strokeStyle = 'rgba(0, 255, 136, 0.25)';
+    mctx.lineWidth = 1;
+    mctx.strokeRect(0, 0, canvas.width, canvas.height);
 }
 
 // 显示/隐藏小地图
@@ -7010,22 +7215,21 @@ function buyAttachment(modId) {
 }
 
 function buyWeapon(weaponId) {
-    const weapon = WEAPONS.find(w => w.id === weaponId);
-    if (!weapon) return;
+    const weapon = WEAPONS.find(function(w) { return w.id === weaponId; });
+    if (!weapon) return { success: false, message: '武器不存在' };
     if (weapon.unlocked) {
-        showNotification('已拥有该武器');
-        return;
+        return { success: false, message: '已拥有该武器' };
     }
     if (playerData.coins < weapon.price) {
-        showNotification('金币不足！');
-        return;
+        return { success: false, message: '金币不足！' };
     }
     playerData.coins -= weapon.price;
     weapon.unlocked = true;
     savePlayerData();
     updatePlayerStats();
-    showNotification(`解锁了 ${weapon.name}！`);
+    showNotification('解锁了 ' + weapon.name + '！');
     updateMarketUI();
+    return { success: true, message: '解锁成功' };
 }
 
 function switchMarketTab(tab) {
@@ -7094,20 +7298,29 @@ function renderWeaponMarketGrid() {
     grid.innerHTML = '';
 
     WEAPONS.forEach(weapon => {
-        if (weapon.id === 'pistol' || weapon.id === 'rifle' || weapon.id === 'sniper') return;
+        // 跳过近战武器，近战武器在专属商店/任务奖励中获取
+        if (weapon.type === WEAPON_TYPES.MELEE) return;
+
+        const isOwned = weapon.unlocked;
+        const isFree = weapon.price === 0;
+        const priceText = isOwned ? '已拥有' : (isFree ? '免费' : '🪙 ' + weapon.price);
+        const btnText = isOwned ? '已拥有' : (isFree ? '领取' : '购买');
+        const canBuy = !isOwned;
 
         const item = document.createElement('div');
-        item.className = 'market-item' + (weapon.unlocked ? ' unlocked' : '');
+        item.className = 'market-item' + (isOwned ? ' unlocked' : '');
         item.innerHTML = `
             <div class="item-icon">${weapon.icon}</div>
             <div class="item-info">
                 <div class="item-name">${weapon.name}</div>
                 <div class="item-desc">${weapon.description || '伤害: ' + weapon.damage + ' | 射速: ' + weapon.fireRate}</div>
             </div>
-            <div class="item-price">🪙 ${weapon.price}</div>
-            <button class="buy-btn" ${weapon.unlocked ? 'disabled' : ''}>${weapon.unlocked ? '已拥有' : '购买'}</button>
+            <div class="item-price">${priceText}</div>
+            <button class="buy-btn" ${!canBuy ? 'disabled' : ''}>${btnText}</button>
         `;
-        item.querySelector('.buy-btn').onclick = () => buyWeapon(weapon.id);
+        if (canBuy) {
+            item.querySelector('.buy-btn').onclick = function() { buyWeapon(weapon.id); };
+        }
         grid.appendChild(item);
     });
 }
