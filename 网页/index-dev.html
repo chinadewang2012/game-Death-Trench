@@ -1644,6 +1644,24 @@
         </div>
     </div>
 
+    <!-- 结局回顾弹窗 -->
+    <div id="endingScreenModal" class="popup-overlay" style="display:none;">
+        <div class="popup-content briefing-content">
+            <div class="briefing-header">
+                <h2 id="endingTitle">战役结束</h2>
+            </div>
+            <div class="briefing-body">
+                <div id="endingBranch" class="briefing-section-title"></div>
+                <div id="endingStory" class="briefing-story"></div>
+                <div id="endingHint" class="briefing-story" style="opacity:.7;margin-top:10px;"></div>
+            </div>
+            <div class="briefing-actions">
+                <button class="menu-btn danger" onclick="resetStoryState(); closeEndingScreen();">重置剧情</button>
+                <button class="menu-btn primary" onclick="closeEndingScreen()">继续</button>
+            </div>
+        </div>
+    </div>
+
     <script>
         document.addEventListener('DOMContentLoaded', function() {
             init();

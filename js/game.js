@@ -802,6 +802,10 @@ let keys = new Map();
 let lastShot = 0;
 let lastEnemySpawn = 0;
 let autoFire = false;
+let mouseFiring = false;   // 左键按住持续开火
+let aiming = false;        // 右键狙击开镜状态
+let viewScale = 1;         // 当前镜头缩放（狙击开镜时放大）
+let aimAngle = 0;          // 瞄准方向（鼠标角度）
 let lastItemUse = 0;  // 物品使用间隔记录
 const ITEM_COOLDOWN = 200;  // 物品使用间隔（毫秒）
 let enableItemCooldown = true;  // 是否启用物品使用间隔
@@ -1194,30 +1198,46 @@ const AVATAR_CONFIG = {
 };
 
 // 兑换码配置：每个账号限用一次，redeemedCodes 不计入存档验证码
+// 注意：兑换码采用无规律随机串（字母+数字混合，区分大小写），避免被轻易枚举破译。
+// 使用 generateRedeemCode() 生成随机码，code 无递增规律。
+function generateRedeemCode(seed) {
+    // 大小写字母 + 数字，排除易混淆字符（0/O、1/I/L）
+    const chars = 'ABCDEFGHJKMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789';
+    let s = '';
+    let x = seed >>> 0;
+    for (let i = 0; i < 12; i++) {
+        x = (x * 1103515245 + 12345) & 0x7fffffff;
+        s += chars[x % chars.length];
+        x = (x * 1103515245 + 12345) & 0x7fffffff;
+    }
+    // 插入分隔段，进一步打乱结构
+    return s.slice(0, 4) + '-' + s.slice(4, 8) + '-' + s.slice(8, 12);
+}
+
 const REDEEM_CODES = [
-    { code: 'DT2026A01', kills: 5, coins: 100 },
-    { code: 'DT2026A02', kills: 10, coins: 200 },
-    { code: 'DT2026A03', kills: 15, coins: 300 },
-    { code: 'DT2026A04', kills: 20, coins: 400 },
-    { code: 'DT2026A05', kills: 25, coins: 500 },
-    { code: 'DT2026A06', kills: 30, coins: 600 },
-    { code: 'DT2026A07', kills: 35, coins: 700 },
-    { code: 'DT2026A08', kills: 40, coins: 800 },
-    { code: 'DT2026A09', kills: 45, coins: 900 },
-    { code: 'DT2026A10', kills: 50, coins: 1000 },
-    { code: 'DT2026A11', kills: 55, coins: 1100 },
-    { code: 'DT2026A12', kills: 60, coins: 1200 },
-    { code: 'DT2026A13', kills: 65, coins: 1300 },
-    { code: 'DT2026A14', kills: 70, coins: 1400 },
-    { code: 'DT2026A15', kills: 75, coins: 1500 },
-    { code: 'DT2026A16', kills: 80, coins: 1600 },
-    { code: 'DT2026A17', kills: 85, coins: 1700 },
-    { code: 'DT2026A18', kills: 90, coins: 1800 },
-    { code: 'DT2026A19', kills: 95, coins: 1900 },
-    { code: 'DT2026A20', kills: 100, coins: 2000 },
-    { code: 'DT2026A21', kills: 120, coins: 2200 },
-    { code: 'DT2026A22', kills: 140, coins: 2400 },
-    { code: 'DT2026A23', kills: 160, coins: 2600 },
+    { code: generateRedeemCode(0x9f3a21c7), kills: 5, coins: 100 },
+    { code: generateRedeemCode(0x1c8b4e92), kills: 10, coins: 200 },
+    { code: generateRedeemCode(0x7d2f66a1), kills: 15, coins: 300 },
+    { code: generateRedeemCode(0xa4e0c135), kills: 20, coins: 400 },
+    { code: generateRedeemCode(0x3b91d7f0), kills: 25, coins: 500 },
+    { code: generateRedeemCode(0xe62a4b88), kills: 30, coins: 600 },
+    { code: generateRedeemCode(0x5c7f09a3), kills: 35, coins: 700 },
+    { code: generateRedeemCode(0x8b1d3e64), kills: 40, coins: 800 },
+    { code: generateRedeemCode(0x2f4a9c17), kills: 45, coins: 900 },
+    { code: generateRedeemCode(0x6e8b2d50), kills: 50, coins: 1000 },
+    { code: generateRedeemCode(0xc13f7a29), kills: 55, coins: 1100 },
+    { code: generateRedeemCode(0x4a90be63), kills: 60, coins: 1200 },
+    { code: generateRedeemCode(0x9d6c1f84), kills: 65, coins: 1300 },
+    { code: generateRedeemCode(0x1e7b3a05), kills: 70, coins: 1400 },
+    { code: generateRedeemCode(0x7a2c9d46), kills: 75, coins: 1500 },
+    { code: generateRedeemCode(0xb5e1f8a2), kills: 80, coins: 1600 },
+    { code: generateRedeemCode(0x3c60d917), kills: 85, coins: 1700 },
+    { code: generateRedeemCode(0x8f2b4c78), kills: 90, coins: 1800 },
+    { code: generateRedeemCode(0xd147e0a3), kills: 95, coins: 1900 },
+    { code: generateRedeemCode(0x5b8f3c26), kills: 100, coins: 2000 },
+    { code: generateRedeemCode(0xa9c2e7d1), kills: 120, coins: 2200 },
+    { code: generateRedeemCode(0x2d7e4b90), kills: 140, coins: 2400 },
+    { code: generateRedeemCode(0x6f1a8c53), kills: 160, coins: 2600 },
     { code: 'DT2026A24', kills: 180, coins: 2800 },
     { code: 'DT2026A25', kills: 200, coins: 3000 },
     { code: 'DT2026A26', kills: 220, coins: 3200 },
@@ -1339,7 +1359,7 @@ function loadSettings() {
         if (!raw) return;
         const saved = JSON.parse(raw);
         if (saved.difficulty) settings.difficulty = saved.difficulty;
-        if (typeof saved.playerSpeed === 'number') settings.playerSpeed = Math.max(50, Math.min(200, saved.playerSpeed));
+        if (typeof saved.playerSpeed === 'number') settings.playerSpeed = Math.max(50, Math.min(350, saved.playerSpeed));
         if (typeof saved.fireRate === 'number') settings.fireRate = Math.max(50, Math.min(200, saved.fireRate));
     } catch (e) {}
 }
@@ -2423,9 +2443,10 @@ function closeCumulativeRewards() {
 
 // 购买皮肤
 function buySkin(skinId, type) {
-    const skinList = type === 'weapon' ? SKINS.weapons : SKINS.players;
-    const skin = skinList.find(s => s.id === skinId);
+    // 跨武器/角色两个列表查找，避免 currentSkinTab 同步异常导致"皮肤不存在"
+    const skin = SKINS.weapons.find(s => s.id === skinId) || SKINS.players.find(s => s.id === skinId);
     if (!skin) return { success: false, message: '皮肤不存在' };
+    const resolvedType = SKINS.weapons.includes(skin) ? 'weapon' : 'player';
     if (playerMods.ownedSkins.includes(skinId)) return { success: false, message: '已拥有该皮肤' };
 
     if (playerData.coins < skin.price) return { success: false, message: '金币不足' };
@@ -2437,7 +2458,7 @@ function buySkin(skinId, type) {
 
     // 购买成功后刷新皮肤界面和预览
     renderSkinGrid();
-    updateSkinPreview(skinId, type);
+    updateSkinPreview(skinId, resolvedType);
     updateSkinEquippedInfo();
 
     return { success: true, message: `获得 ${skin.name}皮肤！` };
@@ -3782,6 +3803,8 @@ function gameLoop(timestamp) {
 // 更新逻辑
 // ============================================================
 function update() {
+    // 暂停或非游戏中状态不处理移动输入，避免菜单打开/暂停时角色持续移动
+    if (gamePaused || !gameRunning) return;
     const now = Date.now();
 
     // 计算速度倍率（考虑 buff：speedBoostUntil）
@@ -3883,7 +3906,17 @@ function update() {
     const screenCenterY = canvas.height / 2;
     player.angle = Math.atan2(mouseY - screenCenterY, mouseX - screenCenterX) + recoilAngle;
 
-    if (autoFire && canShoot()) {
+    // 更新瞄准方向与镜头缩放（狙击开镜时朝鼠标方向放大）
+    if (aiming) {
+        aimAngle = Math.atan2(mouseY - screenCenterY, mouseX - screenCenterX);
+        viewScale = 2.2;
+    } else {
+        viewScale = Math.max(1, viewScale - 0.15); // 平滑回弹
+        if (viewScale <= 1.01) viewScale = 1;
+    }
+
+    // 左键按住持续开火（由 canShoot 节流）；空格 autoFire 同理
+    if ((autoFire || mouseFiring) && !aiming && canShoot()) {
         shoot();
     }
 
@@ -4236,7 +4269,8 @@ function update() {
         ? window.__nextEnemyPathfinder : 0;
     // 防御性：窗口大小变更时 enemies 长度变化，防止索引越界
     if (pathfinderIndex >= enemies.length) pathfinderIndex = 0;
-    let pathComputedThisFrame = false;
+    let pathComputedThisFrame = 0;
+    const MAX_PATHS_PER_FRAME = 4; // 每帧最多计算的寻路数，兼顾响应速度与性能
 
     for (let i = 0; i < enemies.length; i++) {
         const enemy = enemies[i];
@@ -4348,7 +4382,7 @@ function update() {
                 : dynamicInterval;
             const timeOk = (now - (enemy.lastPathUpdate || 0)) > pathInterval;
             const isSelected = (i === pathfinderIndex) || !enemy.path;
-            if (isSelected && timeOk && !pathComputedThisFrame) {
+            if (isSelected && timeOk && pathComputedThisFrame < MAX_PATHS_PER_FRAME) {
                 const enemyGridX = Math.floor(enemy.x);
                 const enemyGridY = Math.floor(enemy.y);
                 const destGridX = Math.floor(destX);
@@ -4356,7 +4390,7 @@ function update() {
                 enemy.path = aStarPath(enemyGridX, enemyGridY, destGridX, destGridY);
                 enemy.pathIndex = 1;
                 enemy.lastPathUpdate = now;
-                pathComputedThisFrame = true;
+                pathComputedThisFrame++;
                 window.__nextEnemyPathfinder = (pathfinderIndex + 1) % Math.max(1, enemies.length);
             }
         } else {
@@ -4803,6 +4837,16 @@ function draw() {
         const shakeX = (Math.random() - 0.5) * screenShake;
         const shakeY = (Math.random() - 0.5) * screenShake;
         ctx.translate(shakeX, shakeY);
+    }
+
+    // 狙击开镜：放大镜头并朝鼠标方向偏移视点
+    if (viewScale > 1) {
+        const cx = canvas.width / 2, cy = canvas.height / 2;
+        const off = (viewScale - 1) * 240; // 朝瞄准方向推近视点
+        ctx.translate(Math.cos(aimAngle) * off, Math.sin(aimAngle) * off);
+        ctx.translate(cx, cy);
+        ctx.scale(viewScale, viewScale);
+        ctx.translate(-cx, -cy);
     }
     
     // 绘制网格背景（使用深色调避免干扰地图）
@@ -5880,70 +5924,82 @@ function updateExtractionHUD() {
 // ============================================================
 // HUD 更新
 // ============================================================
+// HUD 缓存：仅当值变化时才写入 DOM，避免每帧全量重排导致 FPS 下降
+let _hudCache = {};
+let _hudRefs = null;
+function _hudSet(cacheKey, el, value) {
+    if (!el) return;
+    if (_hudCache[cacheKey] !== value) {
+        el.textContent = value;
+        _hudCache[cacheKey] = value;
+    }
+}
+
 function updateHUD() {
     if (!player) return;
 
     // 血条
     const healthPercent = player.health / player.maxHealth;
-    const healthBar = document.querySelector('.health-fill');
-    if (healthBar) healthBar.style.width = `${healthPercent * 100}%`;
+    if (!_hudRefs) {
+        _hudRefs = {
+            healthBar: document.querySelector('.health-fill'),
+            ammoCurrent: document.getElementById('ammoCurrent'),
+            ammoMax: document.getElementById('ammoMax'),
+            ammoSlash: document.querySelector('.ammo-slash'),
+            weaponNameBig: document.getElementById('weaponNameBig'),
+            score: document.getElementById('score'),
+            killCount: document.getElementById('killCount'),
+            coinCount: document.getElementById('coinCount'),
+            invMedkit: document.getElementById('invMedkit'),
+            invAmmo: document.getElementById('invAmmo'),
+            invSpeed: document.getElementById('invSpeed'),
+            invGrenade: document.getElementById('invGrenade'),
+            weaponBtns: Array.from(document.querySelectorAll('.weapon-btn'))
+        };
+    }
+    const R = _hudRefs;
+    if (R.healthBar) R.healthBar.style.width = `${healthPercent * 100}%`;
 
     const weapon = player.weapons ? player.weapons[player.currentWeapon] : null;
     if (!weapon) return;
     const modifiedWeapon = getModifiedWeapon(weapon);
 
-    // 弹药大数字（武器栏上方）- 近战武器特殊显示
-    const ammoCurrentEl = document.getElementById('ammoCurrent');
-    const ammoMaxEl = document.getElementById('ammoMax');
-    const ammoSlashEl = document.querySelector('.ammo-slash');
     const isMelee = weapon.isMelee || weapon.type === WEAPON_TYPES.MELEE;
     const currentAmmoType = getWeaponAmmoType(weapon.id);
-    if (ammoCurrentEl) ammoCurrentEl.textContent = isMelee ? '∞' : (weapon.currentAmmo || 0);
-    if (ammoMaxEl) {
+    _hudSet('ammoCur', R.ammoCurrent, isMelee ? '∞' : (weapon.currentAmmo || 0));
+    if (R.ammoMax) {
         if (isMelee) {
-            ammoMaxEl.textContent = '';
+            if (_hudCache.ammoMax !== '') { R.ammoMax.textContent = ''; _hudCache.ammoMax = ''; }
         } else {
             const totalAmmo = ammoInventory[currentAmmoType] || 0;
             const clipSize = modifiedWeapon.clipSize || 0;
-            // 普通模式子弹无限，显示弹匣容量；搜打撤按实际库存显示
-            if (gameMode !== 'raid') {
-                ammoMaxEl.textContent = clipSize;
-            } else {
-                // 弹药不足时显示 枪膛弹药/总弹药，充足时显示 枪膛弹药/弹匣容量
-                ammoMaxEl.textContent = totalAmmo < clipSize ? totalAmmo : clipSize;
-            }
+            // 弹匣容量始终显示武器实际弹匣（含扩容），与背包总弹药无关，
+            // 避免搜打撤模式下总弹药不足时把弹匣上限误显示为较小值（如显示30实为45）
+            const ammoMaxVal = clipSize;
+            _hudSet('ammoMax', R.ammoMax, ammoMaxVal);
         }
     }
-    if (ammoSlashEl) ammoSlashEl.style.display = isMelee ? 'none' : '';
-    const weaponNameBigEl = document.getElementById('weaponNameBig');
-    if (weaponNameBigEl) {
-        weaponNameBigEl.textContent = weapon.name + (isMelee ? '' : getAmmoIcon(currentAmmoType));
-    }
+    if (R.ammoSlash) R.ammoSlash.style.display = isMelee ? 'none' : '';
+    _hudSet('wName', R.weaponNameBig, weapon.name + (isMelee ? '' : getAmmoIcon(currentAmmoType)));
 
     // 左上角：得分、击杀、金币
-    const scoreEl = document.getElementById('score');
-    if (scoreEl) scoreEl.textContent = player.score;
-    const killEl = document.getElementById('killCount');
-    if (killEl) killEl.textContent = player.kills;
-    const coinEl = document.getElementById('coinCount');
-    if (coinEl) coinEl.textContent = playerData.coins;
+    _hudSet('score', R.score, player.score);
+    _hudSet('kills', R.killCount, player.kills);
+    _hudSet('coins', R.coinCount, playerData.coins);
 
-    // 武器按钮高亮
-    document.querySelectorAll('.weapon-btn').forEach((btn, index) => {
-        btn.classList.toggle('active', index === player.currentWeapon);
-    });
+    // 武器按钮高亮（仅在切换武器时变更）
+    if (_hudCache.activeWeapon !== player.currentWeapon) {
+        R.weaponBtns.forEach((btn, index) => btn.classList.toggle('active', index === player.currentWeapon));
+        _hudCache.activeWeapon = player.currentWeapon;
+    }
 
-    // 物资数量（圆盘显示用）：战斗中优先显示局内消耗品数量
+    // 物资数量（圆盘显示用）
     const inv = playerData.inventory || {};
     const bc = gameRunning && battleConsumables ? battleConsumables : null;
-    const invMedkit = document.getElementById('invMedkit');
-    if (invMedkit) invMedkit.textContent = bc ? (bc.medkits || 0) : (inv.medkits || 0);
-    const invAmmo = document.getElementById('invAmmo');
-    if (invAmmo) invAmmo.textContent = bc ? (bc.ammoBox || 0) : (inv.ammoBox || 0);
-    const invSpeed = document.getElementById('invSpeed');
-    if (invSpeed) invSpeed.textContent = bc ? (bc.speedBoost || 0) : (inv.speedBoost || 0);
-    const invGrenade = document.getElementById('invGrenade');
-    if (invGrenade) invGrenade.textContent = bc ? (bc.grenades || 0) : (inv.grenades || 0);
+    _hudSet('invMed', R.invMedkit, bc ? (bc.medkits || 0) : (inv.medkits || 0));
+    _hudSet('invAmmo', R.invAmmo, bc ? (bc.ammoBox || 0) : (inv.ammoBox || 0));
+    _hudSet('invSpd', R.invSpeed, bc ? (bc.speedBoost || 0) : (inv.speedBoost || 0));
+    _hudSet('invGr', R.invGrenade, bc ? (bc.grenades || 0) : (inv.grenades || 0));
 }
 
 // Shift 按住显示物资圆盘；Ctrl 按住冲刺
@@ -7754,6 +7810,9 @@ function updateDamageVignette(healthPercent) {
 }
 
 // 小地图绘制（搜打撤风格）
+let __minimapStaticCache = null;
+let __minimapStaticKey = '';
+
 function drawMinimap() {
     const canvas = document.getElementById('minimapCanvas');
     const minimap = document.getElementById('minimap');
@@ -7762,46 +7821,54 @@ function drawMinimap() {
     const mctx = canvas.getContext('2d');
     const mapSize = typeof MAP_SIZE !== 'undefined' ? MAP_SIZE : 150;
     const scale = canvas.width / mapSize;
-    const px = player ? player.x : mapSize / 2;
-    const py = player ? player.y : mapSize / 2;
+
+    // —— 性能优化：静态层（背景/网格/建筑轮廓）缓存到离屏 canvas，仅在地图变化时重建 ——
+    const mapKey = (typeof mapData !== 'undefined' && mapData) ? (canvas.width + 'x' + mapSize) : '';
+    if (!__minimapStaticCache || __minimapStaticKey !== mapKey) {
+        const sc = document.createElement('canvas');
+        sc.width = canvas.width; sc.height = canvas.height;
+        const sctx = sc.getContext('2d');
+        // 深色战术背景
+        sctx.fillStyle = '#0d140d';
+        sctx.fillRect(0, 0, sc.width, sc.height);
+        // 战术网格
+        sctx.strokeStyle = 'rgba(74, 93, 35, 0.12)';
+        sctx.lineWidth = 0.5;
+        const gridCount = 6;
+        const gridStep = sc.width / gridCount;
+        for (let i = 1; i < gridCount; i++) {
+            const x = i * gridStep;
+            sctx.beginPath(); sctx.moveTo(x, 0); sctx.lineTo(x, sc.height); sctx.stroke();
+            const y = i * gridStep;
+            sctx.beginPath(); sctx.moveTo(0, y); sctx.lineTo(sc.width, y); sctx.stroke();
+        }
+        // 建筑/障碍轮廓（降采样）
+        if (typeof mapData !== 'undefined' && mapData) {
+            sctx.fillStyle = 'rgba(60, 55, 45, 0.55)';
+            const step = Math.max(2, Math.floor(mapSize / 30));
+            for (let y = 0; y < mapSize; y += step) {
+                for (let x = 0; x < mapSize; x += step) {
+                    const tile = mapData[x + '_' + y];
+                    if (tile && (tile.type === 'obstacle' || tile.type === 'building' || tile.type === 'cover')) {
+                        sctx.fillRect(x * scale, y * scale, Math.max(2, step * scale), Math.max(2, step * scale));
+                    }
+                }
+            }
+        }
+        __minimapStaticCache = sc;
+        __minimapStaticKey = mapKey;
+    }
 
     mctx.clearRect(0, 0, canvas.width, canvas.height);
-
-    // 深色战术背景
-    mctx.fillStyle = '#0d140d';
-    mctx.fillRect(0, 0, canvas.width, canvas.height);
+    mctx.drawImage(__minimapStaticCache, 0, 0);
 
     // 动态扫描线
     const scanOffset = (Date.now() / 25) % canvas.height;
     mctx.fillStyle = 'rgba(0, 255, 136, 0.06)';
     mctx.fillRect(0, scanOffset, canvas.width, 1);
 
-    // 战术网格
-    mctx.strokeStyle = 'rgba(74, 93, 35, 0.12)';
-    mctx.lineWidth = 0.5;
-    const gridCount = 6;
-    const gridStep = canvas.width / gridCount;
-    for (let i = 1; i < gridCount; i++) {
-        const x = i * gridStep;
-        mctx.beginPath(); mctx.moveTo(x, 0); mctx.lineTo(x, canvas.height); mctx.stroke();
-        const y = i * gridStep;
-        mctx.beginPath(); mctx.moveTo(0, y); mctx.lineTo(canvas.width, y); mctx.stroke();
-    }
-
-    // 绘制主要建筑/障碍轮廓（降采样，避免性能问题）
-    if (typeof mapData !== 'undefined' && mapData) {
-        mctx.fillStyle = 'rgba(60, 55, 45, 0.55)';
-        const step = Math.max(2, Math.floor(mapSize / 30));
-        for (let y = 0; y < mapSize; y += step) {
-            for (let x = 0; x < mapSize; x += step) {
-                const key = x + '_' + y;
-                const tile = mapData[key];
-                if (tile && (tile.type === 'obstacle' || tile.type === 'building' || tile.type === 'cover')) {
-                    mctx.fillRect(x * scale, y * scale, Math.max(2, step * scale), Math.max(2, step * scale));
-                }
-            }
-        }
-    }
+    const px = player ? player.x : mapSize / 2;
+    const py = player ? player.y : mapSize / 2;
 
     // 绘制撤离点（蓝色光圈）
     if (typeof extractX !== 'undefined' && typeof extractY !== 'undefined') {
@@ -7816,7 +7883,6 @@ function drawMinimap() {
         mctx.beginPath();
         mctx.arc(ex, ey, 3, 0, Math.PI * 2);
         mctx.fill();
-        // 撤离点脉冲环
         const pulse = (Math.sin(Date.now() / 300) + 1) * 0.5;
         mctx.strokeStyle = 'rgba(0, 204, 255, ' + (0.2 + pulse * 0.3) + ')';
         mctx.beginPath();
@@ -7881,7 +7947,6 @@ function drawMinimap() {
         const pSkin = SKINS.players.find(s => s.id === playerMods.equippedPlayerSkin);
         const pGlowColor = pSkin && pSkin.color ? lightenColor(pSkin.color, 30) : '#00ff88';
 
-        // 视野扇形
         mctx.fillStyle = pSkinColor;
         mctx.globalAlpha = 0.12;
         mctx.beginPath();
@@ -7891,7 +7956,6 @@ function drawMinimap() {
         mctx.fill();
         mctx.globalAlpha = 1.0;
 
-        // 玩家点
         mctx.fillStyle = pSkinColor;
         mctx.shadowColor = pGlowColor;
         mctx.shadowBlur = 8;
@@ -7900,7 +7964,6 @@ function drawMinimap() {
         mctx.fill();
         mctx.shadowBlur = 0;
 
-        // 朝向箭头
         mctx.strokeStyle = pGlowColor;
         mctx.lineWidth = 1.5;
         mctx.beginPath();
@@ -8193,13 +8256,13 @@ function renderConsumableMarketGrid() {
         { id: 'medkit', name: '医疗包', icon: '💊', desc: '恢复生命值' },
         { id: 'grenade', name: '手雷', icon: '💣', desc: '投掷爆炸物，造成范围伤害' },
         { id: 'ammoBox', name: '弹药箱', icon: '📦', desc: '补充各类弹药' },
-        { id: 'speedBoost', name: '加速卡', icon: '⚡', desc: '临时提升移动速度' }
+        { id: 'speedBoost', name: '肾上激素', icon: '⚡', desc: '临时提升移动速度' }
     ];
 
     consumables.forEach(item => {
         const price = getItemPrice(item.id);
-        const itemKey = item.id === 'ammoBox' ? 'ammoBoxes' : (item.id + 's');
-        const ownedCount = playerData.inventory[itemKey] || playerData.inventory[item.id] || 0;
+        const itemKey = getItemKey(item.id);
+        const ownedCount = playerData.inventory[itemKey] || 0;
 
         const div = document.createElement('div');
         div.className = 'market-item';
@@ -8234,8 +8297,8 @@ function renderSellMarketGrid() {
 
     sellItems.forEach(item => {
         const sellPrice = getSellPrice(item.id);
-        const itemKey = item.id === 'ammoBox' ? 'ammoBoxes' : (item.id + 's');
-        const ownedCount = playerData.inventory[itemKey] || playerData.inventory[item.id] || 0;
+        const itemKey = getItemKey(item.id);
+        const ownedCount = playerData.inventory[itemKey] || 0;
 
         const div = document.createElement('div');
         div.className = 'market-item';
@@ -8416,13 +8479,19 @@ function sellItem(itemName) {
         : itemName === 'armor_heavy' ? 'armor_heavy'
         : itemKey;
 
-    if (!itemKey || (!playerData.inventory[itemKey] || playerData.inventory[itemKey] <= 0) || !BackpackManager.hasItem(bpItemId, 1)) {
+    // 以 playerData.inventory 为权威来源（raid 拾取、黑市购买、物资箱均会同步它），
+    // 不再依赖 BackpackManager 的堆叠计数，避免"卖到 N 个后提示库存不够"的误判。
+    const owned = itemKey ? (playerData.inventory[itemKey] || 0) : 0;
+    if (!itemKey || owned <= 0) {
         showNotification('没有可出售的物品！');
         return;
     }
 
     playerData.inventory[itemKey]--;
-    BackpackManager.removeItem(bpItemId, 1);
+    // 若背包中存在对应物品则同步移除（背包与 inventory 双系统保持一致）
+    if (BackpackManager.hasItem(bpItemId, 1)) {
+        BackpackManager.removeItem(bpItemId, 1);
+    }
     playerData.coins += price;
     showNotification(`出售成功！获得 ${price} 金币`);
     updatePlayerStats();
@@ -9091,12 +9160,12 @@ function saveCompletedMissions() {
 
 function getDefaultMissions() {
     return [
-        { id: 'task_kill1', type: 'kill', nameZh: '沙漠突袭', nameEn: 'Desert Assault', descZh: '消灭所有敌人，完成战术目标', descEn: 'Eliminate all enemies, complete tactical objectives', target: 15, reward: 500, map: 'desert' },
-        { id: 'task_kill2', type: 'kill', nameZh: '城市清剿', nameEn: 'City Cleanup', descZh: '清理城市区域的敌人', descEn: 'Clear enemies from urban area', target: 20, reward: 600, map: 'city' },
-        { id: 'task_kill3', type: 'kill', nameZh: '丛林猎杀', nameEn: 'Jungle Hunt', descZh: '在丛林地图消灭25名敌人', descEn: 'Eliminate 25 enemies in jungle', target: 25, reward: 700, map: 'jungle' },
-        { id: 'task_extract', type: 'extract', nameZh: '成功撤离', nameEn: 'Successful Extraction', descZh: '活着离开战场', descEn: 'Leave the battlefield alive', target: 1, reward: 300, map: 'any' },
-        { id: 'task_score', type: 'score', nameZh: '高分挑战', nameEn: 'High Score Challenge', descZh: '达到1000分', descEn: 'Reach 1000 points', target: 1000, reward: 800, map: 'any' },
-        { id: 'task_boss1', type: 'boss', nameZh: 'Boss 猎手', nameEn: 'Boss Hunter', descZh: '消灭1个 Boss', descEn: 'Eliminate 1 Boss', target: 1, reward: 1000, map: 'any' }
+        { id: 'task_kill1', type: 'kill', nameZh: '沙漠突袭', nameEn: 'Desert Assault', chapter: 1, descZh: '【第一章·新兵第一课】黑潮军团在东部沙海带建立了前哨。普莱斯命令你清除这里的敌军巡逻队，让死亡战壕的旗帜第一次插上沙丘。', descEn: 'Ch.1 — Clear the Black Tide outpost in the desert dunes and prove yourself to Price.', target: 15, reward: 500, map: 'desert' },
+        { id: 'task_kill2', type: 'kill', nameZh: '城市清剿', nameEn: 'City Cleanup', chapter: 1, descZh: '【第一章·断壁城】黑潮占领了断壁城废墟，把平民当成了人肉盾牌。在保护平民与完成任务之间，你的每一次扣扳机都在书写自己的立场。', descEn: 'Ch.1 — Sweep the urban ruins held by Black Tide; civilians are trapped inside.', target: 20, reward: 600, map: 'city' },
+        { id: 'task_kill3', type: 'kill', nameZh: '丛林猎杀', nameEn: 'Jungle Hunt', chapter: 2, descZh: '【第二章·幽灵的线索】丛林深处藏着黑潮的通讯节点。幽灵截获的录音显示，有人正冒用普莱斯的旧频道。肃清这里的守军，逼出幕后操纵者。', descEn: 'Ch.2 — Hunt down the jungle garrison guarding Black Tide comms nodes.', target: 25, reward: 700, map: 'jungle' },
+        { id: 'task_extract', type: 'extract', nameZh: '成功撤离', nameEn: 'Successful Extraction', chapter: 2, descZh: '【第二章·活着才有答案】情报到手后，撤离点会向你开放。记住：在搜打撤中，死亡意味着一切归零——带着战利品活着离开，才算是真正的胜利。', descEn: 'Ch.2 — Reach the extraction point alive; in raid mode, death loses everything.', target: 1, reward: 300, map: 'any' },
+        { id: 'task_score', type: 'score', nameZh: '高分挑战', nameEn: 'High Score Challenge', chapter: 3, descZh: '【第三章·名声鹊起】总部开始关注这个不听命令却总能完成任务的新人。用一场漂亮的战斗证明死亡战壕不可小觑，让黑潮记住你的代号。', descEn: 'Ch.3 — Make a name for yourself with a high-score assault.', target: 1000, reward: 800, map: 'any' },
+        { id: 'task_boss1', type: 'boss', nameZh: 'Boss 猎手', nameEn: 'Boss Hunter', chapter: 3, descZh: '【第三章·猎杀首脑】黑潮前线指挥官「铁颚」现身。击败他，不仅是一枚勋章，更是撬开真相之门的钥匙——他认识的，远比他肯说的多。', descEn: 'Ch.3 — Eliminate the Black Tide commander "Ironjaw" to unlock the truth.', target: 1, reward: 1000, map: 'any' }
     ];
 }
 
@@ -9573,7 +9642,7 @@ function getItemDisplayName(itemName) {
         'armor_heavy': '重型护甲',
         'grenade': '手雷',
         'ammoBox': '弹药箱',
-        'speedBoost': '加速卡',
+        'speedBoost': '肾上激素',
         'ammo_normal': '普通弹×50',
         'ammo_ap': '穿甲弹×20',
         'ammo_exp': '爆破弹×10',
@@ -9665,7 +9734,7 @@ function useItem(itemName) {
         case 'speedBoost':
             const now = Date.now();
             player.buffs.speedBoostUntil = now + 30000;
-            showNotification('使用加速卡，速度提升50%（30秒）！');
+            showNotification('注射肾上激素，速度提升50%（30秒）！');
             break;
         case 'grenade':
             throwGrenade();
@@ -9811,17 +9880,35 @@ function init() {
 
     canvas.addEventListener('click', () => {
         canvas.focus();
-        // 左键不再射击（射击改为右键）
     });
 
-    // 右键 = 单发射击（使用 mousedown 更稳定，contextmenu 仅用于阻止默认菜单）
+    // 左键 = 开枪（按住持续连发，由 canShoot 节流）；右键 = 狙击开镜/普通射击
     canvas.addEventListener('mousedown', (e) => {
         canvas.focus();
-        if (e.button === 2 && gameRunning) {
-            e.preventDefault();
+        if (!gameRunning) return;
+        if (e.button === 0) {
+            // 左键开火
+            mouseFiring = true;
             if (canShoot()) shoot();
+        } else if (e.button === 2) {
+            e.preventDefault();
+            const weapon = player.weapons[player.currentWeapon];
+            // 狙击枪右键开镜放大，朝鼠标方向；其余武器右键单发射击
+            if (weapon && weapon.type === WEAPON_TYPES.SNIPER) {
+                aiming = true;
+            } else if (canShoot()) {
+                shoot();
+            }
         }
     });
+
+    canvas.addEventListener('mouseup', (e) => {
+        if (e.button === 0) mouseFiring = false;
+        if (e.button === 2) aiming = false;
+    });
+
+    // 鼠标移出画布时停止开火/开镜，避免卡住
+    canvas.addEventListener('mouseleave', () => { mouseFiring = false; aiming = false; });
     canvas.addEventListener('contextmenu', (e) => e.preventDefault());
 
     // Shift + WASD 物资使用：Shift 时 WASD 不移动，只选中物资
@@ -9836,6 +9923,13 @@ function init() {
 
     // 使用 canvas 捕获按键
     canvas.addEventListener('keydown', e => {
+        // 冲刺(Ctrl)组合键拦截：阻止 Ctrl+W/R 等触发浏览器默认行为，
+        // 确保 CTRL 加速只影响移动，不会误触刷新/关页等其它操作
+        if ((e.ctrlKey || e.metaKey) && gameRunning) {
+            e.preventDefault();
+            if (e.code === 'KeyR' || e.code === 'KeyW') return; // 不再触发浏览器刷新/关闭
+        }
+
         keys.set(e.code, true);
 
         // Shift 按住：显示物资圆盘
@@ -9843,13 +9937,17 @@ function init() {
             shiftHeld = true;
             showItemWheel(true);
         }
-        // Ctrl 按住：进入冲刺预备（仅在移动时生效）
+        // Ctrl 按住：进入冲刺预备（仅在移动时生效，不影响换弹/投掷等操作）
         if (gameRunning && (e.code === 'ControlLeft' || e.code === 'ControlRight')) {
             ctrlHeld = true;
+            e.preventDefault();
         }
         if (shiftHeld && gameRunning) {
             if (handleShiftItem(e.code)) return;
         }
+
+        // 冲刺(Ctrl)状态下不响应换弹/投掷等快捷键，避免与其它操作冲突
+        if (ctrlHeld && gameRunning) return;
 
         if (e.code === 'KeyR' && gameRunning) reload();
         if (e.code === 'KeyG' && gameRunning) throwGrenade();
@@ -9917,6 +10015,10 @@ function init() {
     window.addEventListener('keyup', e => {
         // keyup 不做重复处理，保留为空。canvas 的 keyup 已经足够。
     });
+
+    // 窗口失焦时清空所有按键状态，避免 keyup 丢失导致角色持续移动
+    window.addEventListener('blur', () => { keys.clear(); autoFire = false; shiftHeld = false; });
+    document.addEventListener('visibilitychange', () => { if (document.hidden) { keys.clear(); autoFire = false; shiftHeld = false; } });
 
     // resize 时重新设置 canvas 尺寸是合理的（仅此一次）
     window.addEventListener('resize', () => {
@@ -10531,7 +10633,8 @@ function openLootCrate(crate) {
                     const ammoType = getWeaponAmmoType(w.id);
                     const amount = drop.min + Math.floor(Math.random() * (drop.max - drop.min + 1));
                     ammoInventory[ammoType] = (ammoInventory[ammoType] || 0) + amount;
-                    lootMessages.push(`+${amount} ${ammoType} 弹药`);
+                    const ammoNameMap = { normal: '普通弹', ap: '穿甲弹', exp: '爆裂弹', fire: '燃烧弹' };
+                    lootMessages.push(`+${amount} ${ammoNameMap[ammoType] || ammoType} 弹药`);
                 } else {
                     playerData.inventory.grenades = (playerData.inventory.grenades || 0) + 1;
                     lootMessages.push('+1 手雷');
@@ -10660,7 +10763,7 @@ function applyRaidLoot() {
 }
 
 function itemName(id) {
-    const map = { ammoBox: '弹药箱', medkit: '医疗包', grenade: '手雷', speedBoost: '加速卡' };
+    const map = { ammoBox: '弹药箱', medkit: '医疗包', grenade: '手雷', speedBoost: '肾上激素' };
     return map[id] || id;
 }
 
@@ -11336,6 +11439,39 @@ function resetStoryState() {
     saveStoryState();
 }
 
+// 结局回顾弹窗
+const ENDING_INFO = {
+    loyalty: { title: '结局 · 忠诚的代价', branch: '主线：忠诚', story: '你选择了任务至上。节点被摧毁，黑潮指挥链断裂，但三具友军尸体永远留在了废墟里。战争结束了，代价却刻进了每个人心里。' },
+    mercy: { title: '结局 · 迟到的胜利', branch: '主线：仁慈', story: '你优先救出了阿雅。节点最终被炸毁，普莱斯说「迟到的胜利也是胜利」。至少今天，有一个人因为你活了下来。' },
+    truth: { title: '结局 · 谎言到此为止', branch: '主线：真相', story: '你潜入核心节点，揭开了普莱斯旧频道控制失踪人员的真相。谎言被上传总部，普莱斯被停职。战争未止，但黑暗被照亮。' },
+    neutral: { title: '战役结束', branch: '主线：未分支', story: '你走完了死亡战壕的全部战役。黑潮军团的阴影正在退去，而你的选择将决定断壁城的未来。' }
+};
+
+function showEndingScreen() {
+    const modal = document.getElementById('endingScreenModal');
+    if (!modal) return;
+    const branch = storyState.branch || 'neutral';
+    const info = ENDING_INFO[branch] || ENDING_INFO.neutral;
+    const t = document.getElementById('endingTitle');
+    const b = document.getElementById('endingBranch');
+    const s = document.getElementById('endingStory');
+    const h = document.getElementById('endingHint');
+    if (t) t.textContent = info.title;
+    if (b) b.textContent = info.branch + ' · 第 ' + (storyState.chapter || 1) + ' 章';
+    if (s) s.textContent = info.story;
+    if (h) h.textContent = '一封战地邮件已送达收件箱，可前往邮件界面查看。点击「重置剧情」可重新体验不同分支。';
+    modal.style.display = 'flex';
+}
+
+function closeEndingScreen() {
+    const modal = document.getElementById('endingScreenModal');
+    if (modal) modal.style.display = 'none';
+}
+
+window.showEndingScreen = showEndingScreen;
+window.closeEndingScreen = closeEndingScreen;
+
+
 // NPC 对话数据
 const DIALOGUES = {
     'intro_price': {
@@ -11346,9 +11482,9 @@ const DIALOGUES = {
             { text: '欢迎来到死亡战壕，新兵。这里没有军衔，只有活人和死人。' },
             { text: '黑潮军团占领了东部资源带，我们的任务很简单：打乱他们的节奏，然后把情报带回来。' },
             { text: '第一课，我亲自教你。准备好了吗？', choices: [
-                { text: '准备好了，长官。服从命令。', action: () => { setStoryBranch('loyalty'); setStoryFlag('intro_ready'); advanceChapter(); } },
-                { text: '我想先知道黑潮到底在做什么。', action: () => { setStoryBranch('truth'); setStoryFlag('intro_ready'); advanceChapter(); } },
-                { text: '只要能少死人，让我做什么都行。', action: () => { setStoryBranch('mercy'); setStoryFlag('intro_ready'); advanceChapter(); } }
+                { text: '准备好了，长官。服从命令。', action: () => { setStoryBranch('loyalty'); setStoryFlag('intro_ready'); advanceChapter(); setTimeout(() => { if (!isDialogueCompleted('intro_ghost')) showDialogue('intro_ghost'); }, 700); } },
+                { text: '我想先知道黑潮到底在做什么。', action: () => { setStoryBranch('truth'); setStoryFlag('intro_ready'); advanceChapter(); setTimeout(() => { if (!isDialogueCompleted('intro_ghost')) showDialogue('intro_ghost'); }, 700); } },
+                { text: '只要能少死人，让我做什么都行。', action: () => { setStoryBranch('mercy'); setStoryFlag('intro_ready'); advanceChapter(); setTimeout(() => { if (!isDialogueCompleted('intro_ghost')) showDialogue('intro_ghost'); }, 700); } }
             ]}
         ]
     },
@@ -11443,7 +11579,7 @@ const DIALOGUES = {
             { text: '节点已摧毁。黑潮的指挥链断了。' },
             { text: '我们在废墟里找到了三具友军尸体。他们被关在里面，没来得及出来。' },
             { text: '总部说这是「可接受的损失」。……也许吧。', choices: [
-                { text: '结束了吗？', action: () => { setStoryFlag('game_completed'); sendStoryMail('ch5_ending_mail'); } }
+                { text: '结束了吗？', action: () => { setStoryFlag('game_completed'); sendStoryMail('ch5_ending_mail'); showEndingScreen(); } }
             ]}
         ]
     },
@@ -11455,7 +11591,7 @@ const DIALOGUES = {
             { text: '阿雅出来了。她抱着一个布娃娃，浑身是灰，但还活着。' },
             { text: '节点最后还是炸了。普莱斯说「迟到的胜利也是胜利」。' },
             { text: '……至少今天，有一个人因为你的选择活了下来。', choices: [
-                { text: '这就够了。', action: () => { setStoryFlag('game_completed'); sendStoryMail('ch5_ending_mail'); } }
+                { text: '这就够了。', action: () => { setStoryFlag('game_completed'); sendStoryMail('ch5_ending_mail'); showEndingScreen(); } }
             ]}
         ]
     },
@@ -11467,7 +11603,7 @@ const DIALOGUES = {
             { text: '你进去了。核心节点里没有武器，只有一排冷冻仓。' },
             { text: '仓里的人穿着黑潮军服，但脸……是我们的失踪人员。普莱斯的旧频道一直被用来控制他们。' },
             { text: '真相已经上传到总部。普莱斯被停职调查。战争还没结束，但谎言到此为止。', choices: [
-                { text: '我做了对的事。', action: () => { setStoryFlag('game_completed'); sendStoryMail('ch5_ending_mail'); } }
+                { text: '我做了对的事。', action: () => { setStoryFlag('game_completed'); sendStoryMail('ch5_ending_mail'); showEndingScreen(); } }
             ]}
         ]
     }

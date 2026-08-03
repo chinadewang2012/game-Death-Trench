@@ -26,7 +26,7 @@
             opacity:0;"></div>
 
         <!-- 小地图 -->
-        <div id="minimap" style="position:absolute;top:20px;left:20px;z-index:100;
+        <div id="minimap" style="position:absolute;top:20px;left:20px;z-index:500;
             width:180px;height:180px;background:rgba(0,0,0,0.75);
             border:1px solid rgba(74,93,35,0.5);border-radius:8px;overflow:hidden;display:block;">
             <div style="position:absolute;top:4px;left:6px;font-size:10px;color:rgba(255,255,255,0.3);z-index:2;">地图</div>
@@ -1070,7 +1070,7 @@
                 </div>
                 <div class="setting-group">
                     <label class="setting-label">玩家速度: <span id="sidebarSpeedValue">100%</span></label>
-                    <input type="range" min="50" max="150" value="100" oninput="settings.playerSpeed = this.value; document.getElementById('sidebarSpeedValue').textContent = this.value + '%'">
+                    <input type="range" min="50" max="350" value="100" oninput="settings.playerSpeed = this.value; document.getElementById('sidebarSpeedValue').textContent = this.value + '%'">
                 </div>
                 <div class="setting-group">
                     <label class="setting-label">射速调整: <span id="sidebarFireRateValue">100%</span></label>
@@ -1153,7 +1153,7 @@
         </div>
         <div class="setting-group">
             <label class="setting-label">玩家速度: <span id="speedValue">100%</span></label>
-            <input type="range" id="speedSlider" min="50" max="150" value="100" oninput="settings.playerSpeed = this.value; document.getElementById('speedValue').textContent = this.value + '%'; saveSettings()">
+            <input type="range" id="speedSlider" min="50" max="350" value="100" oninput="settings.playerSpeed = this.value; document.getElementById('speedValue').textContent = this.value + '%'; saveSettings()">
         </div>
         <div class="setting-group">
             <label class="setting-label">
@@ -1693,6 +1693,24 @@
             <div class="briefing-actions">
                 <button class="menu-btn tertiary" onclick="closeMissionBriefing()">关闭</button>
                 <button class="menu-btn primary" onclick="closeMissionBriefing(); startGame();">开始行动</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 结局回顾弹窗 -->
+    <div id="endingScreenModal" class="popup-overlay" style="display:none;">
+        <div class="popup-content briefing-content">
+            <div class="briefing-header">
+                <h2 id="endingTitle">战役结束</h2>
+            </div>
+            <div class="briefing-body">
+                <div id="endingBranch" class="briefing-section-title"></div>
+                <div id="endingStory" class="briefing-story"></div>
+                <div id="endingHint" class="briefing-story" style="opacity:.7;margin-top:10px;"></div>
+            </div>
+            <div class="briefing-actions">
+                <button class="menu-btn danger" onclick="resetStoryState(); closeEndingScreen();">重置剧情</button>
+                <button class="menu-btn primary" onclick="closeEndingScreen()">继续</button>
             </div>
         </div>
     </div>

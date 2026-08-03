@@ -10,6 +10,25 @@ distNew/
 *.swp
 npm-debug.log*
 yarn-debug.log*
-yarn-error.log*
 _test_server.js
 generate-images.js
+
+# 工具/脚本/测试/旧网页 等不纳入版本库（tool文件不上传）
+tools/
+脚本/
+测试/
+开发/
+网页/
+picure/
+index-dev.html
+UI改版指令文档.md
+UI设计稿交接报告-CRT终端风.md
+UI设计稿交接报告-V2.md
+UI设计需求-右侧侧边栏.md
+UPDATE_REPORT.md
+剧情设计需求.md
+version.json
+
+# 打包产物（本地保留，不上传 GitHub）
+exe/
+
