@@ -833,9 +833,10 @@ window.settings = settings;
 let gameMode = 'mission';
 window.gameMode = gameMode;
 
-// 搜打撤临时数据：战利品背包、当前出战配装
+// 搜打撤临时数据：战利品背包、当前出战配装、局内消耗品
 let raidLoot = [];
 let currentRaidLoadout = null;
+let battleConsumables = null;
 
 // Round 3：地图事件与 AI 埋伏
 let mapEvents = [];
@@ -2544,6 +2545,9 @@ function getAmmoName(ammoType) {
 
 // 检查并消耗弹药
 function consumeAmmo(weapon, count = 1) {
+    // 普通任务模式不消耗子弹
+    if (gameMode !== 'raid') return true;
+
     // 获取武器装备的弹药类型，如果没有则使用默认
     const equippedType = playerMods.equippedAmmoTypes?.[weapon.id];
     const ammoType = equippedType || weapon.ammoType || AMMO_TYPES.NORMAL;
@@ -2652,6 +2656,25 @@ function addAmmoToBackpack(ammoType, count) {
     saveAmmoBackpack();
 }
 
+// 从弹药背包扣除指定数量（用于搜打撤换弹消耗）
+function removeAmmoFromBackpack(ammoType, count) {
+    let remaining = count;
+    for (let i = 0; i < AMMO_BACKPACK_SLOTS; i++) {
+        if (ammoBackpack[i].type === ammoType) {
+            const remove = Math.min(remaining, ammoBackpack[i].count);
+            ammoBackpack[i].count -= remove;
+            remaining -= remove;
+            if (ammoBackpack[i].count <= 0) {
+                ammoBackpack[i].type = null;
+                ammoBackpack[i].count = 0;
+            }
+            if (remaining <= 0) break;
+        }
+    }
+    updateAmmoBackpackDisplay();
+    saveAmmoBackpack();
+}
+
 // 同步弹药数据到各存储并刷新 UI
 function syncAmmoUI() {
     try {
@@ -2675,6 +2698,60 @@ function syncAmmoUI() {
 function selectAmmoSlot(index) {
     selectedAmmoSlotIndex = index;
     updateAmmoBackpackDisplay();
+}
+
+// 搜打撤局内弹药补充面板状态
+let raidAmmoPanelOpen = false;
+let raidAmmoSelectedCount = 30;
+const RAID_AMMO_PRICES = {
+    normal: 5,
+    ap: 15,
+    exp: 25,
+    fire: 20
+};
+
+function toggleRaidAmmoPanel() {
+    const panel = document.getElementById('raidAmmoPanel');
+    if (!panel) return;
+    raidAmmoPanelOpen = !raidAmmoPanelOpen;
+    panel.style.display = raidAmmoPanelOpen ? 'block' : 'none';
+    if (raidAmmoPanelOpen) {
+        raidAmmoSelectedCount = 30;
+        document.getElementById('raidAmmoCount').textContent = raidAmmoSelectedCount;
+        updateRaidAmmoCost();
+    }
+}
+
+function adjustRaidAmmo(delta) {
+    raidAmmoSelectedCount = Math.max(10, raidAmmoSelectedCount + delta);
+    document.getElementById('raidAmmoCount').textContent = raidAmmoSelectedCount;
+    updateRaidAmmoCost();
+}
+
+function updateRaidAmmoCost() {
+    const type = document.getElementById('raidAmmoType').value;
+    const price = RAID_AMMO_PRICES[type] || 5;
+    const cost = raidAmmoSelectedCount * price;
+    const costEl = document.getElementById('raidAmmoCost');
+    if (costEl) costEl.textContent = cost;
+    const buyBtn = document.getElementById('raidAmmoBuyBtn');
+    if (buyBtn) buyBtn.disabled = playerData.coins < cost;
+}
+
+function buyRaidAmmo() {
+    const type = document.getElementById('raidAmmoType').value;
+    const price = RAID_AMMO_PRICES[type] || 5;
+    const cost = raidAmmoSelectedCount * price;
+    if (playerData.coins < cost) {
+        showNotification('金币不足！');
+        return;
+    }
+    playerData.coins -= cost;
+    ammoInventory[type] = (ammoInventory[type] || 0) + raidAmmoSelectedCount;
+    addAmmoToBackpack(type, raidAmmoSelectedCount);
+    syncAmmoUI();
+    updateHUD();
+    showNotification(`购买 ${getAmmoName(type)}×${raidAmmoSelectedCount}，花费 ${cost} 🪙`);
 }
 
 // 拆分弹药
@@ -2822,51 +2899,208 @@ function generateMap(theme) {
         snow: { ground: '#e0e8f0', obstacle: '#9aa5b1', cover: '#7a8a9a', building: '#aab7c4', water: '#3a5a7a' },
         volcano: { ground: '#3a1a1a', obstacle: '#1a0a0a', cover: '#4a1a1a', building: '#6b3a3a', water: '#5a1515' },
         ruins: { ground: '#c9b896', obstacle: '#8a7a5a', cover: '#a89a7a', building: '#6b6b5a', water: '#4a7a9a' },
-        base: { ground: '#3a3a4a', obstacle: '#1a1a2a', cover: '#2a3a4a', building: '#4a5a6a', water: '#1e3a5f' }
+        base: { ground: '#3a3a4a', obstacle: '#1a1a2a', cover: '#2a3a4a', building: '#4a5a6a', water: '#1e3a5f' },
+        forest: { ground: '#3a5a2a', obstacle: '#1a2f12', cover: '#2a4a1a', building: '#4a3a2a', water: '#2a6a8a' },
+        wasteland: { ground: '#8a7a5a', obstacle: '#5a4a3a', cover: '#6a5a4a', building: '#4a3a2a', water: '#3a5a6a' },
+        swamp: { ground: '#2d3a22', obstacle: '#1a2412', cover: '#3a4a2a', building: '#3a3a2a', water: '#2a4a3a' }
     };
     const c = colors[theme] || colors.desert;
 
     mapData = {};
     const seed = Date.now();
+    let rngState = seed % 2147483647;
+    function rand() {
+        rngState = (rngState * 16807) % 2147483647;
+        return rngState / 2147483647;
+    }
+    function randInt(min, max) {
+        return Math.floor(rand() * (max - min + 1)) + min;
+    }
 
     const obstacleRate = gameParams.MAP.obstacleRate || 0.08;
     const coverRate = gameParams.MAP.coverRate || 0.14;
     const buildingRate = gameParams.MAP.buildingRate || 0.18;
     const waterRate = gameParams.MAP.waterRate || 0.20;
 
+    // 初始化全地图为地面
     for (let y = 0; y < MAP_SIZE; y++) {
         for (let x = 0; x < MAP_SIZE; x++) {
-            const rand = ((seed + x * 9301 + y * 49297) % 233280) / 233280;
-            let type = 'ground';
-            let color = c.ground;
+            mapData[`${x}_${y}`] = { type: 'ground', color: c.ground };
+        }
+    }
 
-            if (rand < obstacleRate) {
-                type = 'obstacle';
-                color = c.obstacle;
-            } else if (rand < coverRate) {
-                type = 'cover';
-                color = c.cover;
-            } else if (rand < buildingRate) {
-                type = 'building';
-                color = c.building;
-            } else if (rand < waterRate && theme !== 'snow' && theme !== 'volcano') {
-                type = 'water';
-                color = c.water;
+    const centerX = Math.floor(MAP_SIZE / 2);
+    const centerY = Math.floor(MAP_SIZE / 2);
+
+    function setTile(x, y, type, color) {
+        if (x < 0 || x >= MAP_SIZE || y < 0 || y >= MAP_SIZE) return;
+        mapData[`${x}_${y}`] = { type, color };
+    }
+
+    function fillRect(x, y, w, h, type, color) {
+        for (let dy = 0; dy < h; dy++) {
+            for (let dx = 0; dx < w; dx++) {
+                setTile(x + dx, y + dy, type, color);
             }
+        }
+    }
 
-            // 出生点附近保持空地
-            const centerX = MAP_SIZE / 2;
-            const centerY = MAP_SIZE / 2;
-            if (Math.abs(x - centerX) < 5 && Math.abs(y - centerY) < 5) {
-                type = 'ground';
-                color = c.ground;
+    function drawRoad(x1, y1, x2, y2, width, color) {
+        const dist = Math.max(Math.abs(x2 - x1), Math.abs(y2 - y1));
+        for (let i = 0; i <= dist; i++) {
+            const t = dist === 0 ? 0 : i / dist;
+            const cx = Math.round(x1 + (x2 - x1) * t);
+            const cy = Math.round(y1 + (y2 - y1) * t);
+            for (let dy = -Math.floor(width / 2); dy <= Math.floor(width / 2); dy++) {
+                for (let dx = -Math.floor(width / 2); dx <= Math.floor(width / 2); dx++) {
+                    const tile = mapData[`${cx + dx}_${cy + dy}`];
+                    if (tile && tile.type !== 'building' && tile.type !== 'obstacle') {
+                        setTile(cx + dx, cy + dy, 'ground', color);
+                    }
+                }
             }
+        }
+    }
 
-            const tile = { type, color };
+    function drawRiver(x1, y1, x2, y2, width) {
+        let cx = x1, cy = y1;
+        while (Math.abs(cx - x2) > 1 || Math.abs(cy - y2) > 1) {
+            for (let dy = -Math.floor(width / 2); dy <= Math.floor(width / 2); dy++) {
+                for (let dx = -Math.floor(width / 2); dx <= Math.floor(width / 2); dx++) {
+                    if (rand() < 0.85) setTile(cx + dx, cy + dy, 'water', c.water);
+                }
+            }
+            if (rand() < 0.5) cx += Math.sign(x2 - cx);
+            else cy += Math.sign(y2 - cy);
+        }
+    }
 
-            // 为各种地块添加随机装饰细节，增强地图层次感
+    function distToCenter(x, y) {
+        return Math.sqrt((x - centerX) ** 2 + (y - centerY) ** 2);
+    }
+
+    // 1. 道路/河流骨架：让地图有“街区”感，而不是随机后室
+    const roadColor = theme === 'desert' ? '#d4c49a' : (theme === 'jungle' ? '#3a6a3a' : '#555555');
+    drawRoad(0, randInt(20, MAP_SIZE - 20), MAP_SIZE - 1, randInt(20, MAP_SIZE - 20), 3, roadColor);
+    drawRoad(randInt(20, MAP_SIZE - 20), 0, randInt(20, MAP_SIZE - 20), MAP_SIZE - 1, 3, roadColor);
+    if (rand() < waterRate && theme !== 'snow' && theme !== 'volcano') {
+        drawRiver(randInt(10, MAP_SIZE - 10), 0, randInt(10, MAP_SIZE - 10), MAP_SIZE - 1, randInt(2, 4));
+    }
+
+    // 2. 建筑区：生成若干矩形建筑群，内部为空地，边缘为建筑/掩体
+    const buildingCount = Math.floor(buildingRate * 30) + 6;
+    for (let i = 0; i < buildingCount; i++) {
+        const bx = randInt(8, MAP_SIZE - 18);
+        const by = randInt(8, MAP_SIZE - 18);
+        const bw = randInt(5, 10);
+        const bh = randInt(5, 10);
+        if (distToCenter(bx, by) < 12) continue; // 避开出生点
+
+        // 建筑外墙
+        for (let dy = 0; dy < bh; dy++) {
+            for (let dx = 0; dx < bw; dx++) {
+                if (dx === 0 || dx === bw - 1 || dy === 0 || dy === bh - 1) {
+                    setTile(bx + dx, by + dy, 'building', c.building);
+                } else {
+                    setTile(bx + dx, by + dy, 'ground', c.ground);
+                }
+            }
+        }
+        // 建筑周围加掩体
+        for (let dy = -1; dy <= bh; dy++) {
+            for (let dx = -1; dx <= bw; dx++) {
+                if (dx === -1 || dx === bw || dy === -1 || dy === bh) {
+                    if (rand() < 0.6 && distToCenter(bx + dx, by + dy) > 8) {
+                        setTile(bx + dx, by + dy, 'cover', c.cover);
+                    }
+                }
+            }
+        }
+    }
+
+    // 3. 自然障碍物集群（岩石/废墟/树木）
+    const clusterCount = Math.floor(obstacleRate * 60) + 4;
+    for (let i = 0; i < clusterCount; i++) {
+        const cx = randInt(5, MAP_SIZE - 6);
+        const cy = randInt(5, MAP_SIZE - 6);
+        if (distToCenter(cx, cy) < 10) continue;
+        const radius = randInt(2, 4);
+        for (let dy = -radius; dy <= radius; dy++) {
+            for (let dx = -radius; dx <= radius; dx++) {
+                if (dx * dx + dy * dy <= radius * radius && rand() < 0.7) {
+                    const tile = mapData[`${cx + dx}_${cy + dy}`];
+                    if (tile && tile.type === 'ground') {
+                        setTile(cx + dx, cy + dy, 'obstacle', c.obstacle);
+                    }
+                }
+            }
+        }
+    }
+
+    // 4. 零散掩体（沙袋/矮墙/灌木）
+    const coverCount = Math.floor(coverRate * 80) + 8;
+    for (let i = 0; i < coverCount; i++) {
+        const cx = randInt(3, MAP_SIZE - 4);
+        const cy = randInt(3, MAP_SIZE - 4);
+        if (distToCenter(cx, cy) < 8) continue;
+        const len = randInt(2, 5);
+        const horizontal = rand() < 0.5;
+        for (let k = 0; k < len; k++) {
+            const tx = horizontal ? cx + k : cx;
+            const ty = horizontal ? cy : cy + k;
+            const tile = mapData[`${tx}_${ty}`];
+            if (tile && tile.type === 'ground') {
+                setTile(tx, ty, 'cover', c.cover);
+            }
+        }
+    }
+
+    // 5. 主题特色区域
+    if (theme === 'base') {
+        // 军事基地：外围围墙
+        for (let x = 4; x < MAP_SIZE - 4; x++) {
+            if (rand() < 0.9) setTile(x, 4, 'building', c.building);
+            if (rand() < 0.9) setTile(x, MAP_SIZE - 5, 'building', c.building);
+        }
+        for (let y = 4; y < MAP_SIZE - 4; y++) {
+            if (rand() < 0.9) setTile(4, y, 'building', c.building);
+            if (rand() < 0.9) setTile(MAP_SIZE - 5, y, 'building', c.building);
+        }
+    } else if (theme === 'ruins') {
+        // 废墟：散落的断墙
+        for (let i = 0; i < 20; i++) {
+            const rx = randInt(5, MAP_SIZE - 6);
+            const ry = randInt(5, MAP_SIZE - 6);
+            const len = randInt(3, 8);
+            const horizontal = rand() < 0.5;
+            for (let k = 0; k < len; k++) {
+                const tx = horizontal ? rx + k : rx;
+                const ty = horizontal ? ry : ry + k;
+                if (rand() < 0.7) setTile(tx, ty, 'obstacle', c.obstacle);
+            }
+        }
+    } else if (theme === 'factory') {
+        // 工厂：大型中央厂房
+        fillRect(centerX - 12, centerY - 8, 24, 16, 'ground', c.ground);
+        for (let dy = 0; dy < 16; dy++) {
+            for (let dx = 0; dx < 24; dx++) {
+                if (dx === 0 || dx === 23 || dy === 0 || dy === 15) {
+                    setTile(centerX - 12 + dx, centerY - 8 + dy, 'building', c.building);
+                }
+            }
+        }
+    }
+
+    // 6. 确保出生点 7x7 完全为空地
+    fillRect(centerX - 3, centerY - 3, 7, 7, 'ground', c.ground);
+
+    // 7. 为各种地块添加随机装饰细节，增强地图层次感
+    for (let y = 0; y < MAP_SIZE; y++) {
+        for (let x = 0; x < MAP_SIZE; x++) {
+            const tile = mapData[`${x}_${y}`];
+            if (!tile) continue;
             const detailRand = ((seed + x * 17417 + y * 31051) % 233280) / 233280;
-            if (type === 'ground') {
+            if (tile.type === 'ground') {
                 if (detailRand < 0.05) {
                     if (theme === 'jungle' || theme === 'ruins') {
                         tile.detail = 'grass';
@@ -2882,31 +3116,29 @@ function generateMap(theme) {
                         tile.detailColor = 'rgba(0,0,0,0.2)';
                     }
                 }
-            } else if (type === 'obstacle') {
+            } else if (tile.type === 'obstacle') {
                 if (detailRand < 0.35) {
                     tile.detail = detailRand < 0.15 ? 'crack' : 'rock';
                     tile.detailColor = 'rgba(0,0,0,0.35)';
                 }
-            } else if (type === 'building') {
+            } else if (tile.type === 'building') {
                 if (detailRand < 0.18) {
                     tile.detail = 'window';
                     tile.detailColor = 'rgba(20,30,40,0.6)';
                 }
-            } else if (type === 'cover') {
+            } else if (tile.type === 'cover') {
                 if (detailRand < 0.45) {
                     tile.detail = 'sandbags';
                     tile.detailColor = 'rgba(60,50,35,0.5)';
                 }
-            } else if (type === 'water') {
+            } else if (tile.type === 'water') {
                 tile.detail = 'ripple';
                 tile.detailColor = 'rgba(255,255,255,0.12)';
             }
-
-            mapData[`${x}_${y}`] = tile;
         }
     }
-    
-    console.log('[MAP] Generated map with', Object.keys(mapData).length, 'tiles');
+
+    console.log('[MAP] Generated structured map with', Object.keys(mapData).length, 'tiles');
 }
 
 function loadCustomMapIfExists(mapName) {
@@ -2999,15 +3231,15 @@ function isBlocked(x, y) {
 
 // 圆形多采样碰撞检测
 function isBlockedCircle(x, y, radius) {
-    // 地图边界外禁止进入
-    if (x - radius < 0 || x + radius >= MAP_SIZE || y - radius < 0 || y + radius >= MAP_SIZE) {
+    // 地图边界外禁止进入（使用 > 允许实体刚好贴边，避免贴墙时误拦截）
+    if (x - radius < 0 || x + radius > MAP_SIZE || y - radius < 0 || y + radius > MAP_SIZE) {
         return true;
     }
     const samples = 8;
     for (let i = 0; i < samples; i++) {
         const angle = (i / samples) * Math.PI * 2;
-        const sx = x + Math.cos(angle) * radius * 0.9;
-        const sy = y + Math.sin(angle) * radius * 0.9;
+        const sx = x + Math.cos(angle) * radius * 0.95;
+        const sy = y + Math.sin(angle) * radius * 0.95;
         const tx = Math.floor(sx);
         const ty = Math.floor(sy);
         const tile = getTile(tx, ty);
@@ -3232,6 +3464,18 @@ function actuallyStartGame() {
         updateSupplyUI();
     }
 
+    // 初始化局内消耗品：普通模式每局给 10 手雷且医疗/加速不限；搜打撤只能用携带数量
+    if (gameMode === 'raid') {
+        battleConsumables = {
+            medkits: (currentRaidLoadout && currentRaidLoadout.consumables ? currentRaidLoadout.consumables.medkits : 0) || 0,
+            grenades: (currentRaidLoadout && currentRaidLoadout.consumables ? currentRaidLoadout.consumables.grenades : 0) || 0,
+            speedBoost: (currentRaidLoadout && currentRaidLoadout.consumables ? currentRaidLoadout.consumables.speedBoost : 0) || 0
+        };
+    } else {
+        // 普通模式：医疗/加速/弹药箱 generous，手雷每局固定 10 个
+        battleConsumables = { medkits: 99999, grenades: 10, speedBoost: 99999, ammoBox: 99999 };
+    }
+
     // 隐藏大厅和所有面板
     const lobby = document.getElementById('lobby');
     if (lobby) {
@@ -3357,14 +3601,20 @@ function actuallyStartGame() {
     activeCrate = null;
     lastEnemySpawn = Date.now();
 
-    // 生成队友与摸金箱子（难度影响物资箱数量）
+    // 生成队友（双模式均可用）
     spawnTeammates(playerData.teammateCount || 0);
-    const difficultyCrateBonus = settings.difficulty === 'hard' ? 4 : (settings.difficulty === 'easy' ? -2 : 0);
-    const crateCount = Math.max(6, 10 + Math.floor(Math.random() * 5) + difficultyCrateBonus);
-    generateLootCrates(crateCount);
+
+    // 摸金箱子与地图事件仅在搜打撤模式生成
+    if (gameMode === 'raid') {
+        const difficultyCrateBonus = settings.difficulty === 'hard' ? 4 : (settings.difficulty === 'easy' ? -2 : 0);
+        const crateCount = Math.max(6, 10 + Math.floor(Math.random() * 5) + difficultyCrateBonus);
+        generateLootCrates(crateCount);
+    }
 
     // Round 3：初始化搜打撤地图事件
-    initMapEvents();
+    if (gameMode === 'raid') {
+        initMapEvents();
+    }
 
     // 清空按键状态与冲刺状态
     keys.clear();
@@ -3379,7 +3629,16 @@ function actuallyStartGame() {
     gameRunning = true;
     gameStartTime = Date.now();
     updateHUD();
-    
+
+    // 搜打撤模式显示局内弹药补充入口
+    const raidAmmoToggle = document.getElementById('raidAmmoToggle');
+    if (raidAmmoToggle) raidAmmoToggle.style.display = gameMode === 'raid' ? 'block' : 'none';
+    const raidAmmoPanel = document.getElementById('raidAmmoPanel');
+    if (raidAmmoPanel) {
+        raidAmmoPanel.style.display = 'none';
+        raidAmmoPanelOpen = false;
+    }
+
     // 初始化自动射击 UI 状态
     const statusEl = document.getElementById('autoFireStatus');
     if (statusEl) {
@@ -3562,27 +3821,43 @@ function update() {
         dx = (dx / length) * speed;
         dy = (dy / length) * speed;
 
-        // 独立轴滑动：分别尝试 X / Y 方向，碰到墙时另一方向仍可移动，手感更顺滑
+        // 碰撞处理：优先尝试组合移动，卡在拐角时 fallback 到单轴滑动
         const radius = PLAYER_SIZE * 0.5;
-        if (!isBlockedCircle(player.x + dx, player.y, radius)) {
+        let movedX = false, movedY = false;
+
+        // 1) 组合移动（对角线方向优先，减少墙角卡顿）
+        if (!isBlockedCircle(player.x + dx, player.y + dy, radius)) {
             player.x += dx;
-        } else {
-            // 完全阻挡时尝试部分滑动，减少贴墙顿挫感
-            for (let s = 0.5; s >= 0.1; s -= 0.2) {
-                if (!isBlockedCircle(player.x + dx * s, player.y, radius)) {
-                    player.x += dx * s;
-                    break;
+            player.y += dy;
+            movedX = true;
+            movedY = true;
+        }
+
+        // 2) 单轴滑动：X 方向
+        if (!movedX) {
+            if (!isBlockedCircle(player.x + dx, player.y, radius)) {
+                player.x += dx;
+            } else {
+                // 完全阻挡时尝试部分滑动，减少贴墙顿挫感
+                for (let s = 0.5; s >= 0.1; s -= 0.2) {
+                    if (!isBlockedCircle(player.x + dx * s, player.y, radius)) {
+                        player.x += dx * s;
+                        break;
+                    }
                 }
             }
         }
 
-        if (!isBlockedCircle(player.x, player.y + dy, radius)) {
-            player.y += dy;
-        } else {
-            for (let s = 0.5; s >= 0.1; s -= 0.2) {
-                if (!isBlockedCircle(player.x, player.y + dy * s, radius)) {
-                    player.y += dy * s;
-                    break;
+        // 3) 单轴滑动：Y 方向
+        if (!movedY) {
+            if (!isBlockedCircle(player.x, player.y + dy, radius)) {
+                player.y += dy;
+            } else {
+                for (let s = 0.5; s >= 0.1; s -= 0.2) {
+                    if (!isBlockedCircle(player.x, player.y + dy * s, radius)) {
+                        player.y += dy * s;
+                        break;
+                    }
                 }
             }
         }
@@ -3634,7 +3909,11 @@ function update() {
         const newX = bullet.x + Math.cos(bullet.angle) * bullet.speed;
         const newY = bullet.y + Math.sin(bullet.angle) * bullet.speed;
 
-        if (isBlocked(newX, newY)) {
+        // 手雷使用小半径圆形碰撞，避免靠近墙体时提前引爆
+        const bulletRadius = bullet.type === 'grenade' ? 0.15 : 0;
+        const blocked = bulletRadius > 0 ? isBlockedCircle(newX, newY, bulletRadius) : isBlocked(newX, newY);
+
+        if (blocked) {
             if (bullet.type === 'grenade') {
                 explodeGrenade(bullet.x, bullet.y);
             } else {
@@ -4392,7 +4671,7 @@ function explodeGrenade(x, y) {
         if (!enemy.alive) continue;
         const ddx = enemy.x - x;
         const ddy = enemy.y - y;
-        if (ddx * ddx + ddy * ddy < blastRadiusSq) {
+        if (ddx * ddx + ddy * ddy <= blastRadiusSq) {
             enemy.health -= blastDamage;
             poolPushExplosion({ x: enemy.x, y: enemy.y, radius: 3, alpha: 1, color: '#ff0044' });
             if (enemy.health <= 0) {
@@ -4415,7 +4694,7 @@ function explodeGrenade(x, y) {
     // 对玩家自身也造成一定伤害（避免在脚下扔）
     const pdx = player.x - x;
     const pdy = player.y - y;
-    if (pdx * pdx + pdy * pdy < blastRadiusSq) {
+    if (pdx * pdx + pdy * pdy <= blastRadiusSq) {
         player.health -= 30;
         poolPushExplosion({ x: player.x, y: player.y, radius: 4, alpha: 1, color: '#ff0000' });
         if (player.health <= 0) gameOver();
@@ -4459,12 +4738,24 @@ function throwGrenade() {
         if (now - lastItemUse < ITEM_COOLDOWN) return;
         lastItemUse = now;
     }
-    if (!BackpackManager.hasItem('grenade', 1)) {
-        showNotification('没有手雷！');
+
+    // 局内消耗品检查
+    if (battleConsumables && (battleConsumables.grenades || 0) <= 0) {
+        const modeHint = gameMode === 'raid' ? '携带的手雷已用完！' : '本局手雷已用完！';
+        showNotification(modeHint);
         return;
     }
-    BackpackManager.useItem('grenade', 1);
-    playerData.inventory.grenades = Math.max(0, (playerData.inventory.grenades || 0) - 1);
+    if (battleConsumables) {
+        battleConsumables.grenades--;
+    }
+
+    // 兼容旧版背包系统：仅在大厅或需要持久化时扣减全局库存
+    if (BackpackManager.hasItem('grenade', 1)) {
+        BackpackManager.useItem('grenade', 1);
+    }
+    if ((playerData.inventory.grenades || 0) > 0) {
+        playerData.inventory.grenades = Math.max(0, (playerData.inventory.grenades || 0) - 1);
+    }
     // 以玩家位置为中心飞向鼠标方向，速度 1.5 格/帧
     poolPushBullet({
         x: player.x + Math.cos(player.angle) * 0.5,
@@ -5196,12 +5487,29 @@ function reload() {
         const w = player.weapons[idx];
         if (w) {
             const mw = getModifiedWeapon(w);
-            w.currentAmmo = mw.clipSize;
+            const need = mw.clipSize - (w.currentAmmo || 0);
+            if (gameMode === 'raid') {
+                // 搜打撤模式：从库存消耗弹药填满弹夹
+                const ammoType = getWeaponAmmoType(w.id) || AMMO_TYPES.NORMAL;
+                const available = ammoInventory[ammoType] || 0;
+                const take = Math.min(need, available);
+                if (take > 0) {
+                    ammoInventory[ammoType] -= take;
+                    w.currentAmmo = (w.currentAmmo || 0) + take;
+                    removeAmmoFromBackpack(ammoType, take); // 同步背包显示
+                    showNotification(`换弹完成 (+${take})`);
+                } else {
+                    showNotification('库存弹药不足，无法换弹');
+                }
+            } else {
+                // 普通模式：无限弹药，直接补满
+                w.currentAmmo = mw.clipSize;
+                showNotification('换弹完成');
+            }
         }
         player.isReloading = false;
         player.reloadEndTime = 0;
         player.reloadWeaponIndex = null;
-        showNotification('换弹完成');
         updateHUD();
     }, durationMs);
 }
@@ -5589,8 +5897,13 @@ function updateHUD() {
         } else {
             const totalAmmo = ammoInventory[currentAmmoType] || 0;
             const clipSize = modifiedWeapon.clipSize || 0;
-            // 弹药不足时显示 枪膛弹药/总弹药，充足时显示 枪膛弹药/弹匣容量
-            ammoMaxEl.textContent = totalAmmo < clipSize ? totalAmmo : clipSize;
+            // 普通模式子弹无限，显示弹匣容量；搜打撤按实际库存显示
+            if (gameMode !== 'raid') {
+                ammoMaxEl.textContent = clipSize;
+            } else {
+                // 弹药不足时显示 枪膛弹药/总弹药，充足时显示 枪膛弹药/弹匣容量
+                ammoMaxEl.textContent = totalAmmo < clipSize ? totalAmmo : clipSize;
+            }
         }
     }
     if (ammoSlashEl) ammoSlashEl.style.display = isMelee ? 'none' : '';
@@ -5612,16 +5925,17 @@ function updateHUD() {
         btn.classList.toggle('active', index === player.currentWeapon);
     });
 
-    // 物资数量（圆盘显示用）
+    // 物资数量（圆盘显示用）：战斗中优先显示局内消耗品数量
     const inv = playerData.inventory || {};
+    const bc = gameRunning && battleConsumables ? battleConsumables : null;
     const invMedkit = document.getElementById('invMedkit');
-    if (invMedkit) invMedkit.textContent = inv.medkits || 0;
+    if (invMedkit) invMedkit.textContent = bc ? (bc.medkits || 0) : (inv.medkits || 0);
     const invAmmo = document.getElementById('invAmmo');
-    if (invAmmo) invAmmo.textContent = inv.ammoBox || 0;
+    if (invAmmo) invAmmo.textContent = bc ? (bc.ammoBox || 0) : (inv.ammoBox || 0);
     const invSpeed = document.getElementById('invSpeed');
-    if (invSpeed) invSpeed.textContent = inv.speedBoost || 0;
+    if (invSpeed) invSpeed.textContent = bc ? (bc.speedBoost || 0) : (inv.speedBoost || 0);
     const invGrenade = document.getElementById('invGrenade');
-    if (invGrenade) invGrenade.textContent = inv.grenades || 0;
+    if (invGrenade) invGrenade.textContent = bc ? (bc.grenades || 0) : (inv.grenades || 0);
 }
 
 // Shift 按住显示物资圆盘；Ctrl 按住冲刺
@@ -5847,6 +6161,13 @@ function hideGameUI() {
     if (hud) hud.style.display = 'none';
     const ctrl = document.getElementById('controls');
     if (ctrl) ctrl.style.display = 'none';
+    const raidAmmoToggle = document.getElementById('raidAmmoToggle');
+    if (raidAmmoToggle) raidAmmoToggle.style.display = 'none';
+    const raidAmmoPanel = document.getElementById('raidAmmoPanel');
+    if (raidAmmoPanel) {
+        raidAmmoPanel.style.display = 'none';
+        raidAmmoPanelOpen = false;
+    }
 }
 
 // ==================== 改装面板函数 ====================
@@ -6555,7 +6876,7 @@ function selectMap(mapName) {
 }
 
 function renderMapPreviews() {
-    const themes = ['desert', 'city', 'factory', 'jungle', 'snow', 'volcano', 'ruins', 'base'];
+    const themes = ['desert', 'city', 'factory', 'jungle', 'snow', 'volcano', 'ruins', 'base', 'forest', 'wasteland', 'swamp'];
     const colors = {
         desert: { ground: '#2d2d1a', obstacle: '#8b7355', cover: '#4a3728', building: '#6b5344' },
         city: { ground: '#2a2a2a', obstacle: '#4a4a4a', cover: '#3a3a5a', building: '#5a5a6a' },
@@ -6564,7 +6885,10 @@ function renderMapPreviews() {
         snow: { ground: '#4a4a5a', obstacle: '#6a6a7a', cover: '#5a6a8a', building: '#7a7a8a' },
         volcano: { ground: '#2d1a1a', obstacle: '#5a2a2a', cover: '#4a1a1a', building: '#6b3a3a' },
         ruins: { ground: '#2a2a20', obstacle: '#5a5a50', cover: '#4a4a40', building: '#6b6b5a' },
-        base: { ground: '#1a1a2a', obstacle: '#3a3a4a', cover: '#2a2a3a', building: '#4a4a5a' }
+        base: { ground: '#1a1a2a', obstacle: '#3a3a4a', cover: '#2a2a3a', building: '#4a4a5a' },
+        forest: { ground: '#1a2a12', obstacle: '#0f1f0a', cover: '#2a3a1a', building: '#3a2a1a' },
+        wasteland: { ground: '#4a3a2a', obstacle: '#2a1f15', cover: '#3a2a1a', building: '#2a1a10' },
+        swamp: { ground: '#1a2412', obstacle: '#0f1a0a', cover: '#2a3a15', building: '#2a2515' }
     };
 
     themes.forEach(theme => {
@@ -7102,6 +7426,10 @@ window.setGameMode = setGameMode;
 window.updateGameModeUI = updateGameModeUI;
 window.updateRaidLoadoutUI = updateRaidLoadoutUI;
 window.adjustRaidConsumable = adjustRaidConsumable;
+window.toggleRaidAmmoPanel = toggleRaidAmmoPanel;
+window.adjustRaidAmmo = adjustRaidAmmo;
+window.updateRaidAmmoCost = updateRaidAmmoCost;
+window.buyRaidAmmo = buyRaidAmmo;
 
 function hideLobbyBottom() {
     const lobbyBottom = document.querySelector('.lobby-bottom');
@@ -9211,7 +9539,7 @@ function useItem(itemName) {
         showNotification('请先开始游戏！');
         return;
     }
-    
+
     // 检查物品使用间隔
     if (enableItemCooldown) {
         const now = Date.now();
@@ -9227,16 +9555,25 @@ function useItem(itemName) {
         return;
     }
 
-    const itemKey = getItemKey(itemName);
-    if (!itemKey || !playerData.inventory[itemKey] || playerData.inventory[itemKey] <= 0) {
-        showNotification('没有该物品！');
-        return;
-    }
+    const keyMap = {
+        'medkit': 'medkits',
+        'ammoBox': 'ammoBox',
+        'speedBoost': 'speedBoost',
+        'grenade': 'grenades'
+    };
+    const battleKey = keyMap[itemName];
 
-    // 统一扣减一次；但 'grenade' 走 throwGrenade 路径（throwGrenade 自己会扣一次），
-    // 为避免重复扣减，手雷这里不先扣。
-    if (itemName !== 'grenade') {
-        playerData.inventory[itemKey]--;
+    // 局内消耗品检查（搜打撤按携带量限制，普通模式 generous）
+    if (battleKey && battleConsumables) {
+        if ((battleConsumables[battleKey] || 0) <= 0) {
+            const modeHint = gameMode === 'raid' ? '携带数量已用完！' : '本局已用完！';
+            showNotification(`${getItemDisplayName(itemName)} ${modeHint}`);
+            return;
+        }
+        // 手雷走 throwGrenade 路径，那里会扣减
+        if (itemName !== 'grenade') {
+            battleConsumables[battleKey]--;
+        }
     }
 
     switch (itemName) {

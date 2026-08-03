@@ -3078,3 +3078,129 @@
     background: linear-gradient(90deg, var(--brand-secondary-dark), var(--brand-secondary-light)) !important;
     transition: width 0.1s linear !important;
 }
+
+/* ========================================
+   === 搜打撤局内弹药补充面板 ===
+   ======================================== */
+
+.raid-ammo-toggle {
+    position: absolute !important;
+    right: 20px !important;
+    bottom: 120px !important;
+    z-index: 100 !important;
+    padding: 8px 12px !important;
+    background: rgba(74, 93, 35, 0.85) !important;
+    color: #fff !important;
+    border: 1px solid rgba(139, 172, 68, 0.5) !important;
+    border-radius: 6px !important;
+    cursor: pointer !important;
+    font-size: 12px !important;
+    font-family: var(--font-display) !important;
+    transition: background 0.15s !important;
+}
+
+.raid-ammo-toggle:hover {
+    background: rgba(92, 116, 45, 0.95) !important;
+}
+
+.raid-ammo-panel {
+    position: absolute !important;
+    right: 20px !important;
+    bottom: 160px !important;
+    z-index: 100 !important;
+    background: rgba(0, 0, 0, 0.88) !important;
+    border: 1px solid rgba(74, 93, 35, 0.6) !important;
+    border-radius: 8px !important;
+    padding: 12px !important;
+    min-width: 200px !important;
+    color: #fff !important;
+    font-family: var(--font-primary) !important;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5) !important;
+}
+
+.raid-ammo-title {
+    font-size: 14px !important;
+    font-weight: bold !important;
+    margin-bottom: 10px !important;
+    color: var(--brand-accent, #7fb069) !important;
+}
+
+.raid-ammo-row {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    margin-bottom: 10px !important;
+    font-size: 12px !important;
+}
+
+.raid-ammo-row label,
+.raid-ammo-row span {
+    color: rgba(255, 255, 255, 0.85) !important;
+}
+
+.raid-ammo-row select {
+    background: #1a1a2e !important;
+    color: #fff !important;
+    border: 1px solid #4a5d23 !important;
+    border-radius: 4px !important;
+    padding: 4px 6px !important;
+    font-size: 12px !important;
+    min-width: 110px !important;
+}
+
+.raid-ammo-counter {
+    display: flex !important;
+    align-items: center !important;
+    gap: 6px !important;
+}
+
+.raid-ammo-counter span {
+    min-width: 30px !important;
+    text-align: center !important;
+    font-weight: bold !important;
+}
+
+.raid-ammo-btn {
+    width: 24px !important;
+    height: 24px !important;
+    padding: 0 !important;
+    font-size: 14px !important;
+    line-height: 22px !important;
+    border-radius: 4px !important;
+    border: 1px solid rgba(255, 255, 255, 0.25) !important;
+    background: rgba(255, 255, 255, 0.1) !important;
+    color: #fff !important;
+    cursor: pointer !important;
+}
+
+.raid-ammo-btn:hover {
+    background: rgba(255, 255, 255, 0.2) !important;
+}
+
+.raid-ammo-cost {
+    font-size: 12px !important;
+    color: #ffcc00 !important;
+    margin-bottom: 10px !important;
+}
+
+.raid-ammo-buy {
+    width: 100% !important;
+    padding: 8px !important;
+    background: var(--brand-accent, #4a5d23) !important;
+    color: #fff !important;
+    border: none !important;
+    border-radius: 4px !important;
+    cursor: pointer !important;
+    font-size: 12px !important;
+    font-weight: bold !important;
+    transition: background 0.15s !important;
+}
+
+.raid-ammo-buy:hover {
+    background: var(--brand-accent-light, #5a722d) !important;
+}
+
+.raid-ammo-buy:disabled {
+    background: #555 !important;
+    cursor: not-allowed !important;
+}

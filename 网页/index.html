@@ -96,6 +96,33 @@
             </div>
         </div>
 
+        <!-- 搜打撤局内弹药补充入口 -->
+        <button id="raidAmmoToggle" class="raid-ammo-toggle" onclick="toggleRaidAmmoPanel()" style="display:none;">🛒 补充弹药</button>
+
+        <!-- 搜打撤局内弹药补充面板 -->
+        <div id="raidAmmoPanel" class="raid-ammo-panel" style="display:none;">
+            <div class="raid-ammo-title">🛒 补充弹药</div>
+            <div class="raid-ammo-row">
+                <label>弹药类型</label>
+                <select id="raidAmmoType" onchange="updateRaidAmmoCost()">
+                    <option value="normal">普通弹 🔵</option>
+                    <option value="ap">穿甲弹 🔴</option>
+                    <option value="exp">爆破弹 🟠</option>
+                    <option value="fire">燃烧弹 🔥</option>
+                </select>
+            </div>
+            <div class="raid-ammo-row">
+                <span>数量</span>
+                <div class="raid-ammo-counter">
+                    <button class="raid-ammo-btn" onclick="adjustRaidAmmo(-10)">-</button>
+                    <span id="raidAmmoCount">30</span>
+                    <button class="raid-ammo-btn" onclick="adjustRaidAmmo(10)">+</button>
+                </div>
+            </div>
+            <div class="raid-ammo-cost">花费: <span id="raidAmmoCost">0</span> 🪙</div>
+            <button id="raidAmmoBuyBtn" class="raid-ammo-buy" onclick="buyRaidAmmo()">购买并补充</button>
+        </div>
+
         <!-- 游戏内设置按钮（右上角） -->
         <button id="gameSettingsBtn" class="game-settings-btn" onclick="showSettings()">
             <span class="settings-icon">⚙️</span>
@@ -409,6 +436,18 @@
                             <div class="map-card small" data-map="base" onclick="selectMap('base')">
                                 <canvas class="map-preview-canvas" width="140" height="90"></canvas>
                                 <div class="map-name-overlay">🏰 基地</div>
+                            </div>
+                            <div class="map-card small" data-map="forest" onclick="selectMap('forest')">
+                                <canvas class="map-preview-canvas" width="140" height="90"></canvas>
+                                <div class="map-name-overlay">🌲 森林</div>
+                            </div>
+                            <div class="map-card small" data-map="wasteland" onclick="selectMap('wasteland')">
+                                <canvas class="map-preview-canvas" width="140" height="90"></canvas>
+                                <div class="map-name-overlay">☢️ 废土</div>
+                            </div>
+                            <div class="map-card small" data-map="swamp" onclick="selectMap('swamp')">
+                                <canvas class="map-preview-canvas" width="140" height="90"></canvas>
+                                <div class="map-name-overlay">🐊 沼泽</div>
                             </div>
                         </div>
                         <div class="map-grid ready-map-grid" id="readyCustomMapGrid"></div>
