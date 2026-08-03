@@ -776,16 +776,24 @@
             </div>
             <div id="missionLinePanel" class="panel">
                 <div class="panel-title-bar">
-                    <h2>📋 任务线</h2>
+                    <h2>📋 任务线 · 主线树状图</h2>
                     <button class="menu-btn tertiary" style="padding:8px 16px; font-size:14px;" onclick="showLobby()">← 返回</button>
                 </div>
 
                 <div class="mission-banner">
-                    <span class="mission-banner-icon">⚠️</span>
-                    <span class="mission-banner-text">标注「任意地图」的任务可点击选择；特定地图任务需切换地图后才能进行</span>
+                    <span class="mission-banner-icon">🌲</span>
+                    <span class="mission-banner-text">完成主线任务推进剧情；分线任务根据剧情分支解锁</span>
                 </div>
 
                 <div class="mission-line-list" id="missionLineList"></div>
+            </div>
+
+            <div id="friendsPanel" class="panel">
+                <div class="panel-title-bar">
+                    <h2>👥 好友列表</h2>
+                    <button class="menu-btn tertiary" style="padding:8px 16px; font-size:14px;" onclick="showLobby()">← 返回</button>
+                </div>
+                <div class="friends-list" id="friendsList"></div>
             </div>
 
             <div id="personalInfoPanel" class="panel">

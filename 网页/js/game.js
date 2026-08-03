@@ -3612,6 +3612,9 @@ function actuallyStartGame() {
     // 生成队友（双模式均可用）
     spawnTeammates(playerData.teammateCount || 0);
 
+    // 生成剧情 NPC
+    spawnStoryNpcs();
+
     // 摸金箱子与地图事件仅在搜打撤模式生成
     if (gameMode === 'raid') {
         const difficultyCrateBonus = settings.difficulty === 'hard' ? 4 : (settings.difficulty === 'easy' ? -2 : 0);
@@ -4597,6 +4600,9 @@ function update() {
     updateTeammates(now);
     updateLootCrates(now);
 
+    // 更新剧情 NPC 交互
+    updateNpcInteraction();
+
     // 燃烧弹：持续伤害（DOT）
     for (let i = 0; i < enemies.length; i++) {
         const enemy = enemies[i];
@@ -4973,6 +4979,9 @@ function draw() {
 
     // 绘制队友
     drawTeammates();
+
+    // 绘制剧情 NPC
+    drawStoryNpcs();
 
     // 绘制队友离屏方向指示箭头
     drawTeammateIndicators();
@@ -9140,10 +9149,13 @@ function loadMissionSettings() {
 
 function selectMissionForMap(mapId) {
     const missions = loadMissions();
+    // 优先选择地图专属任务（分线剧情任务），其次选择通用任务（map='any'）
     const mapMissions = missions.filter(m => m.map === mapId || m.map === 'any');
     const availableMissions = mapMissions.filter(m => !completedMissionIds.includes(m.id));
     if (availableMissions.length > 0) {
-        currentMission = availableMissions[0];
+        // 地图专属任务优先于通用任务
+        const specificMission = availableMissions.find(m => m.map === mapId);
+        currentMission = specificMission || availableMissions[0];
         currentMissionProgress = 0;
         updateMissionDisplay();
     } else if (mapMissions.length > 0) {
@@ -9183,39 +9195,14 @@ function updateMissionProgress(taskType, value) {
     updateMissionDisplay();
 
     // 关键死循环/链式调用防护：
-    // 当一个任务完成时，completeMission 会切换到下一个任务；
-    // 如果紧接着 updateMissionProgress 又被同帧调用，
-    // 会因 progress >= target 残留导致 "幽灵完成"。
-    // 解决：
-    //   1) 仅当 target 是有效正数时允许完成；
-    //   2) 使用 _missionCompleting 标志防止 completeMission 内部重复触发；
-    //   3) 调用完成前先把 currentMission 置空，避免级联。
+    // 委托 completeMission 处理全部完成逻辑（标记、奖励、剧情触发、切换下一任务）。
+    // _missionCompleting 标志防止同帧重复触发"幽灵完成"。
     if (_missionCompleting || !currentMission) return;
     const currentTarget = currentMission.target;
     if (typeof currentTarget === 'number' && currentTarget > 0 && currentMissionProgress >= currentTarget) {
-        const finishing = currentMission;
-        currentMission = null;
         _missionCompleting = true;
         try {
-            // 先把 finishing 作为当前任务推入 completed 集合并保存进度，
-            // 但不再调用 updateMissionDisplay/completeMission 的循环路径
-            if (!completedMissionIds.includes(finishing.id)) {
-                completedMissionIds.push(finishing.id);
-                saveCompletedMissions();
-            }
-            playerData.coins += finishing.reward;
-            showNotification('🎖️ 任务完成！获得 ' + finishing.reward + ' 金币');
-            // 推进到下一任务（链式完成不会再触发，因为 _missionCompleting 标志）
-            const missions = loadMissions();
-            const currentIdx = missions.findIndex(m => m.id === finishing.id);
-            if (currentIdx >= 0 && currentIdx < missions.length - 1) {
-                currentMission = missions[currentIdx + 1];
-                currentMissionProgress = 0;
-                updateMissionDisplay();
-                updateReadyRoomMission();
-            } else {
-                hideMissionPanel();
-            }
+            completeMission();
         } finally {
             _missionCompleting = false;
         }
@@ -9234,18 +9221,30 @@ function completeMission() {
     playerData.coins += currentMission.reward;
     showNotification('🎖️ 任务完成！获得 ' + currentMission.reward + ' 金币');
 
-    // 分线剧情触发
+    // ===== 主线剧情触发链 =====
+    // 第一章：task_kill1 完成后触发与普莱斯的初次对话（选择分支）
+    if (finishedId === 'task_kill1' && !isDialogueCompleted('intro_price')) {
+        setTimeout(() => showDialogue('intro_price'), 800);
+    }
+
+    // 第二章：task_kill2 完成后推进章节、发送邮件、触发断壁城抉择对话
     if (finishedId === 'task_kill2') {
         sendStoryMail('price_after_city');
         if (storyState.branch === 'truth' || storyState.branch === 'mercy') {
             sendStoryMail('ghost_warning_mail');
         }
+        if (storyState.chapter < 3) advanceChapter();
+        if (!isDialogueCompleted('city_choice')) {
+            setTimeout(() => showDialogue('city_choice'), 1200);
+        }
+    }
+
+    // 第三章：task_kill3 完成后推进到第四章（所有分支，不再仅限 truth）
+    if (finishedId === 'task_kill3' && storyState.chapter < 4) {
         advanceChapter();
     }
-    if (finishedId === 'task_kill3' && storyState.branch === 'truth' && storyState.chapter < 3) {
-        advanceChapter();
-    }
-    // 第四章：分支任务完成后触发对应剧情
+
+    // 第四章：分支任务完成后触发对应剧情对话
     if (finishedId === 'task_truth_lab' && !isDialogueCompleted('ch4_truth_confront')) {
         sendStoryMail('ch4_truth_meeting');
         setTimeout(() => showDialogue('ch4_truth_confront'), 800);
@@ -9258,14 +9257,16 @@ function completeMission() {
         sendStoryMail('ch4_mercy_eileen');
         setTimeout(() => showDialogue('ch4_mercy_civilian'), 800);
     }
+
     // 第五章：Boss 击杀后触发最终抉择
     if (finishedId === 'task_boss1' && !isDialogueCompleted('ch5_final_choice')) {
         setTimeout(() => showDialogue('ch5_final_choice'), 1000);
     }
 
+    // 切换到下一任务
     const missions = loadMissions();
-    const currentIdx = missions.findIndex(m => m.id === currentMission.id);
-    if (currentIdx < missions.length - 1) {
+    const currentIdx = missions.findIndex(m => m.id === finishedId);
+    if (currentIdx >= 0 && currentIdx < missions.length - 1) {
         currentMission = missions[currentIdx + 1];
         currentMissionProgress = 0;
         updateMissionDisplay();
@@ -9274,6 +9275,9 @@ function completeMission() {
         currentMission = null;
         hideMissionPanel();
     }
+
+    // 同步任务树状图
+    if (typeof renderMissionTree === 'function') renderMissionTree();
 }
 
 function updateMissionDisplay() {
@@ -9387,6 +9391,11 @@ function selectMissionById(missionId) {
 }
 
 function renderMissionLineList() {
+    // 优先使用树状图视图
+    if (typeof renderMissionTree === 'function') {
+        renderMissionTree();
+        return;
+    }
     const listEl = document.getElementById('missionLineList');
     if (!listEl) return;
 
@@ -9420,31 +9429,9 @@ function renderMissionLineList() {
         return labels[mapId] || mapId;
     }
 
-    function getProgressDisplay(m) {
-        if (m.id === currentId && currentMissionProgress > 0) {
-            const percent = Math.min(100, (currentMissionProgress / m.target) * 100);
-            return '<div class="mission-line-progress"><div class="mission-line-progress-fill" style="width:' + percent + '%"></div></div><div style="font-size:11px;color:#58a6ff;margin-top:4px;">进度: ' + currentMissionProgress + '/' + m.target + '</div>';
-        }
-        return '';
-    }
-
-    function isMissionAvailable(m) {
-        if (m.map === 'any') return true;
-        return m.map === currentMapId;
-    }
-
-    function isMissionSelectable(m) {
-        if (completedMissionIds.includes(m.id)) return false;
-        if (m.id === currentId) return false;
-        if (m.map !== 'any') return false;
-        return hasMissionPrereqs(m, missions);
-    }
-
     listEl.innerHTML = missions.map(function(m, idx) {
         const isCompleted = completedMissionIds.includes(m.id);
         const isCurrent = m.id === currentId;
-        const available = isMissionAvailable(m);
-        const selectable = isMissionSelectable(m);
         let statusClass = '';
         let statusText = '';
 
@@ -9454,36 +9441,20 @@ function renderMissionLineList() {
         } else if (isCurrent) {
             statusClass = 'current';
             statusText = '🔥 进行中';
-        } else if (!available && m.map !== 'any') {
-            statusClass = 'locked';
-            statusText = '🔒 需切换地图';
-        } else if (selectable) {
-            statusClass = 'selectable';
-            statusText = '<button class="select-mission-btn" onclick="selectMissionById(\'' + m.id + '\')">选择此任务</button>';
-        } else if (!hasMissionPrereqs(m, missions) && m.map === 'any') {
-            statusClass = 'locked';
-            statusText = '🔒 前置任务未完成';
         } else {
             statusClass = 'locked';
             statusText = '📌 待解锁';
         }
 
-        const cardClass = selectable ? ' mission-line-card selectable' : ' mission-line-card ' + statusClass;
-        const clickAttr = selectable ? ' onclick="selectMissionById(\'' + m.id + '\')" style="cursor:pointer;" ' : '';
-
-        return '<div class="' + ('mission-line-card ' + statusClass) + '"' + clickAttr + '>' +
+        return '<div class="mission-line-card ' + statusClass + '">' +
                     '<div class="mission-line-icon">' + getMissionIcon(m) + '</div>' +
                     '<div class="mission-line-body">' +
-                        '<div class="mission-line-name">' + m.nameZh +
-                            '<span class="en-name">' + m.nameEn + '</span>' +
-                        '</div>' +
+                        '<div class="mission-line-name">' + m.nameZh + '</div>' +
                         '<div class="mission-line-desc">' + m.descZh + '</div>' +
                         '<div class="mission-line-meta">' +
                             '<span class="reward">奖励: 🪙 ' + m.reward + '</span>' +
                             '<span class="map-tag">' + getMapLabel(m.map) + '</span>' +
-                            '<span>目标: ' + m.target + '</span>' +
                         '</div>' +
-                        getProgressDisplay(m) +
                     '</div>' +
                     '<div class="mission-line-status">' + statusText + '</div>' +
                 '</div>';
@@ -10971,8 +10942,129 @@ function findNearestCover(x, y, fromX, fromY, radius) {
 }
 
 // ============================================================
-// 全局UI函数挂载到window（确保HTML onclick能访问）
+// 任务树状图
 // ============================================================
+const MISSION_TREE = {
+    id: 'root', name: '死亡战壕 · 主线任务树', icon: '🌲', children: [
+        {
+            id: 'ch1', name: '第一章：新兵报到', icon: '📘', branch: 'all', children: [
+                { id: 'task_kill1', name: '沙漠突袭', icon: '⚔️', missionId: 'task_kill1', desc: '消灭15名敌人' },
+                { id: 'intro_price', name: '与普莱斯对话', icon: '💬', dialogueId: 'intro_price', desc: '选择剧情分支' }
+            ]
+        },
+        {
+            id: 'ch2', name: '第二章：断壁抉择', icon: '📗', branch: 'all', children: [
+                { id: 'task_kill2', name: '城市清剿', icon: '⚔️', missionId: 'task_kill2', desc: '清理城市敌人' },
+                { id: 'city_choice', name: '断壁城抉择', icon: '💬', dialogueId: 'city_choice', desc: '决定城市命运' }
+            ]
+        },
+        {
+            id: 'ch3', name: '第三章：丛林猎杀', icon: '📙', branch: 'all', children: [
+                { id: 'task_kill3', name: '丛林猎杀', icon: '⚔️', missionId: 'task_kill3', desc: '消灭25名敌人' }
+            ]
+        },
+        {
+            id: 'ch4_branch', name: '第四章：分线任务', icon: '📚', branch: 'split', children: [
+                {
+                    id: 'ch4_truth', name: '真相线', icon: '🔍', branch: 'truth', children: [
+                        { id: 'task_truth_lab', name: '实验室渗透', icon: '⚗️', missionId: 'task_truth_lab', desc: '销毁纳米原型机' },
+                        { id: 'ch4_truth_confront', name: '与普莱斯对质', icon: '💬', dialogueId: 'ch4_truth_confront', desc: '摊牌对话' }
+                    ]
+                },
+                {
+                    id: 'ch4_loyalty', name: '忠诚线', icon: '🎖️', branch: 'loyalty', children: [
+                        { id: 'task_loyalty_convoy', name: '截击补给线', icon: '🚛', missionId: 'task_loyalty_convoy', desc: '摧毁补给车队' },
+                        { id: 'ch4_loyalty_order', name: '接受命令', icon: '💬', dialogueId: 'ch4_loyalty_order', desc: '执行截击令' }
+                    ]
+                },
+                {
+                    id: 'ch4_mercy', name: '仁慈线', icon: '💊', branch: 'mercy', children: [
+                        { id: 'task_mercy_rescue', name: '撤离难民', icon: '🚁', missionId: 'task_mercy_rescue', desc: '保护撤离点' },
+                        { id: 'ch4_mercy_civilian', name: '艾琳的请求', icon: '💬', dialogueId: 'ch4_mercy_civilian', desc: '救出阿雅' }
+                    ]
+                }
+            ]
+        },
+        {
+            id: 'ch5', name: '第五章：最终抉择', icon: '📕', branch: 'all', children: [
+                { id: 'task_boss1', name: 'Boss猎手', icon: '👹', missionId: 'task_boss1', desc: '消灭Boss单位' },
+                { id: 'ch5_final_choice', name: '最终抉择', icon: '💬', dialogueId: 'ch5_final_choice', desc: '三选一结局' }
+            ]
+        },
+        {
+            id: 'endings', name: '结局', icon: '🎬', branch: 'split', children: [
+                { id: 'ending_loyalty', name: '忠诚结局：牺牲', icon: '💥', dialogueId: 'ending_loyalty', desc: '炸毁节点' },
+                { id: 'ending_mercy', name: '仁慈结局：救赎', icon: '🙏', dialogueId: 'ending_mercy', desc: '先救后炸' },
+                { id: 'ending_truth', name: '真相结局：揭露', icon: '🔍', dialogueId: 'ending_truth', desc: '揭露谎言' }
+            ]
+        }
+    ]
+};
+
+function isTreeNodeCompleted(node) {
+    if (node.missionId) return completedMissionIds.includes(node.missionId);
+    if (node.dialogueId) return isDialogueCompleted(node.dialogueId);
+    if (node.children) return node.children.every(isTreeNodeCompleted);
+    return false;
+}
+
+function isTreeNodeActive(node) {
+    if (node.missionId) return currentMission && currentMission.id === node.missionId;
+    if (node.dialogueId) return false;
+    if (node.children) return node.children.some(isTreeNodeActive) || node.children.some(isTreeNodeCompleted) && !node.children.every(isTreeNodeCompleted);
+    return false;
+}
+
+function isNodeAvailable(node) {
+    // 分支过滤
+    if (node.branch && node.branch !== 'split' && node.branch !== 'all') {
+        if (storyState.branch !== node.branch) return false;
+    }
+    return true;
+}
+
+function renderMissionTree() {
+    const container = document.getElementById('missionLineList');
+    if (!container) return;
+
+    function renderNode(node, depth) {
+        if (!isNodeAvailable(node)) return '';
+        const completed = isTreeNodeCompleted(node);
+        const active = isTreeNodeActive(node);
+        let statusIcon = '';
+        let statusClass = '';
+        if (completed) { statusIcon = '✅'; statusClass = 'tree-completed'; }
+        else if (active) { statusIcon = '🔥'; statusClass = 'tree-active'; }
+        else { statusIcon = '🔒'; statusClass = 'tree-locked'; }
+
+        let html = '<div class="mission-tree-node depth-' + depth + ' ' + statusClass + '" style="margin-left:' + (depth * 24) + 'px;">';
+        html += '<div class="tree-node-header">';
+        html += '<span class="tree-node-icon">' + (node.icon || '📋') + '</span>';
+        html += '<span class="tree-node-name">' + node.name + '</span>';
+        if (node.desc) html += '<span class="tree-node-desc">' + node.desc + '</span>';
+        html += '<span class="tree-node-status">' + statusIcon + '</span>';
+        html += '</div>';
+
+        if (node.children && node.children.length > 0) {
+            html += '<div class="tree-children">';
+            for (const child of node.children) {
+                html += renderNode(child, depth + 1);
+            }
+            html += '</div>';
+        }
+        html += '</div>';
+        return html;
+    }
+
+    container.innerHTML = '<div class="mission-tree-container">' +
+        '<div class="mission-tree-branch-info">当前分支: <b style="color:#00cc66;">' + 
+        (storyState.branch === 'truth' ? '🔍 真相' : storyState.branch === 'loyalty' ? '🎖️ 忠诚' : storyState.branch === 'mercy' ? '💊 仁慈' : '⚪ 未定') +
+        '</b> · 章节: <b>' + storyState.chapter + '</b></div>' +
+        renderNode(MISSION_TREE, 0) +
+        '</div>';
+}
+
+window.renderMissionTree = renderMissionTree;
 function mountAllUIfunctions() {
     const fns = [
         'showReadyRoom', 'showInventory', 'showBlackMarket', 'showModification',
@@ -10996,7 +11088,8 @@ function mountAllUIfunctions() {
         'startTutorial', 'skipTutorial', 'prevTutorialStep', 'nextTutorialStep',
         'closeConfirm', 'closeWarmTip', 'selectModNode', 'renderWeaponLibrary',
         'renderMissionLineList', 'disableAllMods', 'saveSettings', 'loadSettings', 'syncSettingsUI',
-        'showRedeemCodePanel', 'closeRedeemCodePanel', 'submitRedeemCode', 'redeemCode'
+        'showRedeemCodePanel', 'closeRedeemCodePanel', 'submitRedeemCode', 'redeemCode',
+        'renderMissionTree', 'showFriends', 'talkToFriend', 'loadFriends'
     ];
     let mounted = 0;
     let missing = [];
@@ -11313,6 +11406,217 @@ function advanceChapter() {
     saveStoryState();
 }
 
+// ============================================================
+// 好友系统
+// ============================================================
+const FRIENDS_KEY = 'deathTrench_friends';
+let friendsList = [];
+
+function loadFriends() {
+    try {
+        const stored = localStorage.getItem(FRIENDS_KEY);
+        friendsList = stored ? JSON.parse(stored) : getDefaultFriends();
+    } catch (e) { friendsList = getDefaultFriends(); }
+    if (!Array.isArray(friendsList) || friendsList.length === 0) friendsList = getDefaultFriends();
+    return friendsList;
+}
+
+function getDefaultFriends() {
+    return [
+        { id: 'price', name: '普莱斯', avatar: '🎖️', tag: '特遣队指挥官', relation: '长官', online: true, dialogueId: 'intro_price' },
+        { id: 'ghost', name: '幽灵', avatar: '👻', tag: '战术支援', relation: '盟友', online: true, dialogueId: 'ghost_warning' },
+        { id: 'eileen', name: '艾琳', avatar: '💊', tag: '战地医疗', relation: '战友', online: false, dialogueId: 'ch4_mercy_civilian' }
+    ];
+}
+
+function saveFriends() {
+    localStorage.setItem(FRIENDS_KEY, JSON.stringify(friendsList));
+}
+
+function showFriends() {
+    loadFriends();
+    const panel = document.getElementById('friendsPanel');
+    if (!panel) return;
+    document.querySelectorAll('.panel').forEach(p => { p.classList.remove('active'); p.style.display = 'none'; });
+    ensureLobbyPanelsVisible();
+    panel.classList.add('active');
+    panel.style.display = 'block';
+    renderFriendsList();
+}
+
+function renderFriendsList() {
+    const listEl = document.getElementById('friendsList');
+    if (!listEl) return;
+    listEl.innerHTML = friendsList.map(f => {
+        const statusClass = f.online ? 'online' : 'offline';
+        const statusText = f.online ? '🟢 在线' : '⚫ 离线';
+        return '<div class="friend-card ' + statusClass + '">' +
+            '<div class="friend-avatar">' + (f.avatar || '👤') + '</div>' +
+            '<div class="friend-info">' +
+                '<div class="friend-name">' + f.name + ' <span class="friend-relation">' + (f.relation || '') + '</span></div>' +
+                '<div class="friend-tag">' + (f.tag || '') + '</div>' +
+            '</div>' +
+            '<div class="friend-status">' + statusText + '</div>' +
+            (f.dialogueId ? '<button class="friend-talk-btn" onclick="talkToFriend(\'' + f.id + '\')">💬 对话</button>' : '') +
+        '</div>';
+    }).join('');
+}
+
+function talkToFriend(friendId) {
+    const f = friendsList.find(x => x.id === friendId);
+    if (!f || !f.dialogueId) return;
+    if (typeof DIALOGUES[f.dialogueId] === 'undefined') {
+        showNotification('该角色暂时没有新对话。');
+        return;
+    }
+    showDialogue(f.dialogueId);
+}
+
+window.showFriends = showFriends;
+window.talkToFriend = talkToFriend;
+
+// ============================================================
+// 地图剧情 NPC 系统
+// ============================================================
+const STORY_NPCS = {
+    'price': { id: 'price', name: '普莱斯上尉', avatar: '🎖️', color: '#00cc66', dialogueId: 'intro_price', chapter: 1 },
+    'ghost': { id: 'ghost', name: '幽灵', avatar: '👻', color: '#8b5cf6', dialogueId: 'ghost_warning', chapter: 2 },
+    'eileen': { id: 'eileen', name: '医疗兵艾琳', avatar: '💊', color: '#ec4899', dialogueId: 'ch4_mercy_civilian', chapter: 4 }
+};
+
+let mapNpcs = [];
+
+function spawnStoryNpcs() {
+    mapNpcs = [];
+    const mapSize = gameParams.MAP.MAP_SIZE || 150;
+    const center = Math.floor(mapSize / 2);
+
+    // 根据章节生成 NPC
+    for (const key in STORY_NPCS) {
+        const npc = STORY_NPCS[key];
+        // 第一章固定生成普莱斯；第二章+truth分支生成幽灵；第四章+mercy分支生成艾琳
+        if (npc.id === 'price' && storyState.chapter >= 1 && !isDialogueCompleted('intro_price')) {
+            mapNpcs.push(createNpcEntity(npc, center + 3, center - 2));
+        }
+        if (npc.id === 'ghost' && storyState.chapter >= 2 && storyState.branch === 'truth' && !isDialogueCompleted('ghost_warning')) {
+            mapNpcs.push(createNpcEntity(npc, center - 4, center + 3));
+        }
+        if (npc.id === 'eileen' && storyState.chapter >= 4 && storyState.branch === 'mercy' && !isDialogueCompleted('ch4_mercy_civilian')) {
+            mapNpcs.push(createNpcEntity(npc, center + 2, center + 5));
+        }
+    }
+}
+
+function createNpcEntity(npcData, x, y) {
+    let nx = x, ny = y, attempts = 0;
+    while (isBlockedCircle(nx, ny, 0.5) && attempts < 30) {
+        nx = x + (Math.random() - 0.5) * 4;
+        ny = y + (Math.random() - 0.5) * 4;
+        attempts++;
+    }
+    return {
+        id: npcData.id,
+        name: npcData.name,
+        avatar: npcData.avatar,
+        color: npcData.color,
+        dialogueId: npcData.dialogueId,
+        x: nx, y: ny,
+        radius: 0.5,
+        talked: false,
+        promptVisible: false
+    };
+}
+
+function updateNpcInteraction() {
+    if (!player || mapNpcs.length === 0) return;
+    const interactRange = 2.5;
+    let nearestNpc = null;
+    let nearestDist = Infinity;
+
+    for (const npc of mapNpcs) {
+        const dx = npc.x - player.x;
+        const dy = npc.y - player.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        npc.promptVisible = dist <= interactRange;
+        if (dist <= interactRange && dist < nearestDist) {
+            nearestDist = dist;
+            nearestNpc = npc;
+        }
+    }
+
+    // 显示/隐藏交互提示
+    let promptEl = document.getElementById('npcPrompt');
+    if (nearestNpc && !nearestNpc.talked) {
+        if (!promptEl) {
+            promptEl = document.createElement('div');
+            promptEl.id = 'npcPrompt';
+            promptEl.style.cssText = 'position:absolute;bottom:140px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,0.85);border:1px solid ' + nearestNpc.color + ';border-radius:8px;padding:8px 16px;color:#fff;font-size:14px;z-index:200;pointer-events:none;';
+            const gc = document.getElementById('gameContainer');
+            if (gc) gc.appendChild(promptEl);
+        }
+        promptEl.style.borderColor = nearestNpc.color;
+        promptEl.innerHTML = nearestNpc.avatar + ' <b>' + nearestNpc.name + '</b> &nbsp; 按 <span style="color:#00cc66;font-weight:bold;">F</span> 对话';
+        promptEl.style.display = 'block';
+    } else if (promptEl) {
+        promptEl.style.display = 'none';
+    }
+
+    // 按 F 对话
+    if (nearestNpc && !nearestNpc.talked && keys.has('KeyF') && keys.get('KeyF')) {
+        keys.set('KeyF', false);
+        nearestNpc.talked = true;
+        showDialogue(nearestNpc.dialogueId);
+    }
+}
+
+function drawStoryNpcs() {
+    if (!player || mapNpcs.length === 0) return;
+    for (const npc of mapNpcs) {
+        if (Math.abs(npc.x - player.x) > VIEW_RANGE_X + 2 || Math.abs(npc.y - player.y) > VIEW_RANGE_Y + 2) continue;
+        const screenX = canvas.width / 2 + (npc.x - player.x) * TILE_SIZE;
+        const screenY = canvas.height / 2 + (npc.y - player.y) * TILE_SIZE;
+
+        // 光环
+        ctx.save();
+        ctx.shadowColor = npc.color;
+        ctx.shadowBlur = 16;
+        ctx.fillStyle = npc.color;
+        ctx.beginPath();
+        ctx.arc(screenX, screenY, PLAYER_SIZE * TILE_SIZE * 0.6, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.shadowBlur = 0;
+
+        // 内圈
+        ctx.fillStyle = 'rgba(16,18,22,0.9)';
+        ctx.beginPath();
+        ctx.arc(screenX, screenY, PLAYER_SIZE * TILE_SIZE * 0.45, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+
+        // 头像符号
+        ctx.font = Math.floor(TILE_SIZE * 0.8) + 'px Arial';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(npc.avatar, screenX, screenY);
+
+        // 名字
+        ctx.fillStyle = npc.color;
+        ctx.font = 'bold 12px Arial';
+        ctx.textBaseline = 'alphabetic';
+        ctx.fillText(npc.name, screenX, screenY - 28);
+
+        // 交互提示标记
+        if (npc.promptVisible && !npc.talked) {
+            const pulse = 0.5 + 0.5 * Math.sin(Date.now() / 300);
+            ctx.fillStyle = 'rgba(255,255,255,' + pulse + ')';
+            ctx.font = '10px Arial';
+            ctx.fillText('!', screenX, screenY - 40);
+        }
+    }
+}
+
+window.spawnStoryNpcs = spawnStoryNpcs;
+
 function markDialogueCompleted(dialogueId) {
     if (!storyState.completedDialogues.includes(dialogueId)) {
         storyState.completedDialogues.push(dialogueId);
@@ -11372,7 +11676,8 @@ const DIALOGUES = {
             { text: '断壁城地下有一座黑潮军火库。上级想让我们直接炸平它。' },
             { text: '但城里还有平民。你选：快速完成任务，还是优先搜救？', choices: [
                 { text: '炸掉军火库，任务第一。', action: () => { setStoryFlag('city_destroyed'); setStoryBranch('loyalty'); } },
-                { text: '先确认平民撤离。', action: () => { setStoryFlag('city_saved'); setStoryBranch('mercy'); } }
+                { text: '先确认平民撤离。', action: () => { setStoryFlag('city_saved'); setStoryBranch('mercy'); } },
+                { text: '我要先进去找黑潮的实验证据。', action: () => { setStoryFlag('city_saved'); setStoryBranch('truth'); } }
             ]}
         ]
     },

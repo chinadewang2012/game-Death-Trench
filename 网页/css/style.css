@@ -3544,6 +3544,101 @@ body {
     background: linear-gradient(135deg, #79b8ff, #58a6ff);
     box-shadow: 0 0 12px rgba(88, 166, 255, 0.4);
 }
+
+/* ==================== 任务树状图 ==================== */
+.mission-tree-container {
+    padding: 8px 0;
+}
+.mission-tree-branch-info {
+    background: rgba(0,204,102,0.08);
+    border: 1px solid rgba(0,204,102,0.25);
+    border-radius: 8px;
+    padding: 10px 16px;
+    margin-bottom: 16px;
+    font-size: 14px;
+    color: #bbb;
+}
+.mission-tree-node {
+    margin-bottom: 6px;
+    padding: 10px 14px;
+    border-radius: 8px;
+    border-left: 3px solid #333;
+    background: rgba(33,38,45,0.6);
+    transition: all 0.2s;
+}
+.mission-tree-node.tree-completed {
+    border-left-color: #00cc66;
+    opacity: 0.7;
+}
+.mission-tree-node.tree-active {
+    border-left-color: #ffaa00;
+    background: rgba(255,170,0,0.08);
+    box-shadow: 0 0 12px rgba(255,170,0,0.15);
+}
+.mission-tree-node.tree-locked {
+    border-left-color: #444;
+    opacity: 0.5;
+}
+.tree-node-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+.tree-node-icon { font-size: 18px; flex-shrink: 0; }
+.tree-node-name { font-size: 14px; color: #e6edf3; font-weight: 600; }
+.tree-node-desc { font-size: 12px; color: #6e7681; margin-left: 4px; }
+.tree-node-status { margin-left: auto; font-size: 14px; }
+.tree-children { margin-top: 6px; }
+.mission-tree-node.tree-completed .tree-node-name { text-decoration: line-through; color: #8b949e; }
+.mission-tree-node.tree-active .tree-node-name { color: #ffaa00; }
+
+/* ==================== 好友列表 ==================== */
+.friends-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    max-width: 600px;
+}
+.friend-card {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 14px 18px;
+    background: rgba(33,38,45,0.8);
+    border: 1px solid #30363d;
+    border-radius: 10px;
+    transition: all 0.2s;
+}
+.friend-card.online { border-color: rgba(0,204,102,0.3); }
+.friend-card.offline { opacity: 0.6; }
+.friend-avatar {
+    font-size: 32px;
+    width: 48px; height: 48px;
+    display: flex; align-items: center; justify-content: center;
+    background: rgba(0,0,0,0.3);
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+.friend-info { flex: 1; }
+.friend-name { font-size: 15px; color: #e6edf3; font-weight: 600; }
+.friend-relation { font-size: 11px; color: #6e7681; margin-left: 6px; }
+.friend-tag { font-size: 12px; color: #8b949e; margin-top: 2px; }
+.friend-status { font-size: 12px; color: #6e7681; }
+.friend-talk-btn {
+    background: rgba(0,204,102,0.15);
+    color: #00cc66;
+    border: 1px solid rgba(0,204,102,0.3);
+    padding: 6px 14px;
+    border-radius: 6px;
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.15s;
+}
+.friend-talk-btn:hover {
+    background: rgba(0,204,102,0.25);
+    box-shadow: 0 0 8px rgba(0,204,102,0.2);
+}
 .select-mission-btn:active {
     transform: scale(0.97);
 }
