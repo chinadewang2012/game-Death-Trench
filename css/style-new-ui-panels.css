@@ -1,0 +1,3206 @@
+
+
+/* ========================================
+   === 面板通用标题栏 ===
+   ======================================== */
+
+.panel-title-bar {
+    display: flex;
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0 0 16px 0;
+    margin-bottom: 16px;
+    border-bottom: 1px solid var(--color-border-subtle);
+    gap: 16px;
+}
+
+.panel-title-bar h2 {
+    font-size: 18px;
+    color: var(--brand-accent);
+    font-family: var(--font-display);
+    margin: 0;
+    flex-shrink: 0;
+}
+
+.panel-gold {
+    font-size: 16px;
+    color: var(--brand-secondary);
+    font-family: var(--font-display);
+    flex-shrink: 0;
+}
+
+/* ========================================
+   === 仓库面板样式 ===
+   ======================================== */
+
+.inventory-three-col {
+    display: flex;
+    gap: 16px;
+    padding: 0 20px;
+    margin-top: 16px;
+    flex: 1;
+    overflow-y: auto;
+}
+
+.inv-col-left { width: 200px; flex-shrink: 0; }
+.inv-col-center { flex: 1; }
+.inv-col-right { width: 200px; flex-shrink: 0; }
+
+.section-label {
+    font-size: 12px;
+    color: var(--color-text-muted);
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    margin-bottom: 8px;
+    font-family: var(--font-display);
+}
+
+/* 武器出战槽 */
+.weapon-loadout-slot {
+    background: var(--color-bg-card);
+    border: 1px solid var(--color-border);
+    border-radius: 6px;
+    padding: 12px;
+    margin-bottom: 12px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    transition: all 0.2s ease;
+    cursor: pointer;
+}
+
+.weapon-loadout-slot:hover {
+    border-color: var(--color-border-strong);
+}
+
+.weapon-loadout-slot.active {
+    border-color: var(--brand-accent);
+    box-shadow: var(--shadow-glow-accent);
+}
+
+.slot-type-label {
+    font-size: 10px;
+    color: var(--color-text-muted);
+}
+
+.slot-weapon-icon {
+    font-size: 32px;
+}
+
+.slot-weapon-name {
+    font-size: 14px;
+    color: var(--color-text-primary);
+    font-weight: bold;
+}
+
+.slot-weapon-ammo {
+    font-size: 12px;
+    color: var(--brand-accent);
+    font-family: var(--font-mono);
+}
+
+/* 武器库网格 */
+.weapon-library-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+}
+
+.weapon-card {
+    background: var(--color-bg-card);
+    border: 1px solid var(--color-border-subtle);
+    border-radius: 6px;
+    padding: 12px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.weapon-card:hover {
+    border-color: var(--color-border);
+    box-shadow: var(--shadow-card);
+}
+
+.weapon-card.owned {
+    border-color: var(--color-border);
+}
+
+.weapon-card.equipped {
+    border-color: var(--brand-accent);
+    box-shadow: var(--shadow-glow-accent);
+}
+
+.weapon-card.equipped-primary {
+    border-color: var(--brand-accent);
+    box-shadow: 0 0 8px rgba(0, 204, 102, 0.5);
+    position: relative;
+}
+
+.weapon-card.equipped-primary::after {
+    content: '主';
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    font-size: 10px;
+    padding: 1px 4px;
+    border-radius: 3px;
+    background: var(--brand-accent);
+    color: #000;
+}
+
+.weapon-card.equipped-secondary {
+    border-color: var(--brand-primary);
+    box-shadow: 0 0 8px rgba(88, 166, 255, 0.5);
+    position: relative;
+}
+
+.weapon-card.equipped-secondary::after {
+    content: '副';
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    font-size: 10px;
+    padding: 1px 4px;
+    border-radius: 3px;
+    background: var(--brand-primary);
+    color: #fff;
+}
+
+.weapon-card.locked {
+    opacity: 0.4;
+    pointer-events: none;
+}
+
+.weapon-card .wc-icon {
+    width: 48px;
+    height: 48px;
+    margin: 0 auto 8px;
+    background: var(--color-bg-hover);
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 24px;
+}
+
+.weapon-card .wc-name {
+    font-size: 14px;
+    color: var(--color-text-primary);
+    font-weight: bold;
+}
+
+.weapon-card .wc-type {
+    font-size: 10px;
+    color: var(--brand-primary);
+    background: rgba(74, 93, 35, 0.2);
+    padding: 2px 8px;
+    border-radius: 4px;
+    display: inline-block;
+    margin-top: 4px;
+}
+
+/* 弹药背包列表 */
+.ammo-backpack-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.ammo-backpack-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    background: var(--color-bg-card);
+    border: 1px solid var(--color-border-subtle);
+    border-radius: 4px;
+}
+
+.ammo-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+}
+
+.ammo-name {
+    font-size: 13px;
+    color: var(--color-text-primary);
+    flex: 1;
+}
+
+.ammo-qty-controls {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.qty-btn {
+    width: 22px;
+    height: 22px;
+    border: 1px solid var(--brand-accent);
+    background: transparent;
+    color: var(--brand-accent);
+    cursor: pointer;
+    font-size: 13px;
+    line-height: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.15s;
+    border-radius: 3px;
+    padding: 0;
+}
+
+.qty-btn:hover {
+    background: var(--brand-accent);
+    color: var(--color-bg-primary);
+}
+
+.qty-btn.minus {
+    border-color: #ff6b6b;
+    color: #ff6b6b;
+}
+
+.qty-btn.minus:hover {
+    background: #ff6b6b;
+    color: #fff;
+}
+
+.qty-btn.plus {
+    border-color: #51cf66;
+    color: #51cf66;
+}
+
+.qty-btn.plus:hover {
+    background: #51cf66;
+    color: #fff;
+}
+
+.ammo-count {
+    font-size: 13px;
+    color: var(--brand-accent);
+    font-family: var(--font-mono);
+    min-width: 50px;
+    text-align: center;
+}
+
+/* 底部弹格栏 */
+.ammo-slots-bar {
+    padding: 16px 20px;
+    border-top: 1px solid var(--color-border-subtle);
+    margin-top: 16px;
+}
+
+.ammo-slot-row {
+    display: flex;
+    gap: 8px;
+}
+
+.ammo-slot {
+    width: 80px;
+    height: 60px;
+    background: var(--color-bg-card);
+    border: 1px solid var(--color-border-subtle);
+    border-radius: 6px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    font-size: 12px;
+    color: var(--color-text-secondary);
+}
+
+.ammo-slot.active {
+    border-color: var(--brand-accent);
+    box-shadow: var(--shadow-glow-accent);
+}
+
+.ammo-slot.empty {
+    border-style: dashed;
+    color: var(--color-text-muted);
+}
+
+/* ========================================
+   === 黑市面板样式 ===
+   ======================================== */
+
+.market-two-col {
+    display: flex;
+    gap: 16px;
+    padding: 16px 20px;
+    flex: 1;
+    overflow-y: auto;
+}
+
+.market-col-left { flex: 7; }
+.market-col-right { flex: 3; }
+
+/* 改装树 */
+.mod-tree {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
+}
+
+.mod-tree-row {
+    display: flex;
+    gap: 16px;
+    justify-content: center;
+}
+
+.mod-node {
+    width: 140px;
+    background: var(--color-bg-card);
+    border: 1px solid var(--color-border);
+    border-radius: 6px;
+    padding: 12px;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    transition: all 0.2s ease;
+}
+
+.mod-node:hover {
+    border-color: var(--color-border-strong);
+}
+
+.mod-node.equipped {
+    border-color: var(--brand-accent);
+    box-shadow: var(--shadow-glow-accent);
+}
+
+.mod-node-icon { font-size: 24px; }
+.mod-node-name { font-size: 13px; color: var(--color-text-primary); font-weight: bold; }
+.mod-node-effect { font-size: 11px; color: var(--color-text-secondary); }
+.mod-node-price { font-size: 12px; color: var(--brand-secondary); }
+
+.mod-buy-btn {
+    margin-top: 4px;
+    padding: 4px 12px;
+    background: var(--brand-primary);
+    border: 1px solid var(--brand-primary-light);
+    border-radius: 4px;
+    color: var(--color-text-primary);
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.mod-buy-btn:hover {
+    background: var(--brand-primary-light);
+    box-shadow: var(--shadow-glow-primary);
+}
+
+.mod-buy-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.mod-tree-center {
+    display: flex;
+    justify-content: center;
+}
+
+.mod-weapon-display {
+    width: 200px;
+    background: var(--color-bg-card);
+    border: 1px solid var(--color-border);
+    border-radius: 6px;
+    padding: 16px;
+    text-align: center;
+}
+
+.mod-weapon-silhouette { font-size: 48px; }
+.mod-weapon-name { font-size: 16px; color: var(--color-text-primary); font-weight: bold; margin-top: 8px; }
+.mod-weapon-status { font-size: 12px; color: var(--brand-accent); margin-top: 4px; }
+
+/* 阵营属性面板 */
+.faction-panel {
+    background: var(--color-bg-card);
+    border: 1px solid var(--color-border);
+    border-radius: 6px;
+    padding: 20px;
+    text-align: center;
+}
+
+.faction-hex-icon {
+    width: 60px;
+    height: 60px;
+    margin: 0 auto;
+    background: linear-gradient(135deg, #1a5c4a, #2a8c6a);
+    clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 28px;
+}
+
+.faction-level {
+    font-size: 18px;
+    color: var(--brand-secondary);
+    font-weight: bold;
+    font-family: var(--font-mono);
+    margin-top: 8px;
+}
+
+.faction-name {
+    font-size: 14px;
+    color: var(--color-text-primary);
+    margin-top: 4px;
+}
+
+.faction-divider {
+    height: 1px;
+    background: var(--color-border-subtle);
+    margin: 16px 0;
+}
+
+.faction-stats { text-align: left; }
+
+.faction-stat-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 10px;
+}
+
+.fs-label {
+    font-size: 12px;
+    color: var(--color-text-secondary);
+    width: 36px;
+}
+
+.fs-bar {
+    flex: 1;
+    height: 6px;
+    background: var(--color-surface);
+    border-radius: 3px;
+    overflow: hidden;
+}
+
+.fs-fill {
+    height: 100%;
+    background: var(--brand-primary);
+    border-radius: 3px;
+}
+
+.fs-value {
+    font-size: 12px;
+    color: var(--color-text-primary);
+    font-family: var(--font-mono);
+    width: 50px;
+    text-align: right;
+}
+
+.fs-bonus {
+    color: var(--brand-accent);
+    font-size: 11px;
+}
+
+/* 底部 Tab 栏 */
+.market-bottom-tabs {
+    display: flex;
+    gap: 4px;
+    padding: 8px 20px;
+    border-top: 1px solid var(--color-border-subtle);
+}
+
+.mkt-tab {
+    padding: 8px 16px;
+    background: transparent;
+    border: 1px solid var(--color-border-subtle);
+    border-radius: 4px;
+    color: var(--color-text-muted);
+    font-size: 13px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.mkt-tab:hover {
+    border-color: var(--color-border);
+    color: var(--color-text-secondary);
+}
+
+.mkt-tab.active {
+    background: var(--brand-primary);
+    border-color: var(--brand-primary-light);
+    color: var(--color-text-primary);
+}
+
+/* ========================================
+   === 皮肤商店样式 ===
+   ======================================== */
+
+.skin-tabs {
+    display: flex;
+    gap: 8px;
+    padding: 0 20px;
+    margin-bottom: 16px;
+}
+
+.tab-btn {
+    padding: 8px 16px;
+    background: transparent;
+    border: 1px solid var(--color-border-subtle);
+    border-radius: 4px;
+    color: var(--color-text-muted);
+    font-size: 13px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.tab-btn:hover {
+    border-color: var(--color-border);
+    color: var(--color-text-secondary);
+}
+
+.tab-btn.active {
+    background: var(--brand-primary);
+    border-color: var(--brand-primary-light);
+    color: var(--color-text-primary);
+}
+
+/* 大预览面板 */
+.skin-large-preview {
+    height: 200px;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid var(--color-border-subtle);
+    border-radius: 6px;
+    margin: 0 20px 16px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+}
+
+.skin-preview-weapon {
+    transform: scale(1.5);
+}
+
+.skin-preview-name {
+    font-size: 20px;
+    color: var(--color-text-primary);
+    font-weight: bold;
+}
+
+.skin-preview-status {
+    font-size: 13px;
+    color: var(--brand-accent);
+}
+
+/* 皮肤网格 */
+.skin-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+    padding: 0 20px;
+}
+
+/* 皮肤卡片 */
+.skin-card {
+    background: var(--color-bg-card);
+    border: 1px solid var(--color-border-subtle);
+    border-radius: 6px;
+    overflow: hidden;
+    cursor: pointer;
+    transition: all 0.25s ease;
+}
+
+.skin-card:hover {
+    transform: scale(1.02);
+    border-color: var(--color-border);
+}
+
+.skin-card.equipped {
+    border-color: var(--brand-accent);
+    box-shadow: var(--shadow-glow-accent);
+}
+
+/* ========================================
+   === 抽奖面板 ===
+   ======================================== */
+
+.lottery-banner {
+    text-align: center;
+    padding: 24px;
+    background: linear-gradient(135deg, rgba(168, 85, 247, 0.15), rgba(245, 158, 11, 0.15));
+    border: 1px solid rgba(168, 85, 247, 0.3);
+    border-radius: 8px;
+    margin-bottom: 20px;
+}
+
+.lottery-banner-title {
+    font-size: 22px;
+    font-weight: bold;
+    color: var(--brand-accent);
+    margin-bottom: 8px;
+    text-shadow: 0 0 10px rgba(0, 204, 102, 0.3);
+}
+
+.lottery-banner-sub {
+    font-size: 13px;
+    color: #8b949e;
+    margin-bottom: 8px;
+}
+
+.lottery-pity {
+    font-size: 12px;
+    color: #f59e0b;
+}
+
+.lottery-results {
+    min-height: 200px;
+    margin-bottom: 20px;
+}
+
+.lottery-results-grid {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 12px;
+}
+
+.lottery-result-item {
+    background: var(--color-bg-card);
+    border: 2px solid #9ca3af;
+    border-radius: 8px;
+    padding: 16px 8px;
+    text-align: center;
+    transition: all 0.3s;
+    animation: lotteryPopIn 0.4s ease-out;
+}
+
+@keyframes lotteryPopIn {
+    0% { transform: scale(0.5); opacity: 0; }
+    100% { transform: scale(1); opacity: 1; }
+}
+
+.lottery-result-icon {
+    font-size: 32px;
+    margin-bottom: 8px;
+}
+
+.lottery-result-name {
+    font-size: 12px;
+    color: #c9d1d9;
+    margin-bottom: 4px;
+}
+
+.lottery-result-rarity {
+    font-size: 11px;
+    font-weight: bold;
+}
+
+.lottery-actions {
+    display: flex;
+    gap: 16px;
+    margin-bottom: 20px;
+    justify-content: center;
+}
+
+.lottery-btn {
+    flex: 1;
+    max-width: 200px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    padding: 16px;
+}
+
+.lottery-btn-icon {
+    font-size: 24px;
+}
+
+.lottery-btn-text {
+    font-size: 14px;
+    font-weight: bold;
+}
+
+.lottery-btn-price {
+    font-size: 12px;
+    opacity: 0.9;
+}
+
+.lottery-preview {
+    padding: 16px;
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 8px;
+}
+
+.lottery-preview-grid {
+    display: flex;
+    gap: 12px;
+    justify-content: center;
+}
+
+.preview-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    padding: 12px 16px;
+    background: var(--color-bg-card);
+    border: 2px solid;
+    border-radius: 6px;
+    font-size: 20px;
+}
+
+.preview-item span:last-child {
+    font-size: 11px;
+    font-weight: bold;
+}
+
+/* 武器卡弹药选择器 */
+.wc-ammo-selector {
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px solid var(--color-border-subtle);
+    width: 100%;
+}
+
+.wc-ammo-label {
+    font-size: 11px;
+    color: #8b949e;
+    margin-bottom: 6px;
+}
+
+.wc-ammo-btns {
+    display: flex;
+    gap: 4px;
+    justify-content: center;
+}
+
+.wc-ammo-btn {
+    width: 26px;
+    height: 26px;
+    border: 1px solid var(--color-border-subtle);
+    background: var(--color-bg-card);
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+    padding: 0;
+}
+
+.wc-ammo-btn:hover {
+    border-color: var(--brand-accent);
+    transform: scale(1.1);
+}
+
+.wc-ammo-btn.active {
+    border-color: var(--brand-accent);
+    background: rgba(0, 204, 102, 0.15);
+    box-shadow: 0 0 6px rgba(0, 204, 102, 0.3);
+}
+
+.skin-card .skin-preview {
+    height: 140px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+}
+
+/* CSS 步枪剪影 */
+.weapon-silhouette {
+    position: relative;
+    width: 160px;
+    height: 60px;
+}
+
+.ws-body {
+    position: absolute;
+    top: 20px; left: 20px;
+    width: 100px; height: 14px;
+    border-radius: 2px;
+}
+
+.ws-barrel {
+    position: absolute;
+    top: 24px; right: 0;
+    width: 40px; height: 6px;
+    border-radius: 1px;
+}
+
+.ws-magazine {
+    position: absolute;
+    top: 34px; left: 60px;
+    width: 10px; height: 24px;
+    border-radius: 1px;
+}
+
+.ws-stock {
+    position: absolute;
+    top: 22px; left: 0;
+    width: 30px; height: 10px;
+    border-radius: 2px;
+}
+
+.ws-grip {
+    position: absolute;
+    top: 34px; left: 45px;
+    width: 8px; height: 16px;
+    border-radius: 1px;
+}
+
+.ws-sight {
+    position: absolute;
+    top: 14px; left: 55px;
+    width: 20px; height: 6px;
+    border-radius: 1px;
+}
+
+/* 皮肤配色 */
+.skin-default .ws-body, .skin-default .ws-barrel, .skin-default .ws-magazine,
+.skin-default .ws-stock, .skin-default .ws-grip, .skin-default .ws-sight { background: #555; }
+
+.skin-carbon .ws-body, .skin-carbon .ws-barrel, .skin-carbon .ws-magazine,
+.skin-carbon .ws-stock, .skin-carbon .ws-grip, .skin-carbon .ws-sight { background: #444; 
+    background-image: repeating-linear-gradient(45deg, transparent, transparent 2px, rgba(80,80,80,0.3) 2px, rgba(80,80,80,0.3) 4px); }
+
+.skin-gold .ws-body { background: linear-gradient(90deg, #d4a017, #f0d060, #d4a017); }
+.skin-gold .ws-barrel { background: #d4a017; }
+.skin-gold .ws-magazine, .skin-gold .ws-stock, .skin-gold .ws-grip, .skin-gold .ws-sight { background: #b8860b; }
+.skin-gold .weapon-silhouette { filter: drop-shadow(0 0 8px rgba(212, 160, 23, 0.5)); }
+
+.skin-camo .ws-body, .skin-camo .ws-barrel, .skin-camo .ws-magazine,
+.skin-camo .ws-stock, .skin-camo .ws-grip, .skin-camo .ws-sight { 
+    background: radial-gradient(circle at 30% 30%, #4a5d23, #6b7d32, #3a4a1b, #2d3a16); }
+
+.skin-neon .ws-body, .skin-neon .ws-barrel, .skin-neon .ws-magazine,
+.skin-neon .ws-stock, .skin-neon .ws-grip, .skin-neon .ws-sight { background: #00e5ff; }
+.skin-neon .weapon-silhouette { filter: drop-shadow(0 0 12px rgba(0, 229, 255, 0.6)); }
+
+.skin-red .ws-body { background: linear-gradient(90deg, #cc3333, #e04545); }
+.skin-red .ws-barrel, .skin-red .ws-magazine, .skin-red .ws-stock,
+.skin-red .ws-grip, .skin-red .ws-sight { background: #cc3333; }
+.skin-red .weapon-silhouette { filter: drop-shadow(0 0 8px rgba(204, 51, 51, 0.4)); }
+
+.skin-blue .ws-body { background: linear-gradient(90deg, #1a3a5c, #2a5a8c); }
+.skin-blue .ws-barrel, .skin-blue .ws-magazine, .skin-blue .ws-stock,
+.skin-blue .ws-grip, .skin-blue .ws-sight { background: #2a5a8c; }
+.skin-blue .weapon-silhouette { filter: drop-shadow(0 0 8px rgba(42, 90, 140, 0.4)); }
+
+.skin-purple .ws-body { background: linear-gradient(90deg, #7b2fbe, #a855f7); }
+.skin-purple .ws-barrel, .skin-purple .ws-magazine, .skin-purple .ws-stock,
+.skin-purple .ws-grip, .skin-purple .ws-sight { background: #9b59f7; }
+.skin-purple .weapon-silhouette { filter: drop-shadow(0 0 10px rgba(155, 89, 247, 0.5)); }
+
+.skin-equipped-info {
+    text-align: center;
+    padding: 16px 20px;
+    font-size: 13px;
+    color: var(--color-text-secondary);
+    border-top: 1px solid var(--color-border-subtle);
+    margin-top: 16px;
+}
+
+
+/* ============================================================
+   右侧可滑动侧边栏
+   ============================================================ */
+.right-sidebar {
+    position: fixed;
+    top: 0;
+    right: -360px;
+    width: 340px;
+    height: 100vh;
+    background: var(--color-bg-panel);
+    border-left: 1px solid var(--color-border);
+    z-index: 1001;
+    display: flex;
+    flex-direction: column;
+    transition: right 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: -4px 0 20px rgba(0, 0, 0, 0.4);
+}
+
+.right-sidebar.open {
+    right: 0;
+}
+
+.sidebar-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--color-border);
+    background: var(--color-bg-card);
+}
+
+.sidebar-header h3 {
+    margin: 0;
+    font-size: 16px;
+    color: var(--color-text-primary);
+}
+
+.sidebar-close {
+    width: 28px;
+    height: 28px;
+    border: none;
+    background: transparent;
+    color: var(--color-text-secondary);
+    font-size: 16px;
+    cursor: pointer;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+}
+
+.sidebar-close:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: var(--color-text-primary);
+}
+
+.sidebar-tabs {
+    display: flex;
+    border-bottom: 1px solid var(--color-border);
+    background: var(--color-bg-card);
+}
+
+.sidebar-tab {
+    flex: 1;
+    padding: 12px 8px;
+    border: none;
+    background: transparent;
+    color: var(--color-text-secondary);
+    font-size: 13px;
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    transition: all 0.2s;
+}
+
+.sidebar-tab:hover {
+    color: var(--color-text-primary);
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.sidebar-tab.active {
+    color: var(--brand-accent);
+    border-bottom-color: var(--brand-accent);
+}
+
+.sidebar-content {
+    flex: 1;
+    overflow-y: auto;
+    padding: 16px;
+}
+
+/* ============================================================
+   战备中心 - 模式选择（普通任务 / 搜打撤）
+   ============================================================ */
+.mode-select-row {
+    display: flex;
+    gap: 12px;
+    padding: 0 20px 16px;
+    margin-bottom: 4px;
+}
+
+.mode-btn {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 12px;
+    border: 1px solid var(--color-border-subtle);
+    border-radius: var(--radius-md);
+    background: var(--color-bg-card);
+    color: var(--color-text-secondary);
+    font-size: 14px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.mode-btn:hover {
+    background: var(--color-bg-hover);
+    color: var(--color-text-primary);
+}
+
+.mode-btn.active {
+    background: var(--brand-accent-tint);
+    border-color: var(--brand-accent);
+    color: var(--brand-accent);
+    box-shadow: var(--glow-accent);
+}
+
+.mode-icon {
+    font-size: 16px;
+}
+
+.mode-name {
+    font-weight: 600;
+}
+
+.sidebar-panel {
+    display: none;
+}
+
+.sidebar-panel.active {
+    display: block;
+}
+
+.sidebar-panel .setting-group {
+    margin-bottom: 16px;
+}
+
+.sidebar-panel .setting-label {
+    display: block;
+    color: var(--color-text-secondary);
+    font-size: 13px;
+    margin-bottom: 8px;
+}
+
+.sidebar-panel .setting-label span {
+    color: var(--brand-accent);
+}
+
+.sidebar-panel select {
+    width: 100%;
+    padding: 8px 12px;
+    background: var(--color-bg-input);
+    border: 1px solid var(--color-border);
+    border-radius: 6px;
+    color: var(--color-text-primary);
+    font-size: 13px;
+    cursor: pointer;
+}
+
+.sidebar-panel input[type="range"] {
+    width: 100%;
+    height: 6px;
+    background: var(--color-bg-input);
+    border-radius: 3px;
+    outline: none;
+    -webkit-appearance: none;
+}
+
+.sidebar-panel input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 16px;
+    height: 16px;
+    background: var(--brand-accent);
+    border-radius: 50%;
+    cursor: pointer;
+}
+
+.stat-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 0;
+    border-bottom: 1px solid var(--color-border-subtle);
+}
+
+.stat-item:last-child {
+    border-bottom: none;
+}
+
+.stat-label {
+    color: var(--color-text-secondary);
+    font-size: 13px;
+}
+
+.stat-value {
+    color: var(--brand-accent);
+    font-size: 16px;
+    font-weight: bold;
+}
+
+.sidebar-item-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.sidebar-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 12px;
+    background: var(--color-bg-card);
+    border-radius: 6px;
+    border: 1px solid var(--color-border-subtle);
+}
+
+.sidebar-item .item-icon {
+    font-size: 20px;
+}
+
+.sidebar-item .item-name {
+    flex: 1;
+    color: var(--color-text-primary);
+    font-size: 13px;
+}
+
+.sidebar-item .item-count {
+    color: var(--brand-accent);
+    font-size: 14px;
+    font-weight: bold;
+}
+
+
+
+/* ========================================
+   UI改版 v3 - 战备中心面板
+   ======================================== */
+
+.map-card.small {
+    width: 120px !important;
+    height: 80px !important;
+    border: 2px solid var(--color-border) !important;
+    border-radius: var(--radius-sm) !important;
+    overflow: hidden !important;
+    cursor: pointer !important;
+    transition: all var(--transition-fast) !important;
+    position: relative !important;
+    background: var(--color-bg-card) !important;
+}
+
+.map-card.small.selected {
+    border-color: var(--brand-primary-light) !important;
+    box-shadow: var(--glow-primary) !important;
+}
+
+.map-card.small:hover {
+    border-color: var(--brand-accent-dim) !important;
+    transform: translateY(-2px) !important;
+}
+
+.diff-buttons.compact .diff-btn {
+    padding: 8px 16px !important;
+    font-family: var(--font-body) !important;
+    font-size: 13px !important;
+    border-radius: var(--radius-sm) !important;
+    border: 1px solid var(--color-border) !important;
+    background: var(--color-bg-card) !important;
+    color: var(--color-text-secondary) !important;
+    cursor: pointer !important;
+    transition: all var(--transition-fast) !important;
+}
+
+.diff-buttons.compact .diff-btn.active {
+    background: linear-gradient(135deg, var(--brand-primary), var(--brand-primary-dark)) !important;
+    color: #fff !important;
+    border-color: var(--brand-primary-light) !important;
+    box-shadow: 0 2px 6px rgba(74, 93, 35, 0.4) !important;
+}
+
+.diff-buttons.compact .diff-btn:hover:not(.active) {
+    border-color: var(--brand-primary-light) !important;
+    color: var(--color-text-primary) !important;
+}
+
+.supply-item {
+    display: flex !important;
+    align-items: center !important;
+    gap: 10px !important;
+    padding: 8px 12px !important;
+    background: var(--color-bg-card) !important;
+    border: 1px solid var(--color-border-subtle) !important;
+    border-radius: var(--radius-sm) !important;
+    margin-bottom: 6px !important;
+    transition: all var(--transition-fast) !important;
+}
+
+.supply-item:hover {
+    border-color: var(--color-border) !important;
+    background: var(--color-bg-hover) !important;
+}
+
+.supply-icon { font-size: 16px !important; width: 24px !important; text-align: center !important; }
+.supply-name { flex: 1 !important; font-size: 13px !important; color: var(--color-text-primary) !important; font-family: var(--font-body) !important; }
+.supply-count { font-size: 13px !important; color: var(--color-text-accent) !important; font-weight: 600 !important; font-family: var(--font-display) !important; min-width: 24px !important; text-align: center !important; }
+
+.raid-consumables .supply-item { gap: 6px !important; }
+.raid-consumables .raid-btn {
+    width: 24px !important;
+    height: 24px !important;
+    padding: 0 !important;
+    font-size: 14px !important;
+    line-height: 22px !important;
+    border-radius: var(--radius-sm) !important;
+    border: 1px solid var(--color-border) !important;
+    background: var(--color-bg-card) !important;
+    color: var(--color-text-primary) !important;
+    cursor: pointer !important;
+}
+.raid-consumables .raid-btn:hover {
+    border-color: var(--brand-primary-light) !important;
+    background: var(--color-bg-hover) !important;
+}
+.raid-consumables .raid-owned {
+    font-size: 11px !important;
+    color: var(--color-text-secondary) !important;
+    margin-left: auto !important;
+}
+
+.start-button {
+    width: 100% !important;
+    padding: 16px 32px !important;
+    background: linear-gradient(135deg, var(--brand-primary), var(--brand-primary-dark)) !important;
+    color: #fff !important;
+    border: 2px solid var(--brand-primary-light) !important;
+    border-radius: var(--radius-md) !important;
+    font-family: var(--font-display) !important;
+    font-size: 18px !important;
+    font-weight: 700 !important;
+    letter-spacing: 3px !important;
+    cursor: pointer !important;
+    transition: all var(--transition-fast) !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 10px !important;
+    box-shadow: 0 4px 12px rgba(74, 93, 35, 0.4) !important;
+    text-transform: uppercase !important;
+}
+
+.start-button:hover {
+    transform: translateY(-2px) !important;
+    box-shadow: var(--glow-primary), 0 6px 20px rgba(74, 93, 35, 0.5) !important;
+}
+
+.start-button:active { transform: translateY(0) scale(0.98) !important; }
+
+
+/* ========================================
+   UI改版 v3 - 仓库面板 - 三栏军事布局
+   ======================================== */
+
+.inventory-three-col {
+    display: flex !important;
+    gap: 16px !important;
+    margin-top: 16px !important;
+    min-height: 400px !important;
+}
+
+.inv-col-left { width: 200px !important; flex-shrink: 0 !important; }
+.inv-col-center { flex: 1 !important; min-width: 0 !important; }
+.inv-col-right { width: 200px !important; flex-shrink: 0 !important; }
+
+.section-label {
+    font-family: var(--font-body) !important;
+    font-size: 13px !important;
+    color: var(--color-text-secondary) !important;
+    margin-bottom: 12px !important;
+    display: flex !important;
+    align-items: center !important;
+    gap: 6px !important;
+    padding-bottom: 8px !important;
+    border-bottom: 1px solid var(--color-border-subtle) !important;
+}
+
+.weapon-loadout-slot {
+    background: var(--color-bg-card) !important;
+    border: 1px solid var(--color-border-subtle) !important;
+    border-radius: var(--radius-md) !important;
+    padding: 12px !important;
+    margin-bottom: 10px !important;
+    cursor: pointer !important;
+    transition: all var(--transition-fast) !important;
+    position: relative !important;
+    text-align: center !important;
+}
+
+.weapon-loadout-slot.active {
+    border-color: var(--brand-primary-light) !important;
+    background: rgba(74, 93, 35, 0.15) !important;
+    box-shadow: var(--glow-primary) !important;
+}
+
+.weapon-loadout-slot:hover { border-color: var(--color-border) !important; }
+
+.slot-type-label {
+    font-size: 11px !important;
+    color: var(--color-text-muted) !important;
+    text-transform: uppercase !important;
+    letter-spacing: 1px !important;
+    margin-bottom: 6px !important;
+    font-family: var(--font-display) !important;
+}
+
+.slot-weapon-icon { font-size: 28px !important; margin-bottom: 4px !important; }
+.slot-weapon-name { font-size: 14px !important; color: var(--color-text-primary) !important; font-weight: 600 !important; font-family: var(--font-body) !important; }
+.slot-weapon-ammo { font-size: 12px !important; color: var(--color-text-accent) !important; font-family: var(--font-display) !important; margin-top: 4px !important; }
+
+.slot-check-mark {
+    position: absolute !important;
+    top: 8px !important;
+    right: 8px !important;
+    width: 20px !important;
+    height: 20px !important;
+    background: var(--brand-accent) !important;
+    color: #000 !important;
+    border-radius: 50% !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    font-size: 12px !important;
+    font-weight: bold !important;
+}
+
+.weapon-library-grid {
+    display: grid !important;
+    grid-template-columns: repeat(3, 1fr) !important;
+    gap: 10px !important;
+}
+
+.ammo-backpack-list {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 8px !important;
+}
+
+.ammo-backpack-item {
+    display: flex !important;
+    align-items: center !important;
+    gap: 10px !important;
+    padding: 10px 12px !important;
+    background: var(--color-bg-card) !important;
+    border: 1px solid var(--color-border-subtle) !important;
+    border-radius: var(--radius-sm) !important;
+}
+
+.ammo-dot { width: 10px !important; height: 10px !important; border-radius: 50% !important; flex-shrink: 0 !important; }
+.ammo-type-name { flex: 1 !important; font-size: 13px !important; color: var(--color-text-primary) !important; font-family: var(--font-body) !important; }
+.ammo-type-count { font-size: 13px !important; color: var(--color-text-accent) !important; font-weight: 600 !important; font-family: var(--font-display) !important; }
+
+.ammo-slots-bar {
+    margin-top: 16px !important;
+    padding-top: 12px !important;
+    border-top: 1px solid var(--color-border-subtle) !important;
+}
+
+.ammo-slot-row {
+    display: flex !important;
+    gap: 8px !important;
+    margin-top: 8px !important;
+}
+
+.ammo-slot {
+    flex: 1 !important;
+    height: 60px !important;
+    background: var(--color-bg-card) !important;
+    border: 1px solid var(--color-border) !important;
+    border-radius: var(--radius-sm) !important;
+    position: relative !important;
+    overflow: hidden !important;
+}
+
+.ammo-slot-fill {
+    position: absolute !important;
+    bottom: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    background: linear-gradient(to top, var(--brand-primary-dark), var(--brand-primary)) !important;
+    transition: height var(--transition-fast) !important;
+}
+
+.ammo-slot-count {
+    position: absolute !important;
+    top: 50% !important;
+    left: 50% !important;
+    transform: translate(-50%, -50%) !important;
+    font-size: 14px !important;
+    font-weight: 700 !important;
+    color: var(--color-text-primary) !important;
+    font-family: var(--font-display) !important;
+    text-shadow: 0 1px 3px rgba(0,0,0,0.8) !important;
+    z-index: 1 !important;
+}
+
+
+/* ========================================
+   UI改版 v3 - 黑市面板 - 改装树 + 阵营布局
+   ======================================== */
+
+.market-main-layout {
+    display: flex !important;
+    gap: 20px !important;
+    margin-bottom: 16px !important;
+}
+
+.market-left-tree { flex: 0 0 70% !important; min-width: 0 !important; }
+.market-right-faction { flex: 0 0 calc(30% - 20px) !important; }
+
+.mod-tree-container {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    padding: 16px !important;
+    background: var(--color-bg-card) !important;
+    border: 1px solid var(--color-border) !important;
+    border-radius: var(--radius-md) !important;
+}
+
+.mod-tree-row {
+    display: flex !important;
+    justify-content: center !important;
+    gap: 16px !important;
+    width: 100% !important;
+}
+
+.mod-tree-node {
+    width: 160px !important;
+    padding: 12px !important;
+    background: var(--color-bg-overlay) !important;
+    border: 1px solid var(--color-border-subtle) !important;
+    border-radius: var(--radius-sm) !important;
+    text-align: center !important;
+    cursor: pointer !important;
+    transition: all var(--transition-fast) !important;
+}
+
+.mod-tree-node:hover {
+    border-color: var(--brand-primary-light) !important;
+    background: var(--color-bg-hover) !important;
+}
+
+.mod-tree-node.equipped {
+    border-color: var(--brand-accent) !important;
+    background: rgba(0, 255, 136, 0.1) !important;
+    box-shadow: var(--glow-accent) !important;
+}
+
+.mod-node-icon { font-size: 24px !important; margin-bottom: 4px !important; }
+.mod-node-name { font-size: 13px !important; color: var(--color-text-primary) !important; font-family: var(--font-body) !important; font-weight: 600 !important; }
+.mod-node-status { font-size: 11px !important; color: var(--color-text-muted) !important; margin-top: 4px !important; }
+.mod-tree-node.equipped .mod-node-status { color: var(--brand-accent) !important; }
+
+.mod-tree-lines { width: 100% !important; height: 40px !important; flex-shrink: 0 !important; }
+
+.mod-tree-center {
+    display: flex !important;
+    justify-content: center !important;
+    padding: 16px !important;
+}
+
+.mod-tree-weapon-display {
+    width: 240px !important;
+    height: 140px !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    justify-content: center !important;
+    position: relative !important;
+}
+
+.mod-tree-weapon-silhouette { transform: scale(1.5) !important; position: relative !important; }
+
+.mod-tree-weapon-name {
+    margin-top: 30px !important;
+    font-size: 14px !important;
+    color: var(--color-text-accent) !important;
+    font-family: var(--font-body) !important;
+    font-weight: 600 !important;
+}
+
+/* 阵营面板 */
+.faction-card {
+    background: var(--color-bg-card) !important;
+    border: 1px solid var(--color-border) !important;
+    border-radius: var(--radius-md) !important;
+    padding: 20px !important;
+    text-align: center !important;
+}
+
+.faction-icon {
+    font-size: 48px !important;
+    color: var(--brand-secondary) !important;
+    margin-bottom: 8px !important;
+    filter: drop-shadow(0 0 8px rgba(184, 134, 11, 0.3)) !important;
+}
+
+.faction-name { font-size: 16px !important; color: var(--color-text-primary) !important; font-weight: 700 !important; font-family: var(--font-body) !important; margin-bottom: 4px !important; }
+.faction-level { font-size: 13px !important; color: var(--brand-secondary) !important; font-family: var(--font-display) !important; margin-bottom: 16px !important; }
+
+.faction-stats {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 10px !important;
+    margin-top: 12px !important;
+}
+
+.faction-stat-row { display: flex !important; align-items: center !important; gap: 8px !important; }
+.faction-stat-label { font-size: 12px !important; color: var(--color-text-muted) !important; width: 70px !important; flex-shrink: 0 !important; text-align: right !important; font-family: var(--font-body) !important; }
+
+.faction-stat-bar {
+    flex: 1 !important;
+    height: 6px !important;
+    background: var(--color-surface) !important;
+    border-radius: 3px !important;
+    overflow: hidden !important;
+}
+
+.faction-stat-fill {
+    height: 100% !important;
+    background: linear-gradient(90deg, var(--brand-primary), var(--brand-accent)) !important;
+    border-radius: 3px !important;
+    transition: width var(--transition-normal) !important;
+}
+
+.faction-stat-value { font-size: 12px !important; color: var(--brand-accent) !important; width: 40px !important; text-align: right !important; font-family: var(--font-display) !important; font-weight: 600 !important; }
+
+
+/* 黑市底部 Tab 栏 */
+.market-bottom-tabs {
+    display: flex !important;
+    gap: 4px !important;
+    padding: 8px !important;
+    background: var(--color-surface) !important;
+    border-radius: var(--radius-md) !important;
+    margin-bottom: 16px !important;
+}
+
+.mkt-tab {
+    flex: 1 !important;
+    padding: 10px 12px !important;
+    background: transparent !important;
+    color: var(--color-text-muted) !important;
+    border: 1px solid transparent !important;
+    border-radius: var(--radius-sm) !important;
+    cursor: pointer !important;
+    font-family: var(--font-body) !important;
+    font-size: 13px !important;
+    transition: all var(--transition-fast) !important;
+    text-align: center !important;
+}
+
+.mkt-tab.active {
+    background: var(--color-bg-hover) !important;
+    color: var(--color-text-primary) !important;
+    border-color: var(--brand-primary-light) !important;
+}
+
+.mkt-tab:hover:not(.active) {
+    color: var(--color-text-secondary) !important;
+    background: rgba(74, 93, 35, 0.1) !important;
+}
+
+.market-tab-contents { min-height: 200px !important; }
+
+.market-tab-content .market-grid {
+    display: grid !important;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)) !important;
+    gap: 12px !important;
+}
+
+.market-tab-content .market-item {
+    display: flex !important;
+    align-items: center !important;
+    gap: 12px !important;
+    padding: 12px !important;
+    background: var(--color-bg-card) !important;
+    border: 1px solid var(--color-border-subtle) !important;
+    border-radius: var(--radius-md) !important;
+    transition: all var(--transition-fast) !important;
+}
+
+.market-tab-content .market-item:hover { border-color: var(--color-border) !important; }
+
+.market-item .item-icon { font-size: 28px !important; width: 40px !important; text-align: center !important; flex-shrink: 0 !important; }
+.market-item .item-info { flex: 1 !important; min-width: 0 !important; }
+.market-item .item-name { font-size: 14px !important; color: var(--color-text-primary) !important; font-weight: 600 !important; font-family: var(--font-body) !important; }
+.market-item .item-desc { font-size: 12px !important; color: var(--color-text-muted) !important; margin-top: 2px !important; font-family: var(--font-body) !important; }
+.market-item .item-price { font-size: 13px !important; color: var(--brand-secondary) !important; font-weight: 600 !important; flex-shrink: 0 !important; font-family: var(--font-display) !important; }
+
+
+/* ========================================
+   UI改版 v3 - 改装面板
+   ======================================== */
+
+.mod-content {
+    display: flex !important;
+    gap: 20px !important;
+}
+
+.mod-section { flex: 1 !important; min-width: 0 !important; }
+
+.mod-section .section-title {
+    font-family: var(--font-body) !important;
+    font-size: 14px !important;
+    color: var(--color-text-secondary) !important;
+    margin-bottom: 12px !important;
+    padding-bottom: 8px !important;
+    border-bottom: 1px solid var(--color-border-subtle) !important;
+}
+
+.weapon-select-grid {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 6px !important;
+}
+
+.weapon-select-grid .weapon-card {
+    display: flex !important;
+    align-items: center !important;
+    gap: 10px !important;
+    padding: 10px 12px !important;
+    background: var(--color-bg-card) !important;
+    border: 1px solid var(--color-border-subtle) !important;
+    border-radius: var(--radius-sm) !important;
+    cursor: pointer !important;
+    transition: all var(--transition-fast) !important;
+    font-family: var(--font-body) !important;
+}
+
+.weapon-select-grid .weapon-card:hover {
+    border-color: var(--color-border) !important;
+    background: var(--color-bg-hover) !important;
+}
+
+.weapon-select-grid .weapon-card.selected {
+    border-color: var(--brand-accent) !important;
+    background: rgba(0, 255, 136, 0.08) !important;
+    box-shadow: inset 3px 0 0 var(--brand-accent) !important;
+}
+
+.mod-grid {
+    display: grid !important;
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 10px !important;
+}
+
+.mod-grid .mod-item {
+    padding: 12px !important;
+    background: var(--color-bg-card) !important;
+    border: 1px solid var(--color-border-subtle) !important;
+    border-radius: var(--radius-md) !important;
+    text-align: center !important;
+    cursor: pointer !important;
+    transition: all var(--transition-fast) !important;
+}
+
+.mod-grid .mod-item:hover { border-color: var(--brand-primary-light) !important; }
+
+.mod-grid .mod-item.equipped {
+    border-color: var(--brand-accent) !important;
+    background: rgba(0, 255, 136, 0.08) !important;
+}
+
+.mod-equipped {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 10px !important;
+}
+
+.mod-equipped .equipped-slot {
+    display: flex !important;
+    align-items: center !important;
+    gap: 10px !important;
+    padding: 12px !important;
+    background: var(--color-bg-card) !important;
+    border: 1px solid var(--color-border) !important;
+    border-radius: var(--radius-md) !important;
+    font-family: var(--font-body) !important;
+}
+
+.equipped-slot .slot-check {
+    width: 20px !important;
+    height: 20px !important;
+    background: var(--brand-accent) !important;
+    color: #000 !important;
+    border-radius: 50% !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    font-size: 12px !important;
+    font-weight: bold !important;
+    flex-shrink: 0 !important;
+}
+
+.equipped-slot .slot-name { flex: 1 !important; font-size: 14px !important; color: var(--color-text-primary) !important; }
+.equipped-slot .slot-bonus { font-size: 12px !important; color: var(--brand-accent) !important; font-weight: 600 !important; }
+
+
+/* ========================================
+   UI改版 v3 - 皮肤商店
+   ======================================== */
+
+.skin-tabs {
+    display: flex !important;
+    gap: 8px !important;
+    margin-bottom: 16px !important;
+}
+
+.skin-tabs .tab-btn {
+    padding: 10px 20px !important;
+    background: var(--color-surface) !important;
+    color: var(--color-text-muted) !important;
+    border: 1px solid var(--color-border-subtle) !important;
+    border-radius: var(--radius-md) !important;
+    cursor: pointer !important;
+    font-family: var(--font-body) !important;
+    font-size: 14px !important;
+    transition: all var(--transition-fast) !important;
+}
+
+.skin-tabs .tab-btn.active {
+    background: var(--color-bg-hover) !important;
+    color: var(--color-text-primary) !important;
+    border-color: var(--brand-primary-light) !important;
+}
+
+.skin-large-preview {
+    width: 100% !important;
+    height: 200px !important;
+    background: var(--color-bg-card) !important;
+    border: 2px solid var(--color-border) !important;
+    border-radius: var(--radius-md) !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    justify-content: center !important;
+    margin-bottom: 16px !important;
+    position: relative !important;
+    overflow: hidden !important;
+}
+
+.skin-large-preview::before {
+    content: '' !important;
+    position: absolute !important;
+    inset: 0 !important;
+    background: radial-gradient(ellipse at center, rgba(74, 93, 35, 0.1) 0%, transparent 70%) !important;
+    pointer-events: none !important;
+}
+
+.skin-preview-weapon {
+    font-size: 80px !important;
+    filter: drop-shadow(0 0 20px rgba(0, 255, 136, 0.3)) !important;
+    z-index: 1 !important;
+}
+
+.skin-preview-name {
+    font-size: 18px !important;
+    color: var(--color-text-primary) !important;
+    font-family: var(--font-display) !important;
+    font-weight: 700 !important;
+    margin-top: 12px !important;
+    z-index: 1 !important;
+}
+
+.skin-preview-rarity {
+    font-size: 12px !important;
+    color: var(--brand-accent) !important;
+    font-family: var(--font-display) !important;
+    margin-top: 4px !important;
+    z-index: 1 !important;
+}
+
+.skin-grid {
+    display: grid !important;
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)) !important;
+    gap: 10px !important;
+}
+
+.skin-card {
+    background: var(--color-bg-card) !important;
+    border: 1px solid var(--color-border-subtle) !important;
+    border-radius: var(--radius-md) !important;
+    padding: 12px !important;
+    text-align: center !important;
+    cursor: pointer !important;
+    transition: all var(--transition-fast) !important;
+    position: relative !important;
+    overflow: hidden !important;
+}
+
+.skin-card:hover {
+    border-color: var(--brand-primary-light) !important;
+    transform: translateY(-2px) !important;
+}
+
+.skin-card.selected {
+    border-color: var(--brand-accent) !important;
+    box-shadow: var(--glow-accent) !important;
+}
+
+.skin-card.owned { border-color: var(--color-border) !important; }
+
+.skin-card.locked {
+    opacity: 0.5 !important;
+    filter: grayscale(0.5) !important;
+}
+
+.skin-card-icon {
+    font-size: 40px !important;
+    margin-bottom: 8px !important;
+}
+
+.skin-card-name {
+    font-size: 13px !important;
+    color: var(--color-text-primary) !important;
+    font-family: var(--font-body) !important;
+    font-weight: 600 !important;
+}
+
+.skin-card-rarity {
+    font-size: 10px !important;
+    color: var(--color-text-muted) !important;
+    font-family: var(--font-display) !important;
+    margin-top: 4px !important;
+    text-transform: uppercase !important;
+    letter-spacing: 1px !important;
+}
+
+/* 稀有度颜色 */
+.skin-card.common .skin-card-rarity { color: #9ca3af !important; }
+.skin-card.uncommon .skin-card-rarity { color: #22c55e !important; }
+.skin-card.rare .skin-card-rarity { color: #3b82f6 !important; }
+.skin-card.epic .skin-card-rarity { color: #a855f7 !important; }
+.skin-card.legendary .skin-card-rarity { color: #f59e0b !important; }
+
+.skin-card.common.selected { border-color: #9ca3af !important; box-shadow: 0 0 12px rgba(156, 163, 175, 0.3) !important; }
+.skin-card.uncommon.selected { border-color: #22c55e !important; box-shadow: 0 0 12px rgba(34, 197, 94, 0.3) !important; }
+.skin-card.rare.selected { border-color: #3b82f6 !important; box-shadow: 0 0 12px rgba(59, 130, 246, 0.3) !important; }
+.skin-card.epic.selected { border-color: #a855f7 !important; box-shadow: 0 0 12px rgba(168, 85, 247, 0.3) !important; }
+.skin-card.legendary.selected { border-color: #f59e0b !important; box-shadow: 0 0 12px rgba(245, 158, 11, 0.3) !important; }
+
+.skin-card-price {
+    font-size: 13px !important;
+    color: var(--brand-secondary) !important;
+    font-weight: 600 !important;
+    margin-top: 8px !important;
+    font-family: var(--font-display) !important;
+}
+
+.skin-card-equipped {
+    position: absolute !important;
+    top: 6px !important;
+    right: 6px !important;
+    font-size: 10px !important;
+    background: var(--brand-accent) !important;
+    color: #000 !important;
+    padding: 2px 6px !important;
+    border-radius: 4px !important;
+    font-weight: bold !important;
+}
+
+/* ========================================
+   === 仓库面板 - 三栏军事布局 ===
+   ======================================== */
+
+.inventory-three-col {
+    display: flex !important;
+    gap: 16px !important;
+    padding: 0 20px !important;
+    margin-top: 16px !important;
+    flex: 1 !important;
+    overflow-y: auto !important;
+}
+
+.inv-col-left { width: 200px !important; flex-shrink: 0 !important; }
+.inv-col-center { flex: 1 !important; min-width: 0 !important; }
+.inv-col-right { width: 200px !important; flex-shrink: 0 !important; }
+
+.section-label {
+    font-size: 12px !important;
+    color: var(--color-text-muted) !important;
+    text-transform: uppercase !important;
+    letter-spacing: 2px !important;
+    margin-bottom: 12px !important;
+    font-family: var(--font-display) !important;
+    display: flex !important;
+    align-items: center !important;
+    gap: 6px !important;
+    padding-bottom: 8px !important;
+    border-bottom: 1px solid var(--color-border-subtle) !important;
+}
+
+/* 武器出战槽位 */
+.weapon-loadout-slot {
+    background: var(--color-bg-card) !important;
+    border: 1px solid var(--color-border-subtle) !important;
+    border-radius: var(--radius-md) !important;
+    padding: 12px !important;
+    margin-bottom: 10px !important;
+    cursor: pointer !important;
+    transition: all var(--transition-fast) !important;
+    position: relative !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    gap: 6px !important;
+}
+
+.weapon-loadout-slot.active {
+    border-color: var(--brand-primary-light) !important;
+    background: rgba(74, 93, 35, 0.15) !important;
+    box-shadow: var(--glow-primary) !important;
+}
+
+.weapon-loadout-slot:hover {
+    border-color: var(--color-border) !important;
+}
+
+.slot-type-label {
+    font-size: 11px !important;
+    color: var(--color-text-muted) !important;
+    text-transform: uppercase !important;
+    letter-spacing: 1px !important;
+    font-family: var(--font-display) !important;
+}
+
+.slot-weapon-icon { font-size: 28px !important; }
+
+.slot-weapon-name {
+    font-size: 14px !important;
+    color: var(--color-text-primary) !important;
+    font-weight: 600 !important;
+    font-family: var(--font-body) !important;
+}
+
+.slot-weapon-ammo {
+    font-size: 12px !important;
+    color: var(--color-text-accent) !important;
+    font-family: var(--font-display) !important;
+}
+
+/* 武器库网�?*/
+.weapon-library-grid {
+    display: grid !important;
+    grid-template-columns: repeat(3, 1fr) !important;
+    gap: 10px !important;
+}
+
+/* 弹药背包 */
+.ammo-backpack-list {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 8px !important;
+}
+
+.ammo-backpack-item {
+    display: flex !important;
+    align-items: center !important;
+    gap: 10px !important;
+    padding: 10px 12px !important;
+    background: var(--color-bg-card) !important;
+    border: 1px solid var(--color-border-subtle) !important;
+    border-radius: var(--radius-sm) !important;
+}
+
+.ammo-dot {
+    width: 10px !important;
+    height: 10px !important;
+    border-radius: 50% !important;
+    flex-shrink: 0 !important;
+}
+
+.ammo-type-name {
+    flex: 1 !important;
+    font-size: 13px !important;
+    color: var(--color-text-primary) !important;
+    font-family: var(--font-body) !important;
+}
+
+.ammo-type-count {
+    font-size: 13px !important;
+    color: var(--color-text-accent) !important;
+    font-weight: 600 !important;
+    font-family: var(--font-display) !important;
+}
+
+/* 底部弹格�?*/
+.ammo-slots-bar {
+    margin-top: 16px !important;
+    padding: 0 20px 16px !important;
+    border-top: 1px solid var(--color-border-subtle) !important;
+    padding-top: 12px !important;
+}
+
+.ammo-slot-row {
+    display: flex !important;
+    gap: 8px !important;
+    margin-top: 8px !important;
+}
+
+.ammo-slot {
+    flex: 1 !important;
+    height: 60px !important;
+    background: var(--color-bg-card) !important;
+    border: 1px solid var(--color-border) !important;
+    border-radius: var(--radius-sm) !important;
+    position: relative !important;
+    overflow: hidden !important;
+}
+
+.ammo-slot-fill {
+    position: absolute !important;
+    bottom: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    background: linear-gradient(to top, var(--brand-primary-dark), var(--brand-primary)) !important;
+    transition: height var(--transition-fast) !important;
+}
+
+.ammo-slot-count {
+    position: absolute !important;
+    top: 50% !important;
+    left: 50% !important;
+    transform: translate(-50%, -50%) !important;
+    font-size: 14px !important;
+    font-weight: 700 !important;
+    color: var(--color-text-primary) !important;
+    font-family: var(--font-display) !important;
+    text-shadow: 0 1px 3px rgba(0,0,0,0.8) !important;
+    z-index: 1 !important;
+}
+
+/* ========================================
+   === 黑市面板 - 改装�?+ 阵营布局 ===
+   ======================================== */
+
+.market-main-layout {
+    display: flex !important;
+    gap: 20px !important;
+    padding: 0 20px !important;
+    margin-bottom: 16px !important;
+}
+
+.market-left-tree {
+    flex: 0 0 70% !important;
+    min-width: 0 !important;
+}
+
+.market-right-faction {
+    flex: 0 0 calc(30% - 20px) !important;
+}
+
+/* 改装�?*/
+.mod-tree-container {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    padding: 16px !important;
+    background: var(--color-bg-card) !important;
+    border: 1px solid var(--color-border) !important;
+    border-radius: var(--radius-md) !important;
+}
+
+.mod-tree-row {
+    display: flex !important;
+    justify-content: center !important;
+    gap: 16px !important;
+    width: 100% !important;
+}
+
+.mod-tree-node {
+    width: 160px !important;
+    padding: 12px !important;
+    background: var(--color-bg-overlay) !important;
+    border: 1px solid var(--color-border-subtle) !important;
+    border-radius: var(--radius-sm) !important;
+    text-align: center !important;
+    cursor: pointer !important;
+    transition: all var(--transition-fast) !important;
+}
+
+.mod-tree-node:hover {
+    border-color: var(--brand-primary-light) !important;
+    background: var(--color-bg-hover) !important;
+}
+
+.mod-tree-node.equipped {
+    border-color: var(--brand-accent) !important;
+    background: rgba(0, 255, 136, 0.1) !important;
+    box-shadow: var(--glow-accent) !important;
+}
+
+.mod-node-icon {
+    font-size: 24px !important;
+    margin-bottom: 4px !important;
+}
+
+.mod-node-name {
+    font-size: 13px !important;
+    color: var(--color-text-primary) !important;
+    font-family: var(--font-body) !important;
+    font-weight: 600 !important;
+}
+
+.mod-node-status {
+    font-size: 11px !important;
+    color: var(--color-text-muted) !important;
+    margin-top: 4px !important;
+}
+
+.mod-tree-node.equipped .mod-node-status {
+    color: var(--brand-accent) !important;
+}
+
+.mod-tree-lines {
+    width: 100% !important;
+    height: 40px !important;
+    flex-shrink: 0 !important;
+}
+
+.mod-tree-center {
+    display: flex !important;
+    justify-content: center !important;
+    padding: 16px !important;
+}
+
+.mod-tree-weapon-display {
+    width: 240px !important;
+    height: 140px !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    justify-content: center !important;
+    position: relative !important;
+}
+
+.mod-tree-weapon-silhouette {
+    transform: scale(1.5) !important;
+    position: relative !important;
+}
+
+.mod-tree-weapon-name {
+    margin-top: 30px !important;
+    font-size: 14px !important;
+    color: var(--color-text-accent) !important;
+    font-family: var(--font-body) !important;
+    font-weight: 600 !important;
+}
+
+/* 阵营面板 */
+.faction-card {
+    background: var(--color-bg-card) !important;
+    border: 1px solid var(--color-border) !important;
+    border-radius: var(--radius-md) !important;
+    padding: 20px !important;
+    text-align: center !important;
+}
+
+.faction-icon {
+    font-size: 48px !important;
+    color: var(--brand-secondary) !important;
+    margin-bottom: 8px !important;
+    filter: drop-shadow(0 0 8px rgba(184, 134, 11, 0.3)) !important;
+}
+
+.faction-name {
+    font-size: 16px !important;
+    color: var(--color-text-primary) !important;
+    font-weight: 700 !important;
+    font-family: var(--font-body) !important;
+    margin-bottom: 4px !important;
+}
+
+.faction-level {
+    font-size: 13px !important;
+    color: var(--brand-secondary) !important;
+    font-family: var(--font-display) !important;
+    margin-bottom: 16px !important;
+}
+
+.faction-stats {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 10px !important;
+    margin-top: 12px !important;
+}
+
+.faction-stat-row {
+    display: flex !important;
+    align-items: center !important;
+    gap: 8px !important;
+}
+
+.faction-stat-label {
+    font-size: 12px !important;
+    color: var(--color-text-muted) !important;
+    width: 70px !important;
+    flex-shrink: 0 !important;
+    text-align: right !important;
+    font-family: var(--font-body) !important;
+}
+
+.faction-stat-bar {
+    flex: 1 !important;
+    height: 6px !important;
+    background: var(--color-surface) !important;
+    border-radius: 3px !important;
+    overflow: hidden !important;
+}
+
+.faction-stat-fill {
+    height: 100% !important;
+    background: linear-gradient(90deg, var(--brand-primary), var(--brand-accent)) !important;
+    border-radius: 3px !important;
+    transition: width var(--transition-normal) !important;
+}
+
+.faction-stat-value {
+    font-size: 12px !important;
+    color: var(--brand-accent) !important;
+    width: 40px !important;
+    text-align: right !important;
+    font-family: var(--font-display) !important;
+    font-weight: 600 !important;
+}
+
+/* 底部 Tab �?*/
+.market-bottom-tabs {
+    display: flex !important;
+    gap: 4px !important;
+    padding: 8px 20px !important;
+    background: var(--color-surface) !important;
+    border-radius: var(--radius-md) !important;
+    margin: 0 20px 16px !important;
+}
+
+.mkt-tab {
+    flex: 1 !important;
+    padding: 10px 12px !important;
+    background: transparent !important;
+    color: var(--color-text-muted) !important;
+    border: 1px solid transparent !important;
+    border-radius: var(--radius-sm) !important;
+    cursor: pointer !important;
+    font-family: var(--font-body) !important;
+    font-size: 13px !important;
+    transition: all var(--transition-fast) !important;
+    text-align: center !important;
+}
+
+.mkt-tab.active {
+    background: var(--color-bg-hover) !important;
+    color: var(--color-text-primary) !important;
+    border-color: var(--brand-primary-light) !important;
+}
+
+.mkt-tab:hover:not(.active) {
+    color: var(--color-text-secondary) !important;
+    background: rgba(74, 93, 35, 0.1) !important;
+}
+
+/* Tab 内容 */
+.market-tab-contents {
+    min-height: 200px !important;
+    padding: 0 20px 20px !important;
+}
+
+.market-tab-content .market-grid {
+    display: grid !important;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)) !important;
+    gap: 12px !important;
+}
+
+.market-tab-content .market-item {
+    display: flex !important;
+    align-items: center !important;
+    gap: 12px !important;
+    padding: 12px !important;
+    background: var(--color-bg-card) !important;
+    border: 1px solid var(--color-border-subtle) !important;
+    border-radius: var(--radius-md) !important;
+    transition: all var(--transition-fast) !important;
+}
+
+.market-tab-content .market-item:hover {
+    border-color: var(--color-border) !important;
+}
+
+.market-item .item-icon {
+    font-size: 28px !important;
+    width: 40px !important;
+    text-align: center !important;
+    flex-shrink: 0 !important;
+}
+
+.market-item .item-info {
+    flex: 1 !important;
+    min-width: 0 !important;
+}
+
+.market-item .item-name {
+    font-size: 14px !important;
+    color: var(--color-text-primary) !important;
+    font-weight: 600 !important;
+    font-family: var(--font-body) !important;
+}
+
+.market-item .item-desc {
+    font-size: 12px !important;
+    color: var(--color-text-muted) !important;
+    margin-top: 2px !important;
+    font-family: var(--font-body) !important;
+}
+
+.market-item .item-price {
+    font-size: 13px !important;
+    color: var(--brand-secondary) !important;
+    font-weight: 600 !important;
+    flex-shrink: 0 !important;
+    font-family: var(--font-display) !important;
+}
+
+/* ========================================
+   === 皮肤商店样式 ===
+   ======================================== */
+
+.skin-tabs {
+    display: flex !important;
+    gap: 8px !important;
+    margin-bottom: 16px !important;
+    padding: 0 20px !important;
+}
+
+.skin-tabs .tab-btn {
+    padding: 10px 20px !important;
+    background: var(--color-surface) !important;
+    color: var(--color-text-muted) !important;
+    border: 1px solid var(--color-border-subtle) !important;
+    border-radius: var(--radius-md) !important;
+    cursor: pointer !important;
+    font-family: var(--font-body) !important;
+    font-size: 14px !important;
+    transition: all var(--transition-fast) !important;
+}
+
+.skin-tabs .tab-btn.active {
+    background: var(--color-bg-hover) !important;
+    color: var(--color-text-primary) !important;
+    border-color: var(--brand-primary-light) !important;
+}
+
+/* 大预览面�?*/
+.skin-large-preview {
+    width: calc(100% - 40px) !important;
+    height: 200px !important;
+    background: var(--color-bg-card) !important;
+    border: 2px solid var(--color-border) !important;
+    border-radius: var(--radius-md) !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    justify-content: center !important;
+    margin: 0 20px 16px !important;
+    position: relative !important;
+    overflow: hidden !important;
+}
+
+.skin-large-preview::before {
+    content: '' !important;
+    position: absolute !important;
+    inset: 0 !important;
+    background: radial-gradient(ellipse at center, rgba(74, 93, 35, 0.1) 0%, transparent 70%) !important;
+    pointer-events: none !important;
+}
+
+.skin-preview-weapon {
+    position: relative !important;
+    z-index: 1 !important;
+}
+
+.skin-preview-weapon .weapon-silhouette {
+    transform: scale(2) !important;
+}
+
+.skin-preview-name {
+    margin-top: 50px !important;
+    font-size: 16px !important;
+    color: var(--color-text-primary) !important;
+    font-weight: 600 !important;
+    font-family: var(--font-body) !important;
+    position: relative !important;
+    z-index: 1 !important;
+}
+
+.skin-preview-status {
+    font-size: 12px !important;
+    color: var(--color-text-muted) !important;
+    margin-top: 4px !important;
+    position: relative !important;
+    z-index: 1 !important;
+}
+
+/* 皮肤卡片网格 */
+.skin-grid {
+    display: grid !important;
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)) !important;
+    gap: 12px !important;
+    margin-bottom: 16px !important;
+    padding: 0 20px !important;
+}
+
+.skin-card {
+    background: var(--color-bg-card) !important;
+    border: 2px solid var(--color-border-subtle) !important;
+    border-radius: var(--radius-md) !important;
+    padding: 12px !important;
+    text-align: center !important;
+    cursor: pointer !important;
+    transition: all var(--transition-fast) !important;
+    position: relative !important;
+    overflow: hidden !important;
+}
+
+.skin-card:hover {
+    transform: scale(1.02) !important;
+    border-color: var(--color-border) !important;
+    box-shadow: var(--shadow-card) !important;
+}
+
+.skin-card.equipped {
+    border-color: var(--brand-accent) !important;
+    box-shadow: var(--glow-accent) !important;
+}
+
+.skin-card.owned::after {
+    content: '�? !important;
+    position: absolute !important;
+    top: 6px !important;
+    right: 6px !important;
+    width: 18px !important;
+    height: 18px !important;
+    background: var(--brand-accent) !important;
+    color: #000 !important;
+    border-radius: 50% !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    font-size: 10px !important;
+    font-weight: bold !important;
+}
+
+.skin-card .weapon-silhouette {
+    transform: scale(0.8) !important;
+    margin: 0 auto 8px !important;
+}
+
+.skin-card .skin-card-name {
+    font-size: 13px !important;
+    color: var(--color-text-primary) !important;
+    font-weight: 600 !important;
+    font-family: var(--font-body) !important;
+}
+
+.skin-card .skin-card-rarity {
+    font-size: 11px !important;
+    margin-top: 4px !important;
+    font-weight: 600 !important;
+    font-family: var(--font-display) !important;
+}
+
+.skin-card .skin-card-price {
+    font-size: 12px !important;
+    color: var(--brand-secondary) !important;
+    margin-top: 6px !important;
+    font-family: var(--font-display) !important;
+}
+
+/* 稀有度颜色 */
+.rarity-common .skin-card-rarity { color: #9ca3af !important; }
+.rarity-rare .skin-card-rarity { color: #60a5fa !important; }
+.rarity-epic .skin-card-rarity { color: #c084fc !important; }
+.rarity-legendary .skin-card-rarity { color: #fbbf24 !important; }
+
+.rarity-common { border-color: rgba(156, 163, 175, 0.3) !important; }
+.rarity-rare { border-color: rgba(96, 165, 250, 0.3) !important; }
+.rarity-epic { border-color: rgba(192, 132, 252, 0.3) !important; }
+.rarity-legendary { border-color: rgba(251, 191, 36, 0.3) !important; }
+
+.rarity-legendary {
+    animation: legendaryCardShimmer 3s ease-in-out infinite !important;
+}
+
+@keyframes legendaryCardShimmer {
+    0%, 100% { box-shadow: 0 0 8px rgba(245, 158, 11, 0.2) !important; }
+    50% { box-shadow: 0 0 20px rgba(245, 158, 11, 0.4) !important; }
+}
+
+/* 皮肤配色方案 */
+.skin-default .ws-body { background: #666 !important; }
+.skin-default .ws-barrel { background: #555 !important; }
+.skin-default .ws-magazine { background: #555 !important; }
+.skin-default .ws-stock { background: #555 !important; }
+.skin-default .ws-grip { background: #444 !important; }
+.skin-default .ws-sight { background: #777 !important; }
+
+.skin-carbon .ws-body { background: repeating-linear-gradient(45deg, #333, #333 3px, #444 3px, #444 6px) !important; }
+.skin-carbon .ws-barrel { background: #3a3a3a !important; }
+.skin-carbon .ws-magazine { background: #2d2d2d !important; }
+.skin-carbon .ws-stock { background: repeating-linear-gradient(45deg, #333, #333 3px, #444 3px, #444 6px) !important; }
+.skin-carbon .ws-grip { background: #2a2a2a !important; }
+.skin-carbon .ws-sight { background: #4a4a4a !important; }
+
+.skin-gold .ws-body { background: linear-gradient(135deg, #b8860b, #daa520, #ffd700, #daa520, #b8860b) !important; }
+.skin-gold .ws-barrel { background: linear-gradient(180deg, #daa520, #ffd700) !important; }
+.skin-gold .ws-magazine { background: linear-gradient(180deg, #b8860b, #daa520) !important; }
+.skin-gold .ws-stock { background: linear-gradient(135deg, #b8860b, #ffd700) !important; }
+.skin-gold .ws-grip { background: #8f6808 !important; }
+.skin-gold .ws-sight { background: linear-gradient(180deg, #ffd700, #daa520) !important; }
+
+.skin-camo .ws-body { background: linear-gradient(135deg, #4a5d23 25%, #3a4a1b 25%, #3a4a1b 50%, #5c7230 50%, #5c7230 75%, #4a5d23 75%) !important; }
+.skin-camo .ws-barrel { background: #4a5d23 !important; }
+.skin-camo .ws-magazine { background: #3a4a1b !important; }
+.skin-camo .ws-stock { background: linear-gradient(90deg, #4a5d23, #5c7230, #3a4a1b) !important; }
+.skin-camo .ws-grip { background: #2d3a14 !important; }
+.skin-camo .ws-sight { background: #5c7230 !important; }
+
+.skin-neon .ws-body { background: #0a2a2a !important; box-shadow: 0 0 8px rgba(0, 255, 255, 0.5) !important; }
+.skin-neon .ws-barrel { background: #0ff !important; box-shadow: 0 0 8px rgba(0, 255, 255, 0.6) !important; }
+.skin-neon .ws-magazine { background: #088 !important; }
+.skin-neon .ws-stock { background: #066 !important; }
+.skin-neon .ws-grip { background: #044 !important; }
+.skin-neon .ws-sight { background: #0ff !important; box-shadow: 0 0 6px rgba(0, 255, 255, 0.5) !important; }
+
+.skin-red .ws-body { background: #4a1a1a !important; box-shadow: 0 0 8px rgba(255, 50, 50, 0.4) !important; }
+.skin-red .ws-barrel { background: #cc3333 !important; box-shadow: 0 0 6px rgba(255, 50, 50, 0.5) !important; }
+.skin-red .ws-magazine { background: #8b1a1a !important; }
+.skin-red .ws-stock { background: #6b1414 !important; }
+.skin-red .ws-grip { background: #4a0e0e !important; }
+.skin-red .ws-sight { background: #cc3333 !important; }
+
+.skin-blue .ws-body { background: #1a2a4a !important; box-shadow: 0 0 8px rgba(50, 100, 255, 0.4) !important; }
+.skin-blue .ws-barrel { background: #3366cc !important; box-shadow: 0 0 6px rgba(50, 100, 255, 0.5) !important; }
+.skin-blue .ws-magazine { background: #224488 !important; }
+.skin-blue .ws-stock { background: #1a3366 !important; }
+.skin-blue .ws-grip { background: #112244 !important; }
+.skin-blue .ws-sight { background: #3366cc !important; }
+
+.skin-purple .ws-body { background: #2a1a4a !important; box-shadow: 0 0 8px rgba(168, 85, 247, 0.4) !important; }
+.skin-purple .ws-barrel { background: #a855f7 !important; box-shadow: 0 0 6px rgba(168, 85, 247, 0.5) !important; }
+.skin-purple .ws-magazine { background: #6b2fa0 !important; }
+.skin-purple .ws-stock { background: #5a2288 !important; }
+.skin-purple .ws-grip { background: #3a1555 !important; }
+.skin-purple .ws-sight { background: #a855f7 !important; }
+
+.skin-equipped-info {
+    padding: 12px !important;
+    background: var(--color-bg-card) !important;
+    border: 1px solid var(--color-border-subtle) !important;
+    border-radius: var(--radius-sm) !important;
+    font-size: 13px !important;
+    color: var(--color-text-secondary) !important;
+    font-family: var(--font-body) !important;
+    margin: 0 20px 20px !important;
+}
+
+/* ========================================
+   === 任务线卡片样�?===
+   ======================================== */
+
+.mission-line-list {
+    padding: 0 20px 20px !important;
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 10px !important;
+    overflow-y: auto !important;
+    flex: 1 !important;
+}
+
+.mission-card {
+    display: flex !important;
+    align-items: center !important;
+    gap: 14px !important;
+    padding: 16px !important;
+    background: var(--color-bg-card) !important;
+    border: 1px solid var(--color-border-subtle) !important;
+    border-radius: var(--radius-md) !important;
+    cursor: pointer !important;
+    transition: all 0.2s ease !important;
+}
+
+.mission-card:hover {
+    border-color: var(--color-border) !important;
+    background: rgba(30, 30, 30, 0.95) !important;
+    box-shadow: var(--shadow-card) !important;
+}
+
+.mission-card.locked {
+    opacity: 0.45 !important;
+    cursor: not-allowed !important;
+}
+
+.mission-card.locked:hover {
+    border-color: var(--color-border-subtle) !important;
+    background: var(--color-bg-card) !important;
+    box-shadow: none !important;
+}
+
+.mission-card.completed {
+    border-color: rgba(0, 255, 136, 0.2) !important;
+}
+
+.mission-card.completed:hover {
+    border-color: rgba(0, 255, 136, 0.35) !important;
+}
+
+.mission-card.active {
+    border-color: var(--brand-accent) !important;
+    box-shadow: 0 0 15px rgba(0, 255, 136, 0.25), inset 0 0 20px rgba(0, 255, 136, 0.03) !important;
+    background: rgba(0, 255, 136, 0.04) !important;
+}
+
+.mc-left {
+    flex-shrink: 0 !important;
+    width: 48px !important;
+    height: 48px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    background: var(--color-bg-hover) !important;
+    border: 1px solid var(--color-border-subtle) !important;
+    border-radius: var(--radius-md) !important;
+    font-size: 24px !important;
+}
+
+.mc-center {
+    flex: 1 !important;
+    min-width: 0 !important;
+}
+
+.mc-title {
+    font-size: 15px !important;
+    font-weight: 700 !important;
+    color: var(--color-text-primary) !important;
+    margin-bottom: 4px !important;
+}
+
+.mc-subtitle {
+    font-size: 12px !important;
+    color: var(--color-text-muted) !important;
+    font-weight: 400 !important;
+    margin-left: 6px !important;
+}
+
+.mc-desc {
+    font-size: 13px !important;
+    color: var(--color-text-secondary) !important;
+    margin-bottom: 6px !important;
+    line-height: 1.4 !important;
+}
+
+.mc-meta {
+    display: flex !important;
+    align-items: center !important;
+    gap: 12px !important;
+    margin-bottom: 4px !important;
+}
+
+.mc-map-tag {
+    font-size: 11px !important;
+    padding: 2px 8px !important;
+    background: rgba(74, 93, 35, 0.2) !important;
+    border: 1px solid rgba(74, 93, 35, 0.3) !important;
+    border-radius: var(--radius-sm) !important;
+    color: var(--brand-primary-light) !important;
+}
+
+.mc-target {
+    font-size: 12px !important;
+    color: var(--color-text-muted) !important;
+}
+
+.mc-reward {
+    font-size: 13px !important;
+    color: var(--brand-secondary) !important;
+    font-weight: 600 !important;
+    font-family: var(--font-display) !important;
+}
+
+.mc-right {
+    flex-shrink: 0 !important;
+    display: flex !important;
+    align-items: center !important;
+}
+
+.mc-status {
+    font-size: 12px !important;
+    padding: 6px 14px !important;
+    border-radius: 999px !important;
+    font-weight: 600 !important;
+    white-space: nowrap !important;
+}
+
+.mc-locked {
+    background: rgba(255, 255, 255, 0.04) !important;
+    color: var(--color-text-muted) !important;
+    border: 1px solid var(--color-border-subtle) !important;
+}
+
+.mc-completed {
+    background: rgba(0, 204, 102, 0.15) !important;
+    color: var(--brand-accent-dim) !important;
+    border: 1px solid rgba(0, 204, 102, 0.3) !important;
+}
+
+.mc-active {
+    background: rgba(0, 255, 136, 0.12) !important;
+    color: var(--brand-accent) !important;
+    border: 1px solid rgba(0, 255, 136, 0.4) !important;
+    animation: activePulse 2s ease-in-out infinite !important;
+}
+
+@keyframes activePulse {
+    0%, 100% { box-shadow: 0 0 4px rgba(0, 255, 136, 0.2) !important; }
+    50% { box-shadow: 0 0 12px rgba(0, 255, 136, 0.4) !important; }
+}
+
+/* ========================================
+   === 弹窗和教程样式完�?===
+   ======================================== */
+
+.popup-overlay {
+    position: fixed !important;
+    inset: 0 !important;
+    z-index: 2000 !important;
+    background: rgba(0,0,0,0.6) !important;
+    align-items: center !important;
+    justify-content: center !important;
+}
+/* 只有弹窗显示时才启用 flex 布局 */
+.popup-overlay[style*="display: flex"],
+.popup-overlay[style*="display:flex"],
+.popup-overlay.active {
+    display: flex !important;
+}
+
+.popup-box {
+    background: var(--color-bg-panel) !important;
+    border: 1px solid var(--color-border) !important;
+    border-radius: var(--radius-md) !important;
+    padding: 24px !important;
+    min-width: 320px !important;
+    max-width: 500px !important;
+    box-shadow: var(--shadow-deep) !important;
+}
+
+.popup-title {
+    font-size: 18px !important;
+    font-weight: 700 !important;
+    color: var(--brand-accent) !important;
+    font-family: var(--font-display) !important;
+    margin-bottom: 12px !important;
+}
+
+.popup-message {
+    font-size: 14px !important;
+    color: var(--color-text-secondary) !important;
+    line-height: 1.6 !important;
+    margin-bottom: 20px !important;
+    font-family: var(--font-body) !important;
+}
+
+.popup-actions {
+    display: flex !important;
+    gap: 10px !important;
+    justify-content: flex-end !important;
+}
+
+.popup-tip .popup-title {
+    color: var(--brand-secondary) !important;
+}
+
+/* Toast 通知 */
+.toast-item {
+    padding: 10px 20px !important;
+    background: var(--color-bg-panel) !important;
+    border: 1px solid var(--color-border) !important;
+    border-left: 3px solid var(--brand-primary) !important;
+    border-radius: var(--radius-md) !important;
+    color: var(--color-text-primary) !important;
+    font-size: 13px !important;
+    font-family: var(--font-body) !important;
+    box-shadow: var(--shadow-elevated) !important;
+    pointer-events: auto !important;
+}
+
+.toast-item.success {
+    border-left-color: var(--brand-accent) !important;
+}
+
+.toast-item.error {
+    border-left-color: var(--brand-danger) !important;
+}
+
+.toast-item.warning {
+    border-left-color: var(--brand-secondary) !important;
+}
+
+/* 兑换码弹窗 */
+.popup-redeem .redeem-input {
+    width: 100% !important;
+    padding: 10px 14px !important;
+    background: rgba(0,0,0,0.3) !important;
+    border: 1px solid var(--color-border) !important;
+    border-radius: var(--radius-sm) !important;
+    color: var(--color-text-primary) !important;
+    font-size: 14px !important;
+    font-family: var(--font-body) !important;
+    outline: none !important;
+    box-sizing: border-box !important;
+}
+
+.popup-redeem .redeem-input:focus {
+    border-color: var(--brand-accent) !important;
+    box-shadow: 0 0 0 2px rgba(0,204,102,0.2) !important;
+}
+
+.popup-redeem .redeem-message {
+    color: var(--color-text-secondary) !important;
+    font-family: var(--font-body) !important;
+}
+
+/* 战备中心武器选择弹窗 */
+.popup-loadout-weapon .market-item.equipped {
+    border-color: var(--brand-accent) !important;
+    box-shadow: 0 0 8px rgba(0, 204, 102, 0.35) !important;
+}
+
+.popup-loadout-weapon .market-item.equipped .buy-btn {
+    background: var(--brand-accent) !important;
+    color: #000 !important;
+    opacity: 0.8 !important;
+    cursor: default !important;
+}
+
+/* 新手教程 */
+.tutorial-overlay {
+    position: fixed !important;
+    inset: 0 !important;
+    z-index: 1500 !important;
+    pointer-events: none !important;
+}
+
+.tutorial-backdrop {
+    position: absolute !important;
+    inset: 0 !important;
+    background: rgba(0,0,0,0.75) !important;
+}
+
+.tutorial-tooltip {
+    position: absolute !important;
+    top: 50% !important;
+    left: 50% !important;
+    transform: translate(-50%, -50%) !important;
+    background: var(--color-bg-panel) !important;
+    border: 1px solid var(--color-border) !important;
+    border-radius: var(--radius-md) !important;
+    padding: 24px !important;
+    width: 380px !important;
+    box-shadow: var(--shadow-deep), 0 0 20px rgba(74,93,35,0.3) !important;
+    pointer-events: auto !important;
+    z-index: 1501 !important;
+}
+
+.tutorial-step-indicator {
+    display: flex !important;
+    gap: 6px !important;
+    justify-content: center !important;
+    margin-bottom: 16px !important;
+}
+
+.tutorial-dot {
+    width: 8px !important;
+    height: 8px !important;
+    border-radius: 50% !important;
+    background: rgba(255,255,255,0.15) !important;
+    transition: all 0.2s ease !important;
+}
+
+.tutorial-dot.active {
+    background: var(--brand-accent) !important;
+    box-shadow: var(--glow-accent) !important;
+}
+
+.tutorial-title {
+    font-size: 18px !important;
+    font-weight: 700 !important;
+    color: var(--color-text-primary) !important;
+    margin-bottom: 8px !important;
+    font-family: var(--font-body) !important;
+}
+
+.tutorial-desc {
+    font-size: 14px !important;
+    color: var(--color-text-secondary) !important;
+    line-height: 1.5 !important;
+    margin-bottom: 20px !important;
+    font-family: var(--font-body) !important;
+}
+
+.tutorial-nav {
+    display: flex !important;
+    gap: 8px !important;
+    justify-content: space-between !important;
+}
+
+/* ========================================
+   === 战备中心 - 队友配置 ===
+   ======================================== */
+
+.teammate-config {
+    background: var(--color-bg-card) !important;
+    border: 1px solid var(--color-border-subtle) !important;
+    border-radius: var(--radius-md) !important;
+    padding: 12px !important;
+    margin-bottom: 12px !important;
+}
+
+.teammate-label {
+    font-size: 13px !important;
+    color: var(--color-text-primary) !important;
+    margin-bottom: 8px !important;
+    font-family: var(--font-body) !important;
+}
+
+#teammateCountLabel {
+    color: var(--brand-accent) !important;
+    font-weight: 600 !important;
+    margin-left: 6px !important;
+}
+
+.teammate-count-btns {
+    display: flex !important;
+    gap: 8px !important;
+    margin-bottom: 8px !important;
+}
+
+.teammate-count-btn {
+    flex: 1 !important;
+    padding: 8px 0 !important;
+    background: var(--color-surface) !important;
+    border: 1px solid var(--color-border-subtle) !important;
+    border-radius: var(--radius-sm) !important;
+    color: var(--color-text-secondary) !important;
+    font-family: var(--font-display) !important;
+    font-size: 14px !important;
+    cursor: pointer !important;
+    transition: all var(--transition-fast) !important;
+}
+
+.teammate-count-btn:hover {
+    border-color: var(--brand-primary-light) !important;
+    color: var(--color-text-primary) !important;
+}
+
+.teammate-count-btn.active {
+    background: var(--brand-accent-tint) !important;
+    border-color: var(--brand-accent) !important;
+    color: var(--brand-accent) !important;
+    box-shadow: var(--glow-accent) !important;
+}
+
+.teammate-hint {
+    font-size: 11px !important;
+    color: var(--color-text-muted) !important;
+    font-family: var(--font-body) !important;
+}
+
+.teammate-preview {
+    margin-top: 10px !important;
+    padding: 8px 10px !important;
+    background: rgba(0, 0, 0, 0.25) !important;
+    border-radius: var(--radius-sm) !important;
+    font-size: 11px !important;
+    color: var(--color-text-secondary) !important;
+    font-family: var(--font-body) !important;
+    line-height: 1.5 !important;
+    min-height: 22px !important;
+}
+
+.teammate-preview:empty {
+    display: none !important;
+}
+
+/* ========================================
+   === 局内摸金箱子提示 ===
+   ======================================== */
+
+#lootPrompt {
+    position: absolute !important;
+    bottom: 120px !important;
+    left: 50% !important;
+    transform: translateX(-50%) !important;
+    z-index: 150 !important;
+    display: none !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    gap: 6px !important;
+    pointer-events: none !important;
+}
+
+#lootPrompt.active {
+    display: flex !important;
+}
+
+.loot-prompt-text {
+    background: rgba(0, 0, 0, 0.75) !important;
+    border: 1px solid var(--brand-secondary) !important;
+    border-radius: var(--radius-md) !important;
+    padding: 8px 16px !important;
+    color: var(--brand-secondary-light) !important;
+    font-size: 14px !important;
+    font-weight: 600 !important;
+    font-family: var(--font-body) !important;
+    box-shadow: var(--glow-secondary) !important;
+}
+
+.loot-prompt-key {
+    display: inline-block !important;
+    background: var(--brand-secondary-dark) !important;
+    color: #000 !important;
+    border-radius: 4px !important;
+    padding: 2px 6px !important;
+    margin: 0 4px !important;
+    font-family: var(--font-display) !important;
+    font-size: 12px !important;
+}
+
+.loot-progress-wrap {
+    width: 160px !important;
+    height: 6px !important;
+    background: rgba(255, 255, 255, 0.1) !important;
+    border-radius: 3px !important;
+    overflow: hidden !important;
+}
+
+.loot-progress-fill {
+    height: 100% !important;
+    width: 0% !important;
+    background: linear-gradient(90deg, var(--brand-secondary-dark), var(--brand-secondary-light)) !important;
+    transition: width 0.1s linear !important;
+}
+
+/* ========================================
+   === 搜打撤局内弹药补充面板 ===
+   ======================================== */
+
+.raid-ammo-toggle {
+    position: absolute !important;
+    right: 20px !important;
+    bottom: 120px !important;
+    z-index: 100 !important;
+    padding: 8px 12px !important;
+    background: rgba(74, 93, 35, 0.85) !important;
+    color: #fff !important;
+    border: 1px solid rgba(139, 172, 68, 0.5) !important;
+    border-radius: 6px !important;
+    cursor: pointer !important;
+    font-size: 12px !important;
+    font-family: var(--font-display) !important;
+    transition: background 0.15s !important;
+}
+
+.raid-ammo-toggle:hover {
+    background: rgba(92, 116, 45, 0.95) !important;
+}
+
+.raid-ammo-panel {
+    position: absolute !important;
+    right: 20px !important;
+    bottom: 160px !important;
+    z-index: 100 !important;
+    background: rgba(0, 0, 0, 0.88) !important;
+    border: 1px solid rgba(74, 93, 35, 0.6) !important;
+    border-radius: 8px !important;
+    padding: 12px !important;
+    min-width: 200px !important;
+    color: #fff !important;
+    font-family: var(--font-primary) !important;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5) !important;
+}
+
+.raid-ammo-title {
+    font-size: 14px !important;
+    font-weight: bold !important;
+    margin-bottom: 10px !important;
+    color: var(--brand-accent, #7fb069) !important;
+}
+
+.raid-ammo-row {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    margin-bottom: 10px !important;
+    font-size: 12px !important;
+}
+
+.raid-ammo-row label,
+.raid-ammo-row span {
+    color: rgba(255, 255, 255, 0.85) !important;
+}
+
+.raid-ammo-row select {
+    background: #1a1a2e !important;
+    color: #fff !important;
+    border: 1px solid #4a5d23 !important;
+    border-radius: 4px !important;
+    padding: 4px 6px !important;
+    font-size: 12px !important;
+    min-width: 110px !important;
+}
+
+.raid-ammo-counter {
+    display: flex !important;
+    align-items: center !important;
+    gap: 6px !important;
+}
+
+.raid-ammo-counter span {
+    min-width: 30px !important;
+    text-align: center !important;
+    font-weight: bold !important;
+}
+
+.raid-ammo-btn {
+    width: 24px !important;
+    height: 24px !important;
+    padding: 0 !important;
+    font-size: 14px !important;
+    line-height: 22px !important;
+    border-radius: 4px !important;
+    border: 1px solid rgba(255, 255, 255, 0.25) !important;
+    background: rgba(255, 255, 255, 0.1) !important;
+    color: #fff !important;
+    cursor: pointer !important;
+}
+
+.raid-ammo-btn:hover {
+    background: rgba(255, 255, 255, 0.2) !important;
+}
+
+.raid-ammo-cost {
+    font-size: 12px !important;
+    color: #ffcc00 !important;
+    margin-bottom: 10px !important;
+}
+
+.raid-ammo-buy {
+    width: 100% !important;
+    padding: 8px !important;
+    background: var(--brand-accent, #4a5d23) !important;
+    color: #fff !important;
+    border: none !important;
+    border-radius: 4px !important;
+    cursor: pointer !important;
+    font-size: 12px !important;
+    font-weight: bold !important;
+    transition: background 0.15s !important;
+}
+
+.raid-ammo-buy:hover {
+    background: var(--brand-accent-light, #5a722d) !important;
+}
+
+.raid-ammo-buy:disabled {
+    background: #555 !important;
+    cursor: not-allowed !important;
+}

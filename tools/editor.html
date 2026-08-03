@@ -1,0 +1,692 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>存档编辑器 - Death Trench 2D</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', Arial, sans-serif; background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); color: #fff; min-height: 100vh; padding: 20px; }
+        .container { max-width: 1200px; margin: 0 auto; }
+        .header { text-align: center; margin-bottom: 30px; }
+        .header h1 { font-size: 32px; margin-bottom: 10px; background: linear-gradient(90deg, #00ff88, #00cc66); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        .header p { color: #888; }
+        
+        .buddha-banner {
+            background: rgba(0, 255, 136, 0.1);
+            border: 1px solid rgba(0, 255, 136, 0.3);
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 20px;
+            text-align: center;
+            font-family: monospace;
+            color: #00ff88;
+            font-size: 14px;
+            white-space: pre-line;
+        }
+        
+        .login-panel {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 300px;
+            background: rgba(255,255,255,0.05);
+            border-radius: 12px;
+            padding: 40px;
+            backdrop-filter: blur(10px);
+        }
+        .login-panel h2 { margin-bottom: 20px; color: #00ff88; }
+        .login-panel .hint { color: #888; margin-bottom: 15px; font-size: 12px; }
+        .password-input-wrapper {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        .password-input-wrapper input {
+            padding: 12px 20px;
+            border: 1px solid rgba(255,255,255,0.2);
+            border-radius: 8px;
+            background: rgba(0,0,0,0.3);
+            color: #fff;
+            font-size: 16px;
+            width: 200px;
+            text-align: center;
+            letter-spacing: 5px;
+        }
+        .password-input-wrapper input:focus { outline: none; border-color: #00cc66; }
+        .login-btn {
+            padding: 12px 30px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            background: #00cc66;
+            color: #000;
+            font-weight: bold;
+            transition: all 0.3s;
+        }
+        .login-btn:hover { background: #00ff88; }
+        .login-error { color: #ff4444; margin-top: 15px; font-size: 14px; }
+        .login-attempts { color: #ffaa00; margin-top: 10px; font-size: 12px; }
+        
+        .main-panel { display: none; }
+        .tabs { display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; }
+        .tab { padding: 12px 24px; background: rgba(255,255,255,0.1); border: none; border-radius: 8px; color: #fff; cursor: pointer; transition: all 0.3s; }
+        .tab.active { background: #00cc66; color: #000; }
+        .tab:hover { background: rgba(255,255,255,0.2); }
+        .panel { display: none; background: rgba(255,255,255,0.05); border-radius: 12px; padding: 25px; backdrop-filter: blur(10px); }
+        .panel.active { display: block; }
+        .section { margin-bottom: 25px; }
+        .section-title { font-size: 18px; margin-bottom: 15px; color: #00ff88; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 10px; }
+        .form-group { display: flex; flex-wrap: wrap; gap: 15px; align-items: center; margin-bottom: 15px; }
+        .form-group label { min-width: 120px; color: #aaa; }
+        .form-group input, .form-group select { padding: 10px 15px; border: 1px solid rgba(255,255,255,0.2); border-radius: 8px; background: rgba(0,0,0,0.3); color: #fff; font-size: 14px; }
+        .form-group input:focus, .form-group select:focus { outline: none; border-color: #00cc66; }
+        .btn { padding: 12px 24px; border: none; border-radius: 8px; cursor: pointer; font-size: 14px; transition: all 0.3s; }
+        .btn-primary { background: #00cc66; color: #000; font-weight: bold; }
+        .btn-primary:hover { background: #00ff88; }
+        .btn-danger { background: #ff4444; color: #fff; }
+        .btn-danger:hover { background: #ff6666; }
+        .btn-secondary { background: rgba(255,255,255,0.1); color: #fff; }
+        .btn-secondary:hover { background: rgba(255,255,255,0.2); }
+        .slots-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 20px; }
+        .slot-card { background: rgba(255,255,255,0.05); border-radius: 12px; padding: 20px; border: 1px solid rgba(255,255,255,0.1); }
+        .slot-card.empty { opacity: 0.5; }
+        .slot-card h3 { margin-bottom: 15px; color: #00ff88; }
+        .slot-info { margin-bottom: 15px; font-size: 13px; color: #aaa; }
+        .slot-info div { margin-bottom: 5px; }
+        .slot-actions { display: flex; gap: 10px; }
+        .slot-actions .btn { flex: 1; padding: 8px; font-size: 12px; }
+        textarea { width: 100%; height: 300px; padding: 15px; border: 1px solid rgba(255,255,255,0.2); border-radius: 8px; background: rgba(0,0,0,0.3); color: #fff; font-family: monospace; font-size: 12px; resize: vertical; }
+        textarea:focus { outline: none; border-color: #00cc66; }
+        .status { margin-top: 15px; padding: 12px; border-radius: 8px; font-size: 14px; }
+        .status.success { background: rgba(0,204,102,0.2); color: #00ff88; }
+        .status.error { background: rgba(255,68,68,0.2); color: #ff4444; }
+        .status.info { background: rgba(0,150,255,0.2); color: #00aaff; }
+        .stats-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 15px; }
+        .stat-card { background: rgba(255,255,255,0.05); border-radius: 8px; padding: 15px; text-align: center; }
+        .stat-card .value { font-size: 28px; font-weight: bold; color: #00ff88; }
+        .stat-card .label { font-size: 12px; color: #888; margin-top: 5px; }
+        .inventory-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 15px; }
+        .inventory-item { background: rgba(255,255,255,0.05); border-radius: 8px; padding: 15px; text-align: center; }
+        .inventory-item .icon { font-size: 32px; margin-bottom: 10px; }
+        .inventory-item .name { font-size: 14px; color: #ddd; }
+        .inventory-item .count { font-size: 24px; font-weight: bold; color: #00cc66; }
+        @media (max-width: 768px) {
+            .form-group { flex-direction: column; align-items: flex-start; }
+            .form-group label { min-width: 100%; }
+            .form-group input, .form-group select { width: 100%; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>存档编辑器</h1>
+            <p>Death Trench 2D - 安全加密存档管理</p>
+        </div>
+
+        <div class="buddha-banner">
+/*
+ * ╔══════════════════════════════════════════════════════════════╗
+ * ║                    赛博佛祖 保佑代码平安                      ║
+*
+                  _ooOoo_
+                 o8888888o
+                 88" . "88
+                 (| -_- |)
+                 O\ = /O
+              ____/`---'\____
+            .' \\| |// `
+           / \\||| : |||// \
+          / _||||| -:- |||||- \
+          | | \\\ - /// | |
+          | \_| ''\---/'' | |
+          \ .-\__ `-` ___/-. /
+        ___`. .' /--.--\ `. . __
+     ."" '< `.___\_<|>_/___.' >'""
+    | | : `- \`.;`\ _ /`;.`/ - ` : | |
+    \ \ `-. \_ __\ /__ _/ .-` / /
+======`-.____`-.___\_____/___.-`____.-'======
+                  `=---='
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+           佛祖保佑 永无BUG
+*
+ * ║     ┌──────────────────────────────────────────────────┐    ║
+ * ║     │  🙏  代码无Bug  │  功能正常  │  性能优良  │  安全可靠  │    ║
+ * ║     └──────────────────────────────────────────────────┘    ║
+ * ║                                                              ║
+ * ║     "一切Bug皆虚妄，唯有代码是真谛"                           ║
+ * ║     "若见诸Bug非Bug，即见如来"                               ║
+ * ║                                                              ║
+ * ║     南无阿弥陀佛  南无阿弥陀佛  南无阿弥陀佛                   ║
+ * ║                                                              ║
+ * ║     愿此代码：                                               ║
+ * ║     - 无内存泄漏                                             ║
+ * ║     - 无空指针异常                                           ║
+ * ║     - 无数组越界                                             ║
+ * ║     - 无死循环                                               ║
+ * ║     - 无并发冲突                                             ║
+ * ║                                                              ║
+ * ║     愿所有开发者：                                           ║
+ * ║     - 心平气和                                              ║
+ * ║     - 逻辑清晰                                              ║
+ * ║     - 测试充分                                              ║
+ * ║     - 文档完善                                              ║
+ * ║                                                              ║
+ * ║     🕉️  Om Mani Padme Hum  🕉️                               ║
+ * ║                                                              ║
+ * ║     "代码如佛法，Bug如尘埃，勤拂拭，明镜台"                   ║
+ * ║                                                              ║
+ * ╚══════════════════════════════════════════════════════════════╝
+ */
+        </div>
+
+        <div id="login-panel" class="login-panel">
+            <h2>🔐 密码验证</h2>
+            <p class="hint">请输入密码以访问存档编辑器</p>
+            <div class="password-input-wrapper">
+                <input type="password" id="password-input" placeholder="****" maxlength="4" autocomplete="off">
+            </div>
+            <button class="login-btn" onclick="verifyPassword()">验证密码</button>
+            <div id="login-error" class="login-error"></div>
+            <div id="login-attempts" class="login-attempts"></div>
+        </div>
+
+        <div id="main-panel" class="main-panel">
+            <div class="tabs">
+                <button class="tab active" onclick="showTab('edit')">数据编辑</button>
+                <button class="tab" onclick="showTab('slots')">存档槽位</button>
+                <button class="tab" onclick="showTab('import')">导入/导出</button>
+                <button class="tab" onclick="showTab('stats')">存档统计</button>
+                <button class="tab" onclick="logout()">退出登录</button>
+            </div>
+
+            <div id="edit-panel" class="panel active">
+                <div class="section">
+                    <div class="section-title">玩家数据</div>
+                    <div class="form-group">
+                        <label>金币:</label>
+                        <input type="number" id="edit-coins" value="1000" min="0" max="999999">
+                        <label>总击杀:</label>
+                        <input type="number" id="edit-kills" value="0" min="0">
+                        <label>总得分:</label>
+                        <input type="number" id="edit-score" value="0" min="0">
+                    </div>
+                    <div class="form-group">
+                        <label>装备护甲:</label>
+                        <select id="edit-armor">
+                            <option value="">无</option>
+                            <option value="light">轻型护甲</option>
+                            <option value="medium">中型护甲</option>
+                            <option value="heavy">重型护甲</option>
+                        </select>
+                        <label>选择地图:</label>
+                        <select id="edit-map">
+                            <option value="desert">沙漠</option>
+                            <option value="city">城市</option>
+                            <option value="factory">工厂</option>
+                            <option value="jungle">丛林</option>
+                            <option value="snow">雪地</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="section">
+                    <div class="section-title">背包物品</div>
+                    <div class="inventory-grid">
+                        <div class="inventory-item">
+                            <div class="icon">💊</div>
+                            <div class="name">医疗包</div>
+                            <div class="count"><input type="number" id="edit-medkits" value="3" min="0" max="99"></div>
+                        </div>
+                        <div class="inventory-item">
+                            <div class="icon">🛡️</div>
+                            <div class="name">护甲</div>
+                            <div class="count"><input type="number" id="edit-armor-item" value="0" min="0" max="99"></div>
+                        </div>
+                        <div class="inventory-item">
+                            <div class="icon">💣</div>
+                            <div class="name">手雷</div>
+                            <div class="count"><input type="number" id="edit-grenades" value="2" min="0" max="99"></div>
+                        </div>
+                        <div class="inventory-item">
+                            <div class="icon">📦</div>
+                            <div class="name">弹药箱</div>
+                            <div class="count"><input type="number" id="edit-ammo" value="5" min="0" max="99"></div>
+                        </div>
+                        <div class="inventory-item">
+                            <div class="icon">⚡</div>
+                            <div class="name">速度提升</div>
+                            <div class="count"><input type="number" id="edit-speed" value="1" min="0" max="99"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="section">
+                    <div class="section-title">设置</div>
+                    <div class="form-group">
+                        <label>难度:</label>
+                        <select id="edit-difficulty">
+                            <option value="easy">简单</option>
+                            <option value="normal">普通</option>
+                            <option value="hard">困难</option>
+                            <option value="extreme">极限</option>
+                        </select>
+                        <label>玩家速度:</label>
+                        <input type="number" id="edit-speed-val" value="100" min="50" max="200">
+                        <label>敌人数量:</label>
+                        <input type="number" id="edit-enemies" value="5" min="1" max="20">
+                    </div>
+                </div>
+
+                <div class="section">
+                    <button class="btn btn-primary" onclick="saveEditedData()">保存数据</button>
+                    <button class="btn btn-secondary" onclick="loadCurrentSave()">加载当前存档</button>
+                    <button class="btn btn-secondary" onclick="resetToDefault()">重置默认值</button>
+                    <div id="edit-status" class="status"></div>
+                </div>
+            </div>
+
+            <div id="slots-panel" class="panel">
+                <div class="section">
+                    <div class="section-title">存档槽位 (5个)</div>
+                    <div class="slots-grid" id="slots-container">
+                        <div class="slot-card empty">
+                            <h3>加载中...</h3>
+                        </div>
+                    </div>
+                </div>
+                <div class="section">
+                    <button class="btn btn-secondary" onclick="refreshSlots()">刷新槽位</button>
+                    <button class="btn btn-danger" onclick="clearAllSlots()">清空所有存档</button>
+                    <div id="slots-status" class="status"></div>
+                </div>
+            </div>
+
+            <div id="import-panel" class="panel">
+                <div class="section">
+                    <div class="section-title">导出存档</div>
+                    <button class="btn btn-primary" onclick="exportSave()">导出当前存档</button>
+                    <div id="export-status" class="status"></div>
+                </div>
+
+                <div class="section">
+                    <div class="section-title">导入存档</div>
+                    <textarea id="import-textarea" placeholder="粘贴存档JSON数据..."></textarea>
+                    <button class="btn btn-primary" onclick="importSave()">导入存档</button>
+                    <div id="import-status" class="status"></div>
+                </div>
+
+                <div class="section">
+                    <div class="section-title">文件操作</div>
+                    <input type="file" id="file-input" accept=".json" style="display:none" onchange="loadFile(event)">
+                    <button class="btn btn-secondary" onclick="document.getElementById('file-input').click()">从文件加载</button>
+                    <button class="btn btn-secondary" onclick="downloadSaveFile()">下载存档文件</button>
+                </div>
+            </div>
+
+            <div id="stats-panel" class="panel">
+                <div class="section">
+                    <div class="section-title">当前存档统计</div>
+                    <div class="stats-grid" id="stats-container">
+                        <div class="stat-card">
+                            <div class="value">-</div>
+                            <div class="label">金币</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="value">-</div>
+                            <div class="label">总击杀</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="value">-</div>
+                            <div class="label">总得分</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="value">-</div>
+                            <div class="label">存档数量</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="section">
+                    <button class="btn btn-secondary" onclick="refreshStats()">刷新统计</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="../js/save.js"></script>
+    <script>
+        const SECRET_KEY_STRING = 'x7K9m2P5n8Q1r4T6w3Y0zA7bC8dE9fG2hI5jL6kM3nO8pQ1rS4tU6vW0xY2z';
+        const PASSWORD = extractPassword(SECRET_KEY_STRING);
+        let attempts = 0;
+        const MAX_ATTEMPTS = 3;
+        let isLoggedIn = false;
+
+        function extractPassword(str) {
+            const digits = str.match(/\d/g);
+            if (digits && digits.length >= 4) {
+                return digits.slice(0, 4).join('');
+            }
+            return '1234';
+        }
+
+        function verifyPassword() {
+            const input = document.getElementById('password-input').value;
+            const errorEl = document.getElementById('login-error');
+            const attemptsEl = document.getElementById('login-attempts');
+
+            if (input === PASSWORD) {
+                isLoggedIn = true;
+                document.getElementById('login-panel').style.display = 'none';
+                document.getElementById('main-panel').style.display = 'block';
+                loadCurrentSave();
+                refreshSlots();
+                refreshStats();
+            } else {
+                attempts++;
+                errorEl.textContent = '密码错误！';
+                
+                if (attempts >= MAX_ATTEMPTS) {
+                    attemptsEl.textContent = '尝试次数已达上限，请刷新页面重试';
+                    document.querySelector('.login-btn').disabled = true;
+                    document.querySelector('.login-btn').style.opacity = '0.5';
+                } else {
+                    attemptsEl.textContent = `剩余尝试次数: ${MAX_ATTEMPTS - attempts}`;
+                }
+                
+                document.getElementById('password-input').value = '';
+            }
+        }
+
+        function logout() {
+            isLoggedIn = false;
+            attempts = 0;
+            document.getElementById('login-panel').style.display = 'flex';
+            document.getElementById('main-panel').style.display = 'none';
+            document.getElementById('password-input').value = '';
+            document.getElementById('login-error').textContent = '';
+            document.getElementById('login-attempts').textContent = '';
+            document.querySelector('.login-btn').disabled = false;
+            document.querySelector('.login-btn').style.opacity = '1';
+        }
+
+        document.getElementById('password-input').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                verifyPassword();
+            }
+        });
+
+        function showTab(tabName) {
+            if (!isLoggedIn) return;
+            
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+            document.querySelector(`button[onclick="showTab('${tabName}')"]`).classList.add('active');
+            document.getElementById(`${tabName}-panel`).classList.add('active');
+            
+            if (tabName === 'slots') refreshSlots();
+            if (tabName === 'stats') refreshStats();
+        }
+
+        function loadCurrentSave() {
+            if (!isLoggedIn) return;
+            
+            const result = SaveManager.loadAutoSave();
+            if (result.success) {
+                const data = result.data;
+                document.getElementById('edit-coins').value = data.playerData.coins || 1000;
+                document.getElementById('edit-kills').value = data.playerData.totalKills || 0;
+                document.getElementById('edit-score').value = data.playerData.totalScore || 0;
+                document.getElementById('edit-armor').value = data.playerData.equippedArmor || '';
+                document.getElementById('edit-map').value = data.playerData.selectedMap || 'desert';
+                
+                document.getElementById('edit-medkits').value = data.playerData.inventory?.medkits || 3;
+                document.getElementById('edit-armor-item').value = data.playerData.inventory?.armor ? 1 : 0;
+                document.getElementById('edit-grenades').value = data.playerData.inventory?.grenades || 2;
+                document.getElementById('edit-ammo').value = data.playerData.inventory?.ammoBox || 5;
+                document.getElementById('edit-speed').value = data.playerData.inventory?.speedBoost || 1;
+                
+                document.getElementById('edit-difficulty').value = data.settings?.difficulty || 'normal';
+                document.getElementById('edit-speed-val').value = data.settings?.playerSpeed || 100;
+                document.getElementById('edit-enemies').value = data.settings?.enemyCount || 5;
+                
+                showStatus('edit-status', 'success', '已加载当前存档');
+            } else {
+                showStatus('edit-status', 'info', '没有找到存档，使用默认值');
+            }
+        }
+
+        function saveEditedData() {
+            if (!isLoggedIn) return;
+            
+            const saveData = {
+                playerData: {
+                    coins: parseInt(document.getElementById('edit-coins').value) || 0,
+                    totalKills: parseInt(document.getElementById('edit-kills').value) || 0,
+                    totalScore: parseInt(document.getElementById('edit-score').value) || 0,
+                    equippedArmor: document.getElementById('edit-armor').value,
+                    selectedMap: document.getElementById('edit-map').value,
+                    inventory: {
+                        medkits: parseInt(document.getElementById('edit-medkits').value) || 0,
+                        armor: document.getElementById('edit-armor-item').value > 0 ? 'medium' : '',
+                        grenades: parseInt(document.getElementById('edit-grenades').value) || 0,
+                        ammoBox: parseInt(document.getElementById('edit-ammo').value) || 0,
+                        speedBoost: parseInt(document.getElementById('edit-speed').value) || 0
+                    }
+                },
+                settings: {
+                    difficulty: document.getElementById('edit-difficulty').value,
+                    playerSpeed: parseInt(document.getElementById('edit-speed-val').value) || 100,
+                    enemyCount: parseInt(document.getElementById('edit-enemies').value) || 5
+                }
+            };
+
+            SaveManager.autoSave(saveData);
+            showStatus('edit-status', 'success', '数据保存成功！');
+        }
+
+        function resetToDefault() {
+            document.getElementById('edit-coins').value = 1000;
+            document.getElementById('edit-kills').value = 0;
+            document.getElementById('edit-score').value = 0;
+            document.getElementById('edit-armor').value = '';
+            document.getElementById('edit-map').value = 'desert';
+            document.getElementById('edit-medkits').value = 3;
+            document.getElementById('edit-armor-item').value = 0;
+            document.getElementById('edit-grenades').value = 2;
+            document.getElementById('edit-ammo').value = 5;
+            document.getElementById('edit-speed').value = 1;
+            document.getElementById('edit-difficulty').value = 'normal';
+            document.getElementById('edit-speed-val').value = 100;
+            document.getElementById('edit-enemies').value = 5;
+            showStatus('edit-status', 'info', '已重置为默认值');
+        }
+
+        function refreshSlots() {
+            if (!isLoggedIn) return;
+            
+            const slots = SaveManager.getAllSlots();
+            const container = document.getElementById('slots-container');
+            container.innerHTML = '';
+
+            slots.forEach(slot => {
+                const card = document.createElement('div');
+                card.className = slot.empty ? 'slot-card empty' : 'slot-card';
+                
+                if (slot.empty) {
+                    card.innerHTML = `
+                        <h3>槽位 ${slot.slotIndex}</h3>
+                        <div class="slot-info">
+                            <div>空槽位</div>
+                        </div>
+                        <div class="slot-actions">
+                            <button class="btn btn-primary" onclick="saveToSlot(${slot.slotIndex})">保存到这里</button>
+                        </div>
+                    `;
+                } else {
+                    card.innerHTML = `
+                        <h3>槽位 ${slot.slotIndex}</h3>
+                        <div class="slot-info">
+                            <div>📅 ${new Date(slot.timestamp).toLocaleString()}</div>
+                            <div>💰 ${slot.coins} 金币</div>
+                            <div>💀 ${slot.totalKills} 击杀</div>
+                            <div>🏆 ${slot.totalScore} 得分</div>
+                        </div>
+                        <div class="slot-actions">
+                            <button class="btn btn-primary" onclick="loadFromSlot(${slot.slotIndex})">加载</button>
+                            <button class="btn btn-danger" onclick="deleteSlot(${slot.slotIndex})">删除</button>
+                        </div>
+                    `;
+                }
+                
+                container.appendChild(card);
+            });
+        }
+
+        function saveToSlot(slotIndex) {
+            if (!isLoggedIn) return;
+            
+            const result = SaveManager.loadAutoSave();
+            if (result.success) {
+                SaveManager.saveToSlot(slotIndex, result.data);
+                showStatus('slots-status', 'success', `已保存到槽位 ${slotIndex}`);
+                refreshSlots();
+            } else {
+                showStatus('slots-status', 'error', '没有当前存档可保存');
+            }
+        }
+
+        function loadFromSlot(slotIndex) {
+            if (!isLoggedIn) return;
+            
+            const result = SaveManager.loadFromSlot(slotIndex);
+            if (result.success) {
+                SaveManager.autoSave(result.data);
+                showStatus('slots-status', 'success', `已从槽位 ${slotIndex} 加载`);
+                refreshSlots();
+                loadCurrentSave();
+            } else {
+                showStatus('slots-status', 'error', result.message);
+            }
+        }
+
+        function deleteSlot(slotIndex) {
+            if (!isLoggedIn) return;
+            
+            if (confirm(`确定要删除槽位 ${slotIndex} 吗？`)) {
+                SaveManager.deleteSlot(slotIndex);
+                showStatus('slots-status', 'success', `已删除槽位 ${slotIndex}`);
+                refreshSlots();
+            }
+        }
+
+        function clearAllSlots() {
+            if (!isLoggedIn) return;
+            
+            if (confirm('确定要清空所有存档吗？此操作不可恢复！')) {
+                SaveManager.clearAllSaves();
+                showStatus('slots-status', 'success', '所有存档已清空');
+                refreshSlots();
+                loadCurrentSave();
+            }
+        }
+
+        function exportSave() {
+            if (!isLoggedIn) return;
+            
+            const json = SaveManager.exportSave();
+            if (json) {
+                document.getElementById('import-textarea').value = json;
+                showStatus('export-status', 'success', '存档已导出到下方文本框');
+            } else {
+                showStatus('export-status', 'error', '没有可导出的存档');
+            }
+        }
+
+        function importSave() {
+            if (!isLoggedIn) return;
+            
+            const text = document.getElementById('import-textarea').value;
+            if (!text.trim()) {
+                showStatus('import-status', 'error', '请输入存档数据');
+                return;
+            }
+            
+            const result = SaveManager.importSave(text);
+            if (result.success) {
+                showStatus('import-status', 'success', result.message);
+                loadCurrentSave();
+            } else {
+                showStatus('import-status', 'error', result.message);
+            }
+        }
+
+        function loadFile(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                document.getElementById('import-textarea').value = e.target.result;
+                showStatus('import-status', 'success', '文件已加载');
+            };
+            reader.readAsText(file);
+        }
+
+        function downloadSaveFile() {
+            if (!isLoggedIn) return;
+            
+            const json = SaveManager.exportSave();
+            if (json) {
+                const blob = new Blob([json], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `deathtrench_save_${new Date().toISOString().split('T')[0]}.json`;
+                a.click();
+                URL.revokeObjectURL(url);
+                showStatus('export-status', 'success', '存档文件已下载');
+            } else {
+                showStatus('export-status', 'error', '没有可导出的存档');
+            }
+        }
+
+        function refreshStats() {
+            if (!isLoggedIn) return;
+            
+            const result = SaveManager.loadAutoSave();
+            const slots = SaveManager.getAllSlots();
+            const filledSlots = slots.filter(s => !s.empty).length;
+
+            const container = document.getElementById('stats-container');
+            
+            if (result.success) {
+                container.innerHTML = `
+                    <div class="stat-card"><div class="value">${result.data.playerData.coins}</div><div class="label">金币</div></div>
+                    <div class="stat-card"><div class="value">${result.data.playerData.totalKills}</div><div class="label">总击杀</div></div>
+                    <div class="stat-card"><div class="value">${result.data.playerData.totalScore}</div><div class="label">总得分</div></div>
+                    <div class="stat-card"><div class="value">${filledSlots}/5</div><div class="label">存档数量</div></div>
+                `;
+            } else {
+                container.innerHTML = `
+                    <div class="stat-card"><div class="value">0</div><div class="label">金币</div></div>
+                    <div class="stat-card"><div class="value">0</div><div class="label">总击杀</div></div>
+                    <div class="stat-card"><div class="value">0</div><div class="label">总得分</div></div>
+                    <div class="stat-card"><div class="value">${filledSlots}/5</div><div class="label">存档数量</div></div>
+                `;
+            }
+        }
+
+        function showStatus(elementId, type, message) {
+            const el = document.getElementById(elementId);
+            el.className = `status ${type}`;
+            el.textContent = message;
+            setTimeout(() => {
+                el.textContent = '';
+            }, 3000);
+        }
+    </script>
+</body>
+</html>

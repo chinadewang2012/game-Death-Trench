@@ -1,0 +1,1974 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>地图编辑器 - Death Trench</title>
+    <!-- 
+    ╔═══════════════════════════════════════════════════════════════╗
+    ║                    南无阿弥陀佛                                 ║
+    ║    愿众生慈悲喜舍，愿世界和平安宁，愿一切有情离苦得乐            ║
+    ║    May all beings be free from suffering and enjoy peace       ║
+    ╚═══════════════════════════════════════════════════════════════╝
+    -->
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #0d1117;
+            color: #c9d1d9;
+            overflow: hidden;
+            height: 100vh;
+        }
+
+        /* Header */
+        .header {
+            height: 50px;
+            background: #161b22;
+            border-bottom: 1px solid #30363d;
+            display: flex;
+            align-items: center;
+            padding: 0 15px;
+            gap: 15px;
+        }
+
+        .back-btn {
+            background: #21262d;
+            border: 1px solid #30363d;
+            color: #c9d1d9;
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.2s;
+        }
+
+        .back-btn:hover {
+            background: #30363d;
+            border-color: #8b949e;
+        }
+
+        .header h1 {
+            font-size: 18px;
+            font-weight: 600;
+            color: #f0f6fc;
+        }
+
+        .header-spacer {
+            flex: 1;
+        }
+
+        .help-btn {
+            background: #21262d;
+            border: 1px solid #30363d;
+            color: #c9d1d9;
+            width: 36px;
+            height: 36px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: all 0.2s;
+        }
+
+        .help-btn:hover {
+            background: #30363d;
+        }
+
+        /* Main Layout */
+        .main-container {
+            display: flex;
+            height: calc(100vh - 50px);
+        }
+
+        /* Toolbar */
+        .toolbar {
+            width: 70px;
+            background: #161b22;
+            border-right: 1px solid #30363d;
+            padding: 10px;
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+
+        .toolbar-section {
+            margin-bottom: 15px;
+        }
+
+        .toolbar-section-title {
+            font-size: 10px;
+            color: #8b949e;
+            text-align: center;
+            margin-bottom: 8px;
+            text-transform: uppercase;
+        }
+
+        .tool-btn {
+            width: 50px;
+            height: 50px;
+            border: 2px solid #30363d;
+            border-radius: 8px;
+            cursor: pointer;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 2px;
+            transition: all 0.2s;
+            background: #21262d;
+        }
+
+        .tool-btn:hover {
+            border-color: #8b949e;
+        }
+
+        .tool-btn.active {
+            border-color: #58a6ff;
+            background: #1f3a5f;
+        }
+
+        .tool-btn .color-preview {
+            width: 24px;
+            height: 24px;
+            border-radius: 4px;
+            border: 1px solid rgba(255,255,255,0.2);
+        }
+
+        .tool-btn .tool-label {
+            font-size: 8px;
+            color: #8b949e;
+        }
+
+        .tool-btn .shortcut {
+            position: absolute;
+            top: 2px;
+            right: 2px;
+            font-size: 8px;
+            color: #6e7681;
+        }
+
+        /* Canvas Area */
+        .canvas-container {
+            flex: 1;
+            position: relative;
+            overflow: hidden;
+            background: #0d1117;
+        }
+
+        #mapCanvas {
+            position: absolute;
+            cursor: crosshair;
+        }
+
+        /* View Control Styles */
+        .view-controls {
+            margin-bottom: 10px;
+        }
+        .view-row {
+            display: flex;
+            gap: 5px;
+            margin-bottom: 6px;
+        }
+        .mini-btn {
+            flex: 1;
+            padding: 6px 8px;
+            background: #21262d;
+            border: 1px solid #30363d;
+            color: #f0f6fc;
+            font-size: 11px;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.15s;
+            font-weight: 500;
+        }
+        .mini-btn:hover {
+            background: #30363d;
+            border-color: #58a6ff;
+        }
+        .mini-btn:active {
+            transform: translateY(1px);
+        }
+        .view-hint {
+            margin-top: 8px;
+            padding: 6px 8px;
+            background: #1f2429;
+            border-radius: 6px;
+            color: #8b949e;
+            line-height: 1.4;
+            border-left: 3px solid #58a6ff;
+        }
+
+        /* Properties Panel */
+        .properties-panel {
+            width: 250px;
+            background: #161b22;
+            border-left: 1px solid #30363d;
+            padding: 15px;
+            overflow-y: auto;
+        }
+
+        .panel-section {
+            margin-bottom: 20px;
+        }
+
+        .panel-title {
+            font-size: 12px;
+            font-weight: 600;
+            color: #f0f6fc;
+            margin-bottom: 10px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .info-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 5px 0;
+            border-bottom: 1px solid #21262d;
+            font-size: 13px;
+        }
+
+        .info-label {
+            color: #8b949e;
+        }
+
+        .info-value {
+            color: #f0f6fc;
+            font-weight: 500;
+        }
+
+        .brush-sizes {
+            display: flex;
+            gap: 8px;
+        }
+
+        .brush-size-btn {
+            flex: 1;
+            padding: 8px;
+            background: #21262d;
+            border: 1px solid #30363d;
+            border-radius: 6px;
+            color: #c9d1d9;
+            cursor: pointer;
+            font-size: 12px;
+            transition: all 0.2s;
+        }
+
+        .brush-size-btn:hover {
+            background: #30363d;
+        }
+
+        .brush-size-btn.active {
+            background: #1f3a5f;
+            border-color: #58a6ff;
+        }
+
+        .opacity-control {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 8px;
+        }
+
+        .opacity-control label {
+            width: 70px;
+            font-size: 12px;
+            color: #8b949e;
+        }
+
+        .opacity-control input[type="range"] {
+            flex: 1;
+            height: 4px;
+            background: #30363d;
+            border-radius: 2px;
+            -webkit-appearance: none;
+        }
+
+        .opacity-control input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 14px;
+            height: 14px;
+            background: #58a6ff;
+            border-radius: 50%;
+            cursor: pointer;
+        }
+
+        .opacity-value {
+            width: 35px;
+            font-size: 11px;
+            color: #c9d1d9;
+            text-align: right;
+        }
+
+        .spawn-toggle {
+            display: flex;
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        .spawn-btn {
+            flex: 1;
+            padding: 10px;
+            border: 2px solid #30363d;
+            border-radius: 6px;
+            cursor: pointer;
+            text-align: center;
+            font-size: 12px;
+            transition: all 0.2s;
+            background: #21262d;
+        }
+
+        .spawn-btn.enemy {
+            border-color: #f85149;
+        }
+
+        .spawn-btn.enemy:hover,
+        .spawn-btn.enemy.active {
+            background: rgba(248, 81, 73, 0.2);
+        }
+
+        .spawn-btn.player {
+            border-color: #3fb950;
+        }
+
+        .spawn-btn.player:hover,
+        .spawn-btn.player.active {
+            background: rgba(63, 185, 80, 0.2);
+        }
+
+        /* Bottom Panel */
+        .bottom-panel {
+            position: absolute;
+            bottom: 0;
+            left: 70px;
+            right: 250px;
+            height: 60px;
+            background: #161b22;
+            border-top: 1px solid #30363d;
+            display: flex;
+            align-items: center;
+            padding: 0 15px;
+            gap: 10px;
+        }
+
+        .map-name-input {
+            background: #21262d;
+            border: 1px solid #30363d;
+            border-radius: 6px;
+            padding: 8px 12px;
+            color: #f0f6fc;
+            font-size: 14px;
+            width: 200px;
+        }
+
+        .map-name-input:focus {
+            outline: none;
+            border-color: #58a6ff;
+        }
+
+        .action-btn {
+            padding: 10px 20px;
+            border: 1px solid #30363d;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 13px;
+            transition: all 0.2s;
+            background: #21262d;
+            color: #c9d1d9;
+        }
+
+        .action-btn:hover {
+            background: #30363d;
+        }
+
+        .action-btn.primary {
+            background: #238636;
+            border-color: #238636;
+            color: #fff;
+        }
+
+        .action-btn.primary:hover {
+            background: #2ea043;
+        }
+
+        .action-btn.danger {
+            color: #f85149;
+        }
+
+        .action-btn.danger:hover {
+            background: rgba(248, 81, 73, 0.2);
+        }
+
+        .template-select {
+            background: #21262d;
+            border: 1px solid #30363d;
+            border-radius: 6px;
+            padding: 10px;
+            color: #c9d1d9;
+            font-size: 13px;
+            min-width: 120px;
+            cursor: pointer;
+        }
+
+        .template-select:focus {
+            outline: none;
+            border-color: #58a6ff;
+        }
+
+        .toggle-btn {
+            padding: 8px 12px;
+            background: #21262d;
+            border: 1px solid #30363d;
+            border-radius: 6px;
+            color: #c9d1d9;
+            cursor: pointer;
+            font-size: 12px;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            transition: all 0.2s;
+        }
+
+        .toggle-btn:hover {
+            background: #30363d;
+        }
+
+        .toggle-btn.active {
+            background: #1f3a5f;
+            border-color: #58a6ff;
+        }
+
+        .spacer {
+            flex: 1;
+        }
+
+        /* Help Modal */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.7);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+
+        .modal-overlay.show {
+            display: flex;
+        }
+
+        .modal {
+            background: #161b22;
+            border: 1px solid #30363d;
+            border-radius: 12px;
+            max-width: 500px;
+            width: 90%;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+
+        .modal-header {
+            padding: 15px 20px;
+            border-bottom: 1px solid #30363d;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .modal-header h2 {
+            font-size: 16px;
+            color: #f0f6fc;
+        }
+
+        .modal-close {
+            background: none;
+            border: none;
+            color: #8b949e;
+            font-size: 24px;
+            cursor: pointer;
+            line-height: 1;
+        }
+
+        .modal-close:hover {
+            color: #c9d1d9;
+        }
+
+        .modal-body {
+            padding: 20px;
+        }
+
+        .shortcut-list {
+            list-style: none;
+        }
+
+        .shortcut-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px solid #21262d;
+        }
+
+        .shortcut-key {
+            background: #21262d;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 12px;
+            color: #58a6ff;
+        }
+
+        /* Load Modal */
+        .load-modal-body {
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        .saved-map-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px;
+            background: #21262d;
+            border-radius: 6px;
+            margin-bottom: 8px;
+        }
+
+        .saved-map-info {
+            flex: 1;
+        }
+
+        .saved-map-name {
+            font-weight: 600;
+            color: #f0f6fc;
+        }
+
+        .saved-map-date {
+            font-size: 11px;
+            color: #8b949e;
+            margin-top: 2px;
+        }
+
+        .saved-map-actions {
+            display: flex;
+            gap: 8px;
+        }
+
+        .saved-map-btn {
+            padding: 6px 12px;
+            border-radius: 4px;
+            border: none;
+            cursor: pointer;
+            font-size: 12px;
+            transition: all 0.2s;
+        }
+
+        .saved-map-btn.load {
+            background: #238636;
+            color: #fff;
+        }
+
+        .saved-map-btn.delete {
+            background: #da3633;
+            color: #fff;
+        }
+
+        .no-maps {
+            text-align: center;
+            color: #8b949e;
+            padding: 30px;
+        }
+
+        /* Confirmation Dialog */
+        .confirm-dialog {
+            text-align: center;
+            padding: 20px;
+        }
+
+        .confirm-dialog p {
+            margin-bottom: 20px;
+            font-size: 14px;
+        }
+
+        .confirm-actions {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+        }
+
+        /* Status bar */
+        .status-bar {
+            position: absolute;
+            bottom: 60px;
+            left: 70px;
+            right: 250px;
+            height: 25px;
+            background: rgba(22, 27, 34, 0.9);
+            border-top: 1px solid #30363d;
+            display: flex;
+            align-items: center;
+            padding: 0 15px;
+            font-size: 11px;
+            color: #8b949e;
+            gap: 20px;
+        }
+
+        .status-item {
+            display: flex;
+            gap: 5px;
+        }
+
+        .status-item span:last-child {
+            color: #c9d1d9;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <button class="back-btn" onclick="window.location.href='index.html'">← 返回</button>
+        <h1>🗺️ 地图编辑器</h1>
+        <div class="header-spacer"></div>
+        <button class="help-btn" onclick="toggleHelp()">?</button>
+    </div>
+
+    <div class="main-container">
+        <div class="toolbar">
+            <div class="toolbar-section">
+                <div class="toolbar-section-title">绘制</div>
+                <button class="tool-btn active" data-tool="ground" title="地面 (G)" onclick="selectTool('ground')">
+                    <div class="color-preview" style="background: #2d2d1a;"></div>
+                    <span class="tool-label">地面</span>
+                </button>
+                <button class="tool-btn" data-tool="obstacle" title="障碍物 (O)" onclick="selectTool('obstacle')">
+                    <div class="color-preview" style="background: #8b7355;"></div>
+                    <span class="tool-label">障碍</span>
+                </button>
+                <button class="tool-btn" data-tool="cover" title="掩体 (C)" onclick="selectTool('cover')">
+                    <div class="color-preview" style="background: #4a3728;"></div>
+                    <span class="tool-label">掩体</span>
+                </button>
+                <button class="tool-btn" data-tool="building" title="建筑 (B)" onclick="selectTool('building')">
+                    <div class="color-preview" style="background: #6b5344;"></div>
+                    <span class="tool-label">建筑</span>
+                </button>
+                <button class="tool-btn" data-tool="water" title="水域 (W)" onclick="selectTool('water')">
+                    <div class="color-preview" style="background: #1e3a5f;"></div>
+                    <span class="tool-label">水域</span>
+                </button>
+            </div>
+
+            <div class="toolbar-section">
+                <div class="toolbar-section-title">特殊</div>
+                <button class="tool-btn" data-tool="enemy" title="敌人出生点 (E)" onclick="selectTool('enemy')">
+                    <div class="color-preview" style="background: radial-gradient(circle, #f85149 40%, #8b0000 100%);"></div>
+                    <span class="tool-label">敌人生成</span>
+                </button>
+                <button class="tool-btn" data-tool="player" title="玩家出生点 (P)" onclick="selectTool('player')">
+                    <div class="color-preview" style="background: radial-gradient(circle, #3fb950 40%, #006400 100%);"></div>
+                    <span class="tool-label">玩家生成</span>
+                </button>
+                <button class="tool-btn" data-tool="fill" title="填充 (F)" onclick="selectTool('fill')">
+                    <div class="color-preview" style="background: linear-gradient(135deg, #58a6ff 50%, #1f3a5f 50%);"></div>
+                    <span class="tool-label">填充</span>
+                </button>
+                <button class="tool-btn" data-tool="eraser" title="橡皮擦 (X)" onclick="selectTool('eraser')">
+                    <div class="color-preview" style="background: #21262d; border: 2px dashed #8b949e;"></div>
+                    <span class="tool-label">橡皮擦</span>
+                </button>
+            </div>
+        </div>
+
+        <div class="canvas-container" id="canvasContainer">
+            <canvas id="mapCanvas"></canvas>
+        </div>
+
+        <div class="properties-panel">
+            <div class="panel-section">
+                <div class="panel-title">视图控制</div>
+                <div class="view-controls">
+                    <div class="view-row">
+                        <button class="mini-btn" onclick="resetView()" title="居中重置">⟲ 居中</button>
+                        <button class="mini-btn" onclick="centerOnPlayerSpawn()" title="定位玩家">🎯 玩家</button>
+                        <button class="mini-btn" onclick="centerOnEnemySpawn()" title="定位敌人">☠ 敌人</button>
+                    </div>
+                    <div class="view-row">
+                        <button class="mini-btn" onclick="zoomBy(0.9)">🔍 缩小</button>
+                        <button class="mini-btn" onclick="setZoom(1)" title="100%">100%</button>
+                        <button class="mini-btn" onclick="zoomBy(1.1)">🔍 放大</button>
+                    </div>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">平移</span>
+                    <span class="info-value" id="panDisplay">0, 0</span>
+                </div>
+                <div class="view-hint">
+                    <small>🖱 中/右键拖动：平移 | 滚轮：缩放 | WASD/方向键：平移</small>
+                </div>
+            </div>
+
+            <div class="panel-section">
+                <div class="panel-title">当前工具</div>
+                <div class="info-row">
+                    <span class="info-label">工具</span>
+                    <span class="info-value" id="currentToolDisplay">地面</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">网格</span>
+                    <span class="info-value">100 × 100</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">缩放</span>
+                    <span class="info-value" id="zoomDisplay">100%</span>
+                </div>
+            </div>
+
+            <div class="panel-section">
+                <div class="panel-title">画笔大小</div>
+                <div class="brush-sizes">
+                    <button class="brush-size-btn active" data-size="1" onclick="setBrushSize(1)">1×1</button>
+                    <button class="brush-size-btn" data-size="3" onclick="setBrushSize(3)">3×3</button>
+                    <button class="brush-size-btn" data-size="5" onclick="setBrushSize(5)">5×5</button>
+                </div>
+            </div>
+
+            <div class="panel-section">
+                <div class="panel-title">透明度</div>
+                <div class="opacity-control">
+                    <label>地面</label>
+                    <input type="range" min="0" max="100" value="100" id="opacity-ground" oninput="updateOpacity('ground', this.value)">
+                    <span class="opacity-value" id="opacity-ground-value">100%</span>
+                </div>
+                <div class="opacity-control">
+                    <label>障碍物</label>
+                    <input type="range" min="0" max="100" value="100" id="opacity-obstacle" oninput="updateOpacity('obstacle', this.value)">
+                    <span class="opacity-value" id="opacity-obstacle-value">100%</span>
+                </div>
+                <div class="opacity-control">
+                    <label>掩体</label>
+                    <input type="range" min="0" max="100" value="100" id="opacity-cover" oninput="updateOpacity('cover', this.value)">
+                    <span class="opacity-value" id="opacity-cover-value">100%</span>
+                </div>
+                <div class="opacity-control">
+                    <label>建筑</label>
+                    <input type="range" min="0" max="100" value="100" id="opacity-building" oninput="updateOpacity('building', this.value)">
+                    <span class="opacity-value" id="opacity-building-value">100%</span>
+                </div>
+                <div class="opacity-control">
+                    <label>水域</label>
+                    <input type="range" min="0" max="100" value="100" id="opacity-water" oninput="updateOpacity('water', this.value)">
+                    <span class="opacity-value" id="opacity-water-value">100%</span>
+                </div>
+            </div>
+
+            <div class="panel-section">
+                <div class="panel-title">出生点</div>
+                <div class="info-row">
+                    <span class="info-label">敌人</span>
+                    <span class="info-value" id="enemyCount">0</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">玩家</span>
+                    <span class="info-value" id="playerCount">0</span>
+                </div>
+                <div class="spawn-toggle">
+                    <button class="spawn-btn enemy" onclick="clearSpawns('enemy')">清除敌人</button>
+                    <button class="spawn-btn player" onclick="clearSpawns('player')">清除玩家</button>
+                </div>
+            </div>
+
+            <div class="panel-section">
+                <div class="panel-title">显示选项</div>
+                <button class="toggle-btn active" id="gridToggle" onclick="toggleGrid()">
+                    ☑️ 显示网格线
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div class="status-bar">
+        <div class="status-item"><span>坐标:</span><span id="mouseCoords">0, 0</span></div>
+        <div class="status-item"><span>笔刷区域:</span><span id="brushArea">1×1</span></div>
+        <div class="status-item"><span>已修改:</span><span id="modifiedStatus">否</span></div>
+    </div>
+
+    <div class="bottom-panel">
+        <input type="text" class="map-name-input" id="mapName" placeholder="地图名称..." value="未命名地图">
+        <button class="action-btn primary" onclick="saveMap()">💾 保存</button>
+        <button class="action-btn" onclick="showLoadModal()">📂 加载</button>
+        <button class="action-btn danger" onclick="showClearConfirm()">🗑️ 清空</button>
+        <button class="action-btn" onclick="exportJSON()">📤 导出JSON</button>
+        <div class="spacer"></div>
+        <select class="template-select" id="templateSelect" onchange="loadTemplate(this.value)">
+            <option value="">选择模板...</option>
+            <option value="desert">🏜️ 沙漠</option>
+            <option value="city">🏙️ 城市</option>
+            <option value="factory">🏭 工厂</option>
+            <option value="jungle">🌴 丛林</option>
+            <option value="snow">❄️ 雪地</option>
+        </select>
+    </div>
+
+    <!-- Help Modal -->
+    <div class="modal-overlay" id="helpModal">
+        <div class="modal">
+            <div class="modal-header">
+                <h2>⌨️ 快捷键</h2>
+                <button class="modal-close" onclick="toggleHelp()">×</button>
+            </div>
+            <div class="modal-body">
+                <ul class="shortcut-list">
+                    <li class="shortcut-item"><span>左键拖动</span><span class="shortcut-key">绘制</span></li>
+                    <li class="shortcut-item"><span>中键/右键拖动</span><span class="shortcut-key">平移</span></li>
+                    <li class="shortcut-item"><span>滚轮</span><span class="shortcut-key">缩放</span></li>
+                    <li class="shortcut-item"><span>G</span><span class="shortcut-key">地面</span></li>
+                    <li class="shortcut-item"><span>O</span><span class="shortcut-key">障碍物</span></li>
+                    <li class="shortcut-item"><span>C</span><span class="shortcut-key">掩体</span></li>
+                    <li class="shortcut-item"><span>B</span><span class="shortcut-key">建筑</span></li>
+                    <li class="shortcut-item"><span>W</span><span class="shortcut-key">水域</span></li>
+                    <li class="shortcut-item"><span>E</span><span class="shortcut-key">敌人生成点</span></li>
+                    <li class="shortcut-item"><span>P</span><span class="shortcut-key">玩家生成点</span></li>
+                    <li class="shortcut-item"><span>F</span><span class="shortcut-key">填充工具</span></li>
+                    <li class="shortcut-item"><span>X</span><span class="shortcut-key">橡皮擦</span></li>
+                    <li class="shortcut-item"><span>1/2/3</span><span class="shortcut-key">画笔大小</span></li>
+                    <li class="shortcut-item"><span>Ctrl+S</span><span class="shortcut-key">保存</span></li>
+                    <li class="shortcut-item"><span>Ctrl+E</span><span class="shortcut-key">导出</span></li>
+                    <li class="shortcut-item"><span>F1</span><span class="shortcut-key">帮助</span></li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <!-- Load Modal -->
+    <div class="modal-overlay" id="loadModal">
+        <div class="modal">
+            <div class="modal-header">
+                <h2>📂 加载地图</h2>
+                <button class="modal-close" onclick="closeLoadModal()">×</button>
+            </div>
+            <div class="modal-body load-modal-body" id="loadModalBody">
+            </div>
+        </div>
+    </div>
+
+    <!-- Confirm Modal -->
+    <div class="modal-overlay" id="confirmModal">
+        <div class="modal" style="max-width: 350px;">
+            <div class="modal-header">
+                <h2>⚠️ 确认操作</h2>
+                <button class="modal-close" onclick="closeConfirm()">×</button>
+            </div>
+            <div class="modal-body confirm-dialog">
+                <p id="confirmMessage">确定要清空当前地图吗？此操作不可撤销。</p>
+                <div class="confirm-actions">
+                    <button class="action-btn" onclick="closeConfirm()">取消</button>
+                    <button class="action-btn danger" id="confirmBtn" onclick="doConfirm()">确定</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Constants
+        const TILE_SIZE = 20;
+        const GRID_SIZE = 100;
+        const CANVAS_SIZE = TILE_SIZE * GRID_SIZE; // 2000px
+
+        // Tile types
+        const TILE = {
+            ground: 0,
+            obstacle: 1,
+            cover: 2,
+            building: 3,
+            water: 4,
+            enemy: 5,
+            player: 6
+        };
+
+        const TILE_NAMES = ['ground', 'obstacle', 'cover', 'building', 'water', 'enemy', 'player'];
+
+        // Colors
+        const TILE_COLORS = {
+            ground: '#2d2d1a',
+            obstacle: '#8b7355',
+            cover: '#4a3728',
+            building: '#6b5344',
+            water: '#1e3a5f',
+            enemy: '#f85149',
+            player: '#3fb950'
+        };
+
+        // State
+        let mapData = [];
+        let currentTool = 'ground';
+        let brushSize = 1;
+        let showGrid = true;
+        let isPanning = false;
+        let isDrawing = false;
+        let lastPanPos = { x: 0, y: 0 };
+        let panOffset = { x: 0, y: 0 };
+        let zoom = 1;
+        let isModified = false;
+        let confirmCallback = null;
+
+        // Opacity
+        let tileOpacity = {
+            ground: 1,
+            obstacle: 1,
+            cover: 1,
+            building: 1,
+            water: 1
+        };
+
+        // Canvas
+        const canvas = document.getElementById('mapCanvas');
+        const ctx = canvas.getContext('2d');
+        const container = document.getElementById('canvasContainer');
+
+        // Initialize
+        function init() {
+            canvas.width = CANVAS_SIZE;
+            canvas.height = CANVAS_SIZE;
+
+            // Initialize empty map
+            clearMap(false);
+
+            // Center the view
+            const containerRect = container.getBoundingClientRect();
+            panOffset.x = -(CANVAS_SIZE * zoom - containerRect.width) / 2;
+            panOffset.y = -(CANVAS_SIZE * zoom - containerRect.height) / 2;
+
+            updateCanvasTransform();
+            render();
+
+            // Event listeners
+            canvas.addEventListener('mousedown', onMouseDown);
+            canvas.addEventListener('mousemove', onMouseMove);
+            canvas.addEventListener('mouseup', onMouseUp);
+            canvas.addEventListener('mouseleave', onMouseUp);
+            canvas.addEventListener('wheel', onWheel);
+            canvas.addEventListener('contextmenu', e => e.preventDefault());
+
+            document.addEventListener('keydown', onKeyDown);
+            document.addEventListener('keyup', onKeyUp);
+
+            // Window resize
+            window.addEventListener('resize', () => {
+                render();
+            });
+
+            updateSpawnCounts();
+        }
+
+        function clearMap(confirm = true) {
+            mapData = [];
+            for (let y = 0; y < GRID_SIZE; y++) {
+                mapData[y] = [];
+                for (let x = 0; x < GRID_SIZE; x++) {
+                    mapData[y][x] = TILE.ground;
+                }
+            }
+            if (confirm) {
+                isModified = true;
+                updateModifiedStatus();
+                render();
+            }
+        }
+
+        function updateCanvasTransform() {
+            canvas.style.transform = `translate(${panOffset.x}px, ${panOffset.y}px) scale(${zoom})`;
+            document.getElementById('zoomDisplay').textContent = Math.round(zoom * 100) + '%';
+            const panEl = document.getElementById('panDisplay');
+            if (panEl) panEl.textContent = `${Math.round(panOffset.x)}, ${Math.round(panOffset.y)}`;
+        }
+
+        function resetView() {
+            const containerRect = container.getBoundingClientRect();
+            zoom = 1;
+            panOffset.x = (containerRect.width - CANVAS_SIZE * zoom) / 2;
+            panOffset.y = (containerRect.height - CANVAS_SIZE * zoom) / 2;
+            updateCanvasTransform();
+            render();
+        }
+
+        function centerOnTile(tileX, tileY) {
+            const containerRect = container.getBoundingClientRect();
+            const canvasX = tileX * TILE_SIZE + TILE_SIZE / 2;
+            const canvasY = tileY * TILE_SIZE + TILE_SIZE / 2;
+            panOffset.x = containerRect.width / 2 - canvasX * zoom;
+            panOffset.y = containerRect.height / 2 - canvasY * zoom;
+            updateCanvasTransform();
+            render();
+        }
+
+        function centerOnPlayerSpawn() {
+            for (let y = 0; y < GRID_SIZE; y++) {
+                for (let x = 0; x < GRID_SIZE; x++) {
+                    if (mapData[y][x] === TILE.player) {
+                        centerOnTile(x, y);
+                        showNotification('已居中到玩家生成点 (' + x + ',' + y + ')');
+                        return;
+                    }
+                }
+            }
+            showNotification('未找到玩家生成点');
+        }
+
+        function centerOnEnemySpawn() {
+            for (let y = 0; y < GRID_SIZE; y++) {
+                for (let x = 0; x < GRID_SIZE; x++) {
+                    if (mapData[y][x] === TILE.enemy) {
+                        centerOnTile(x, y);
+                        showNotification('已居中到敌人生成点 (' + x + ',' + y + ')');
+                        return;
+                    }
+                }
+            }
+            showNotification('未找到敌人生成点');
+        }
+
+        function zoomBy(factor) {
+            const newZoom = Math.max(0.1, Math.min(5, zoom * factor));
+            const containerRect = container.getBoundingClientRect();
+            const centerX = containerRect.width / 2;
+            const centerY = containerRect.height / 2;
+            panOffset.x = centerX - (centerX - panOffset.x) * (newZoom / zoom);
+            panOffset.y = centerY - (centerY - panOffset.y) * (newZoom / zoom);
+            zoom = newZoom;
+            updateCanvasTransform();
+            render();
+        }
+
+        function setZoom(newZoom) {
+            const containerRect = container.getBoundingClientRect();
+            const centerX = containerRect.width / 2;
+            const centerY = containerRect.height / 2;
+            panOffset.x = centerX - (centerX - panOffset.x) * (newZoom / zoom);
+            panOffset.y = centerY - (centerY - panOffset.y) * (newZoom / zoom);
+            zoom = newZoom;
+            updateCanvasTransform();
+            render();
+        }
+
+        function panView(dx, dy) {
+            panOffset.x += dx;
+            panOffset.y += dy;
+            updateCanvasTransform();
+        }
+
+        function render() {
+            ctx.clearRect(0, 0, CANVAS_SIZE, CANVAS_SIZE);
+
+            // Draw tiles
+            for (let y = 0; y < GRID_SIZE; y++) {
+                for (let x = 0; x < GRID_SIZE; x++) {
+                    const tile = mapData[y][x];
+                    drawTile(x, y, tile);
+                }
+            }
+
+            // Draw grid
+            if (showGrid) {
+                drawGrid();
+            }
+        }
+
+        function drawTile(x, y, tile) {
+            const px = x * TILE_SIZE;
+            const py = y * TILE_SIZE;
+
+            if (tile === TILE.ground) {
+                ctx.fillStyle = TILE_COLORS.ground;
+                ctx.fillRect(px, py, TILE_SIZE, TILE_SIZE);
+            } else if (tile === TILE.obstacle) {
+                ctx.fillStyle = TILE_COLORS.obstacle;
+                ctx.fillRect(px, py, TILE_SIZE, TILE_SIZE);
+                // Add texture
+                ctx.fillStyle = 'rgba(0,0,0,0.2)';
+                ctx.fillRect(px, py + TILE_SIZE - 4, TILE_SIZE, 4);
+            } else if (tile === TILE.cover) {
+                ctx.fillStyle = TILE_COLORS.cover;
+                ctx.fillRect(px, py, TILE_SIZE, TILE_SIZE);
+                // Add cross pattern
+                ctx.strokeStyle = 'rgba(0,0,0,0.3)';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.moveTo(px, py);
+                ctx.lineTo(px + TILE_SIZE, py + TILE_SIZE);
+                ctx.moveTo(px + TILE_SIZE, py);
+                ctx.lineTo(px, py + TILE_SIZE);
+                ctx.stroke();
+            } else if (tile === TILE.building) {
+                ctx.fillStyle = TILE_COLORS.building;
+                ctx.fillRect(px, py, TILE_SIZE, TILE_SIZE);
+                // Add building outline
+                ctx.strokeStyle = 'rgba(0,0,0,0.4)';
+                ctx.lineWidth = 1;
+                ctx.strokeRect(px + 2, py + 2, TILE_SIZE - 4, TILE_SIZE - 4);
+            } else if (tile === TILE.water) {
+                ctx.fillStyle = TILE_COLORS.water;
+                ctx.fillRect(px, py, TILE_SIZE, TILE_SIZE);
+                // Add wave effect
+                const time = Date.now() / 1000;
+                ctx.fillStyle = 'rgba(255,255,255,0.1)';
+                const wave = Math.sin(time * 3 + x * 0.5 + y * 0.3) * 3;
+                ctx.fillRect(px + wave, py + 4, TILE_SIZE - 4, 2);
+            } else if (tile === TILE.enemy) {
+                // Draw ground underneath
+                ctx.fillStyle = TILE_COLORS.ground;
+                ctx.fillRect(px, py, TILE_SIZE, TILE_SIZE);
+                // Draw enemy spawn marker
+                const gradient = ctx.createRadialGradient(
+                    px + TILE_SIZE / 2, py + TILE_SIZE / 2, 0,
+                    px + TILE_SIZE / 2, py + TILE_SIZE / 2, TILE_SIZE / 2
+                );
+                gradient.addColorStop(0, '#f85149');
+                gradient.addColorStop(1, '#8b0000');
+                ctx.fillStyle = gradient;
+                ctx.beginPath();
+                ctx.arc(px + TILE_SIZE / 2, py + TILE_SIZE / 2, TILE_SIZE / 2 - 2, 0, Math.PI * 2);
+                ctx.fill();
+                // Draw skull icon
+                ctx.fillStyle = '#fff';
+                ctx.font = '12px Arial';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText('☠', px + TILE_SIZE / 2, py + TILE_SIZE / 2);
+            } else if (tile === TILE.player) {
+                // Draw ground underneath
+                ctx.fillStyle = TILE_COLORS.ground;
+                ctx.fillRect(px, py, TILE_SIZE, TILE_SIZE);
+                // Draw player spawn marker
+                const gradient = ctx.createRadialGradient(
+                    px + TILE_SIZE / 2, py + TILE_SIZE / 2, 0,
+                    px + TILE_SIZE / 2, py + TILE_SIZE / 2, TILE_SIZE / 2
+                );
+                gradient.addColorStop(0, '#3fb950');
+                gradient.addColorStop(1, '#006400');
+                ctx.fillStyle = gradient;
+                ctx.beginPath();
+                ctx.arc(px + TILE_SIZE / 2, py + TILE_SIZE / 2, TILE_SIZE / 2 - 2, 0, Math.PI * 2);
+                ctx.fill();
+                // Draw star icon
+                ctx.fillStyle = '#fff';
+                ctx.font = '10px Arial';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText('★', px + TILE_SIZE / 2, py + TILE_SIZE / 2);
+            }
+        }
+
+        function drawGrid() {
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
+            ctx.lineWidth = 0.5;
+
+            for (let i = 0; i <= GRID_SIZE; i++) {
+                const pos = i * TILE_SIZE;
+                ctx.beginPath();
+                ctx.moveTo(pos, 0);
+                ctx.lineTo(pos, CANVAS_SIZE);
+                ctx.stroke();
+                ctx.beginPath();
+                ctx.moveTo(0, pos);
+                ctx.lineTo(CANVAS_SIZE, pos);
+                ctx.stroke();
+            }
+        }
+
+        function getMouseTile(e) {
+            const rect = canvas.getBoundingClientRect();
+            const x = (e.clientX - rect.left) / zoom;
+            const y = (e.clientY - rect.top) / zoom;
+            return {
+                tileX: Math.floor(x / TILE_SIZE),
+                tileY: Math.floor(y / TILE_SIZE),
+                canvasX: x,
+                canvasY: y
+            };
+        }
+
+        function paintTile(x, y) {
+            if (x < 0 || x >= GRID_SIZE || y < 0 || y >= GRID_SIZE) return;
+
+            const halfBrush = Math.floor(brushSize / 2);
+            const tileValue = currentTool === 'eraser' ? TILE.ground : TILE[currentTool];
+
+            // Handle spawn points specially - only one allowed
+            if (currentTool === 'enemy' || currentTool === 'player') {
+                // Remove existing spawn of same type
+                for (let cy = 0; cy < GRID_SIZE; cy++) {
+                    for (let cx = 0; cx < GRID_SIZE; cx++) {
+                        if (mapData[cy][cx] === tileValue) {
+                            mapData[cy][cx] = TILE.ground;
+                        }
+                    }
+                }
+            }
+
+            for (let dy = -halfBrush; dy <= halfBrush; dy++) {
+                for (let dx = -halfBrush; dx <= halfBrush; dx++) {
+                    const tx = x + dx;
+                    const ty = y + dy;
+                    if (tx >= 0 && tx < GRID_SIZE && ty >= 0 && ty < GRID_SIZE) {
+                        if (currentTool === 'enemy' || currentTool === 'player') {
+                            // Only place at center for spawn points
+                            if (dx === 0 && dy === 0) {
+                                mapData[ty][tx] = tileValue;
+                            }
+                        } else {
+                            mapData[ty][tx] = tileValue;
+                        }
+                    }
+                }
+            }
+
+            isModified = true;
+            updateModifiedStatus();
+            updateSpawnCounts();
+            render();
+        }
+
+        function floodFill(startX, startY) {
+            if (startX < 0 || startX >= GRID_SIZE || startY < 0 || startY >= GRID_SIZE) return;
+
+            const targetTile = mapData[startY][startX];
+            const fillTile = currentTool === 'eraser' ? TILE.ground : TILE[currentTool];
+
+            if (targetTile === fillTile) return;
+
+            // Don't allow flood fill with spawn points
+            if (currentTool === 'enemy' || currentTool === 'player') return;
+
+            const stack = [[startX, startY]];
+            const visited = new Set();
+
+            while (stack.length > 0) {
+                const [x, y] = stack.pop();
+                const key = `${x},${y}`;
+
+                if (visited.has(key)) continue;
+                if (x < 0 || x >= GRID_SIZE || y < 0 || y >= GRID_SIZE) continue;
+                if (mapData[y][x] !== targetTile) continue;
+
+                visited.add(key);
+                mapData[y][x] = fillTile;
+
+                stack.push([x + 1, y]);
+                stack.push([x - 1, y]);
+                stack.push([x, y + 1]);
+                stack.push([x, y - 1]);
+            }
+
+            isModified = true;
+            updateModifiedStatus();
+            render();
+        }
+
+        function onMouseDown(e) {
+            e.preventDefault();
+
+            if (e.button === 1 || e.button === 2) {
+                // Middle or right click - pan
+                isPanning = true;
+                lastPanPos = { x: e.clientX, y: e.clientY };
+                canvas.style.cursor = 'grabbing';
+            } else if (e.button === 0) {
+                // Left click
+                const { tileX, tileY } = getMouseTile(e);
+
+                if (currentTool === 'fill') {
+                    floodFill(tileX, tileY);
+                } else {
+                    isDrawing = true;
+                    paintTile(tileX, tileY);
+                }
+            }
+        }
+
+        function onMouseMove(e) {
+            const { tileX, tileY, canvasX, canvasY } = getMouseTile(e);
+
+            // Update status bar
+            document.getElementById('mouseCoords').textContent = `${tileX}, ${tileY}`;
+
+            // Calculate brush area
+            const halfBrush = Math.floor(brushSize / 2);
+            const startX = Math.max(0, tileX - halfBrush);
+            const endX = Math.min(GRID_SIZE - 1, tileX + halfBrush);
+            const startY = Math.max(0, tileY - halfBrush);
+            const endY = Math.min(GRID_SIZE - 1, tileY + halfBrush);
+            document.getElementById('brushArea').textContent = `${endX - startX + 1}×${endY - startY + 1}`;
+
+            if (isPanning) {
+                const dx = e.clientX - lastPanPos.x;
+                const dy = e.clientY - lastPanPos.y;
+                panOffset.x += dx;
+                panOffset.y += dy;
+                lastPanPos = { x: e.clientX, y: e.clientY };
+                updateCanvasTransform();
+            } else if (isDrawing) {
+                paintTile(tileX, tileY);
+            }
+        }
+
+        function onMouseUp(e) {
+            isPanning = false;
+            isDrawing = false;
+            canvas.style.cursor = 'crosshair';
+        }
+
+        function onWheel(e) {
+            e.preventDefault();
+            const delta = e.deltaY > 0 ? 0.9 : 1.1;
+            const newZoom = Math.max(0.1, Math.min(5, zoom * delta));
+
+            const rect = canvas.getBoundingClientRect();
+            const mouseX = e.clientX - rect.left;
+            const mouseY = e.clientY - rect.top;
+
+            // Zoom towards mouse
+            panOffset.x = mouseX - (mouseX - panOffset.x) * (newZoom / zoom);
+            panOffset.y = mouseY - (mouseY - panOffset.y) * (newZoom / zoom);
+
+            zoom = newZoom;
+            updateCanvasTransform();
+            render();
+        }
+
+        function onKeyDown(e) {
+            if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return;
+
+            // View panning: arrow keys or WASD (avoid conflict with 'w' water tool)
+            const panSpeed = 40;
+            if (e.key === 'ArrowLeft') { e.preventDefault(); panView(panSpeed, 0); return; }
+            if (e.key === 'ArrowRight') { e.preventDefault(); panView(-panSpeed, 0); return; }
+            if (e.key === 'ArrowUp') { e.preventDefault(); panView(0, panSpeed); return; }
+            if (e.key === 'ArrowDown') { e.preventDefault(); panView(0, -panSpeed); return; }
+
+            // Shift+WASD for panning (since plain WASD is claimed by tool selection)
+            if (e.shiftKey && e.key.toLowerCase() === 'a') { e.preventDefault(); panView(panSpeed, 0); return; }
+            if (e.shiftKey && e.key.toLowerCase() === 'd') { e.preventDefault(); panView(-panSpeed, 0); return; }
+            if (e.shiftKey && e.key.toLowerCase() === 's') { e.preventDefault(); panView(0, -panSpeed); return; }
+            if (e.shiftKey && e.key.toLowerCase() === 'w') { e.preventDefault(); panView(0, panSpeed); return; }
+
+            // R to reset view
+            if (e.key.toLowerCase() === 'r') { e.preventDefault(); resetView(); return; }
+
+            switch (e.key.toLowerCase()) {
+                case 'g': selectTool('ground'); break;
+                case 'o': selectTool('obstacle'); break;
+                case 'c': selectTool('cover'); break;
+                case 'b': selectTool('building'); break;
+                case 'w': selectTool('water'); break;
+                case 'e': selectTool('enemy'); break;
+                case 'p': selectTool('player'); break;
+                case 'f': selectTool('fill'); break;
+                case 'x': selectTool('eraser'); break;
+                case '1': setBrushSize(1); break;
+                case '2': setBrushSize(3); break;
+                case '3': setBrushSize(5); break;
+                case 'f1':
+                case '?':
+                    e.preventDefault();
+                    toggleHelp();
+                    break;
+                case 's':
+                    if (e.ctrlKey) {
+                        e.preventDefault();
+                        saveMap();
+                    }
+                    break;
+                case 'e':
+                    if (e.ctrlKey) {
+                        e.preventDefault();
+                        exportJSON();
+                    }
+                    break;
+            }
+        }
+
+        function onKeyUp(e) {
+            // Reserved for future use
+        }
+
+        function selectTool(tool) {
+            currentTool = tool;
+
+            // Update UI
+            document.querySelectorAll('.tool-btn').forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.tool === tool);
+            });
+
+            // Update display
+            const toolNames = {
+                ground: '地面',
+                obstacle: '障碍物',
+                cover: '掩体',
+                building: '建筑',
+                water: '水域',
+                enemy: '敌人生成点',
+                player: '玩家生成点',
+                fill: '填充',
+                eraser: '橡皮擦'
+            };
+            document.getElementById('currentToolDisplay').textContent = toolNames[tool] || tool;
+        }
+
+        function setBrushSize(size) {
+            brushSize = size;
+            document.querySelectorAll('.brush-size-btn').forEach(btn => {
+                btn.classList.toggle('active', parseInt(btn.dataset.size) === size);
+            });
+        }
+
+        function updateOpacity(tileType, value) {
+            tileOpacity[tileType] = value / 100;
+            document.getElementById(`opacity-${tileType}-value`).textContent = value + '%';
+            render();
+        }
+
+        function toggleGrid() {
+            showGrid = !showGrid;
+            document.getElementById('gridToggle').classList.toggle('active', showGrid);
+            document.getElementById('gridToggle').textContent = showGrid ? '☑️ 显示网格线' : '☐ 显示网格线';
+            render();
+        }
+
+        function updateSpawnCounts() {
+            let enemyCount = 0;
+            let playerCount = 0;
+
+            for (let y = 0; y < GRID_SIZE; y++) {
+                for (let x = 0; x < GRID_SIZE; x++) {
+                    if (mapData[y][x] === TILE.enemy) enemyCount++;
+                    if (mapData[y][x] === TILE.player) playerCount++;
+                }
+            }
+
+            document.getElementById('enemyCount').textContent = enemyCount;
+            document.getElementById('playerCount').textContent = playerCount;
+        }
+
+        function updateModifiedStatus() {
+            document.getElementById('modifiedStatus').textContent = isModified ? '是' : '否';
+            document.getElementById('modifiedStatus').style.color = isModified ? '#f85149' : '#3fb950';
+        }
+
+        function clearSpawns(type) {
+            const tile = type === 'enemy' ? TILE.enemy : TILE.player;
+            for (let y = 0; y < GRID_SIZE; y++) {
+                for (let x = 0; x < GRID_SIZE; x++) {
+                    if (mapData[y][x] === tile) {
+                        mapData[y][x] = TILE.ground;
+                    }
+                }
+            }
+            isModified = true;
+            updateModifiedStatus();
+            updateSpawnCounts();
+            render();
+        }
+
+        function saveMap() {
+            const name = document.getElementById('mapName').value.trim() || '未命名地图';
+
+            let savedMaps = [];
+            try {
+                savedMaps = JSON.parse(localStorage.getItem('deathTrench_custom_maps') || '[]');
+            } catch (e) {
+                savedMaps = [];
+            }
+
+            // Check for existing map with same name
+            const existingIndex = savedMaps.findIndex(m => m.name === name);
+
+            const mapEntry = {
+                name: name,
+                data: JSON.parse(JSON.stringify(mapData)),
+                timestamp: Date.now()
+            };
+
+            if (existingIndex >= 0) {
+                savedMaps[existingIndex] = mapEntry;
+            } else {
+                savedMaps.push(mapEntry);
+            }
+
+            localStorage.setItem('deathTrench_custom_maps', JSON.stringify(savedMaps));
+
+            isModified = false;
+            updateModifiedStatus();
+            showNotification('地图已保存: ' + name);
+        }
+
+        function showLoadModal() {
+            const modal = document.getElementById('loadModal');
+            const body = document.getElementById('loadModalBody');
+
+            let savedMaps = [];
+            try {
+                savedMaps = JSON.parse(localStorage.getItem('deathTrench_custom_maps') || '[]');
+            } catch (e) {
+                savedMaps = [];
+            }
+
+            if (savedMaps.length === 0) {
+                body.innerHTML = '<div class="no-maps">暂无保存的地图</div>';
+            } else {
+                body.innerHTML = savedMaps.map((map, index) => `
+                    <div class="saved-map-item">
+                        <div class="saved-map-info">
+                            <div class="saved-map-name">${escapeHtml(map.name)}</div>
+                            <div class="saved-map-date">${new Date(map.timestamp).toLocaleString('zh-CN')}</div>
+                        </div>
+                        <div class="saved-map-actions">
+                            <button class="saved-map-btn load" onclick="loadMap(${index})">加载</button>
+                            <button class="saved-map-btn delete" onclick="deleteMap(${index})">删除</button>
+                        </div>
+                    </div>
+                `).join('');
+            }
+
+            modal.classList.add('show');
+        }
+
+        function closeLoadModal() {
+            document.getElementById('loadModal').classList.remove('show');
+        }
+
+        function loadMap(index) {
+            let savedMaps = [];
+            try {
+                savedMaps = JSON.parse(localStorage.getItem('deathTrench_custom_maps') || '[]');
+            } catch (e) {
+                savedMaps = [];
+            }
+
+            if (savedMaps[index]) {
+                mapData = JSON.parse(JSON.stringify(savedMaps[index].data));
+                document.getElementById('mapName').value = savedMaps[index].name;
+                isModified = false;
+                updateModifiedStatus();
+                updateSpawnCounts();
+                render();
+                closeLoadModal();
+                showNotification('地图已加载: ' + savedMaps[index].name);
+            }
+        }
+
+        function deleteMap(index) {
+            let savedMaps = [];
+            try {
+                savedMaps = JSON.parse(localStorage.getItem('deathTrench_custom_maps') || '[]');
+            } catch (e) {
+                savedMaps = [];
+            }
+
+            if (savedMaps[index]) {
+                const name = savedMaps[index].name;
+                savedMaps.splice(index, 1);
+                localStorage.setItem('deathTrench_custom_maps', JSON.stringify(savedMaps));
+                showLoadModal(); // Refresh the modal
+                showNotification('地图已删除: ' + name);
+            }
+        }
+
+        function showClearConfirm() {
+            document.getElementById('confirmMessage').textContent = '确定要清空当前地图吗？此操作不可撤销。';
+            confirmCallback = () => {
+                clearMap(false);
+                isModified = false;
+                updateModifiedStatus();
+                updateSpawnCounts();
+                render();
+            };
+            document.getElementById('confirmModal').classList.add('show');
+        }
+
+        function closeConfirm() {
+            document.getElementById('confirmModal').classList.remove('show');
+        }
+
+        function doConfirm() {
+            if (confirmCallback) {
+                confirmCallback();
+                confirmCallback = null;
+            }
+            closeConfirm();
+        }
+
+        function exportJSON() {
+            const name = document.getElementById('mapName').value.trim() || 'map';
+            const exportData = {
+                name: name,
+                size: { width: GRID_SIZE, height: GRID_SIZE },
+                tileSize: TILE_SIZE,
+                data: mapData,
+                timestamp: Date.now()
+            };
+
+            const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `${name}.json`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+
+            showNotification('地图已导出: ' + name + '.json');
+        }
+
+        function loadTemplate(templateName) {
+            if (!templateName) return;
+
+            const templates = {
+                desert: generateDesertTemplate,
+                city: generateCityTemplate,
+                factory: generateFactoryTemplate,
+                jungle: generateJungleTemplate,
+                snow: generateSnowTemplate
+            };
+
+            if (templates[templateName]) {
+                templates[templateName]();
+                document.getElementById('mapName').value = templateName.charAt(0).toUpperCase() + templateName.slice(1) + ' Map';
+                isModified = true;
+                updateModifiedStatus();
+                render();
+                showNotification('已加载模板: ' + templateName);
+            }
+
+            document.getElementById('templateSelect').value = '';
+        }
+
+        function generateDesertTemplate() {
+            clearMap(false);
+
+            // Base desert
+            for (let y = 0; y < GRID_SIZE; y++) {
+                for (let x = 0; x < GRID_SIZE; x++) {
+                    // Add some variation
+                    if (Math.random() < 0.1) {
+                        mapData[y][x] = TILE.cover;
+                    }
+                }
+            }
+
+            // Sand dunes (water-like patterns but sandy)
+            for (let i = 0; i < 10; i++) {
+                const cx = Math.floor(Math.random() * GRID_SIZE);
+                const cy = Math.floor(Math.random() * GRID_SIZE);
+                const size = 5 + Math.floor(Math.random() * 10);
+                drawCircle(cx, cy, size, TILE.cover);
+            }
+
+            // Rock formations
+            for (let i = 0; i < 20; i++) {
+                const cx = Math.floor(Math.random() * GRID_SIZE);
+                const cy = Math.floor(Math.random() * GRID_SIZE);
+                const size = 2 + Math.floor(Math.random() * 4);
+                drawCircle(cx, cy, size, TILE.obstacle);
+            }
+
+            // Player spawn in center
+            mapData[50][50] = TILE.player;
+            // Enemy spawns at edges
+            mapData[5][5] = TILE.enemy;
+            mapData[5][94] = TILE.enemy;
+            mapData[94][5] = TILE.enemy;
+            mapData[94][94] = TILE.enemy;
+
+            updateSpawnCounts();
+        }
+
+        function generateCityTemplate() {
+            clearMap(false);
+
+            // City blocks with buildings
+            const blockSize = 10;
+            const roadWidth = 2;
+
+            for (let by = 0; by < GRID_SIZE / blockSize; by++) {
+                for (let bx = 0; bx < GRID_SIZE / blockSize; bx++) {
+                    const startX = bx * blockSize + roadWidth;
+                    const startY = by * blockSize + roadWidth;
+                    const endX = Math.min(startX + blockSize - roadWidth * 2, GRID_SIZE);
+                    const endY = Math.min(startY + blockSize - roadWidth * 2, GRID_SIZE);
+
+                    // Fill block with buildings
+                    for (let y = startY; y < endY; y++) {
+                        for (let x = startX; x < endX; x++) {
+                            if (Math.random() < 0.7) {
+                                mapData[y][x] = TILE.building;
+                            } else {
+                                mapData[y][x] = TILE.cover;
+                            }
+                        }
+                    }
+
+                    // Some open areas
+                    if (Math.random() < 0.3) {
+                        const ox = startX + Math.floor(Math.random() * (endX - startX - 2));
+                        const oy = startY + Math.floor(Math.random() * (endY - startY - 2));
+                        for (let dy = 0; dy < 3; dy++) {
+                            for (let dx = 0; dx < 3; dx++) {
+                                if (oy + dy < GRID_SIZE && ox + dx < GRID_SIZE) {
+                                    mapData[oy + dy][ox + dx] = TILE.ground;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Roads (ground)
+            for (let i = 0; i < GRID_SIZE; i++) {
+                for (let j = 0; j < blockSize; j++) {
+                    // Horizontal roads
+                    const hr1 = by * blockSize + j;
+                    for (let x = 0; x < GRID_SIZE; x++) {
+                        if (mapData[hr1] && mapData[hr1][x] === undefined) {
+                            mapData[hr1][x] = TILE.ground;
+                        }
+                    }
+                }
+            }
+
+            // Player spawn
+            mapData[50][50] = TILE.player;
+            // Enemy spawns
+            mapData[10][10] = TILE.enemy;
+            mapData[10][90] = TILE.enemy;
+            mapData[90][10] = TILE.enemy;
+            mapData[90][90] = TILE.enemy;
+
+            updateSpawnCounts();
+        }
+
+        function generateFactoryTemplate() {
+            clearMap(false);
+
+            // Factory floor (ground)
+            // Outer walls
+            for (let i = 0; i < GRID_SIZE; i++) {
+                mapData[0][i] = TILE.building;
+                mapData[GRID_SIZE - 1][i] = TILE.building;
+                mapData[i][0] = TILE.building;
+                mapData[i][GRID_SIZE - 1] = TILE.building;
+            }
+
+            // Interior walls
+            for (let i = 20; i < GRID_SIZE - 20; i += 30) {
+                for (let j = 10; j < GRID_SIZE - 10; j++) {
+                    mapData[j][i] = TILE.building;
+                }
+            }
+
+            // Machinery (obstacles)
+            for (let i = 0; i < 15; i++) {
+                const mx = 10 + Math.floor(Math.random() * (GRID_SIZE - 20));
+                const my = 10 + Math.floor(Math.random() * (GRID_SIZE - 20));
+                const size = 2 + Math.floor(Math.random() * 4);
+                drawCircle(mx, my, size, TILE.obstacle);
+            }
+
+            // Cover points
+            for (let i = 0; i < 20; i++) {
+                const cx = 5 + Math.floor(Math.random() * (GRID_SIZE - 10));
+                const cy = 5 + Math.floor(Math.random() * (GRID_SIZE - 10));
+                mapData[cy][cx] = TILE.cover;
+            }
+
+            // Water hazard
+            for (let y = GRID_SIZE - 15; y < GRID_SIZE - 5; y++) {
+                for (let x = GRID_SIZE - 15; x < GRID_SIZE - 5; x++) {
+                    mapData[y][x] = TILE.water;
+                }
+            }
+
+            // Player spawn
+            mapData[50][10] = TILE.player;
+            // Enemy spawns
+            mapData[10][GRID_SIZE - 15] = TILE.enemy;
+            mapData[GRID_SIZE - 15][10] = TILE.enemy;
+            mapData[GRID_SIZE - 15][GRID_SIZE - 15] = TILE.enemy;
+
+            updateSpawnCounts();
+        }
+
+        function generateJungleTemplate() {
+            clearMap(false);
+
+            // Dense jungle with clearings
+            for (let y = 0; y < GRID_SIZE; y++) {
+                for (let x = 0; x < GRID_SIZE; x++) {
+                    const rand = Math.random();
+                    if (rand < 0.4) {
+                        mapData[y][x] = TILE.cover; // Dense vegetation
+                    } else if (rand < 0.5) {
+                        mapData[y][x] = TILE.building; // Trees
+                    } else if (rand < 0.55) {
+                        mapData[y][x] = TILE.water; // Streams
+                    }
+                }
+            }
+
+            // River
+            let riverX = 30;
+            for (let y = 0; y < GRID_SIZE; y++) {
+                riverX += Math.floor(Math.random() * 3) - 1;
+                riverX = Math.max(20, Math.min(80, riverX));
+                for (let w = -1; w <= 1; w++) {
+                    if (riverX + w >= 0 && riverX + w < GRID_SIZE) {
+                        mapData[y][riverX + w] = TILE.water;
+                    }
+                }
+            }
+
+            // Clearings
+            for (let i = 0; i < 5; i++) {
+                const cx = 20 + Math.floor(Math.random() * 60);
+                const cy = 20 + Math.floor(Math.random() * 60);
+                for (let dy = -5; dy <= 5; dy++) {
+                    for (let dx = -5; dx <= 5; dx++) {
+                        if (Math.sqrt(dx * dx + dy * dy) < 4) {
+                            const tx = cx + dx;
+                            const ty = cy + dy;
+                            if (tx >= 0 && tx < GRID_SIZE && ty >= 0 && ty < GRID_SIZE) {
+                                mapData[ty][tx] = TILE.ground;
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Player spawn
+            mapData[10][10] = TILE.player;
+            // Enemy spawns
+            mapData[80][80] = TILE.enemy;
+            mapData[20][80] = TILE.enemy;
+            mapData[80][20] = TILE.enemy;
+
+            updateSpawnCounts();
+        }
+
+        function generateSnowTemplate() {
+            clearMap(false);
+
+            // Snow ground with variations
+            for (let y = 0; y < GRID_SIZE; y++) {
+                for (let x = 0; x < GRID_SIZE; x++) {
+                    if (Math.random() < 0.15) {
+                        mapData[y][x] = TILE.cover; // Snow mounds
+                    } else if (Math.random() < 0.05) {
+                        mapData[y][x] = TILE.obstacle; // Ice rocks
+                    }
+                }
+            }
+
+            // Frozen lake
+            for (let y = 40; y < 60; y++) {
+                for (let x = 40; x < 60; x++) {
+                    if (Math.sqrt((x - 50) ** 2 + (y - 50) ** 2) < 10) {
+                        mapData[y][x] = TILE.water;
+                    }
+                }
+            }
+
+            // Buildings/structures
+            for (let i = 0; i < 8; i++) {
+                const bx = 10 + Math.floor(Math.random() * 80);
+                const by = 10 + Math.floor(Math.random() * 80);
+                for (let dy = 0; dy < 4; dy++) {
+                    for (let dx = 0; dx < 4; dx++) {
+                        const tx = bx + dx;
+                        const ty = by + dy;
+                        if (tx >= 0 && tx < GRID_SIZE && ty >= 0 && ty < GRID_SIZE) {
+                            if (Math.sqrt((tx - bx - 2) ** 2 + (ty - by - 2) ** 2) < 2) {
+                                mapData[ty][tx] = TILE.building;
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Player spawn
+            mapData[10][50] = TILE.player;
+            // Enemy spawns
+            mapData[85][20] = TILE.enemy;
+            mapData[85][80] = TILE.enemy;
+            mapData[15][85] = TILE.enemy;
+
+            updateSpawnCounts();
+        }
+
+        function drawCircle(cx, cy, radius, tile) {
+            for (let dy = -radius; dy <= radius; dy++) {
+                for (let dx = -radius; dx <= radius; dx++) {
+                    if (dx * dx + dy * dy <= radius * radius) {
+                        const tx = cx + dx;
+                        const ty = cy + dy;
+                        if (tx >= 0 && tx < GRID_SIZE && ty >= 0 && ty < GRID_SIZE) {
+                            mapData[ty][tx] = tile;
+                        }
+                    }
+                }
+            }
+        }
+
+        function toggleHelp() {
+            document.getElementById('helpModal').classList.toggle('show');
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        function showNotification(message) {
+            // Simple notification
+            const notification = document.createElement('div');
+            notification.style.cssText = `
+                position: fixed;
+                bottom: 80px;
+                left: 50%;
+                transform: translateX(-50%);
+                background: #238636;
+                color: white;
+                padding: 12px 24px;
+                border-radius: 6px;
+                font-size: 14px;
+                z-index: 1000;
+                animation: fadeIn 0.3s ease;
+            `;
+            notification.textContent = message;
+            document.body.appendChild(notification);
+
+            setTimeout(() => {
+                notification.style.opacity = '0';
+                notification.style.transition = 'opacity 0.3s';
+                setTimeout(() => notification.remove(), 300);
+            }, 2000);
+        }
+
+        // Animation loop for water effect
+        function animationLoop() {
+            render();
+            requestAnimationFrame(animationLoop);
+        }
+
+        // Start
+        init();
+        // animationLoop(); // Uncomment for animated water
+    </script>
+</body>
+</html>

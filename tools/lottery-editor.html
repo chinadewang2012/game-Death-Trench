@@ -1,0 +1,568 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>奖池爆率调整 - Death Trench 2D</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', Arial, sans-serif; background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); color: #fff; min-height: 100vh; padding: 20px; }
+        .container { max-width: 1400px; margin: 0 auto; }
+        .header { text-align: center; margin-bottom: 30px; }
+        .header h1 { font-size: 32px; margin-bottom: 10px; background: linear-gradient(90deg, #a855f7, #f59e0b); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        .header p { color: #888; }
+        
+        .buddha-banner {
+            background: rgba(168, 85, 247, 0.1);
+            border: 1px solid rgba(168, 85, 247, 0.3);
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 20px;
+            text-align: center;
+            font-family: monospace;
+            color: #a855f7;
+            font-size: 14px;
+            white-space: pre-line;
+        }
+        
+        .controls-bar { display: flex; gap: 15px; margin-bottom: 20px; flex-wrap: wrap; align-items: center; }
+        .btn { padding: 10px 20px; border: none; border-radius: 8px; cursor: pointer; font-size: 14px; transition: all 0.3s; }
+        .btn-primary { background: #a855f7; color: #fff; font-weight: bold; }
+        .btn-primary:hover { background: #c084fc; }
+        .btn-danger { background: #ff4444; color: #fff; }
+        .btn-danger:hover { background: #ff6666; }
+        .btn-secondary { background: rgba(255,255,255,0.1); color: #fff; }
+        .btn-secondary:hover { background: rgba(255,255,255,0.2); }
+        .btn-warning { background: #f59e0b; color: #000; }
+        .btn-warning:hover { background: #fbbf24; }
+        .btn-success { background: #10b981; color: #fff; }
+        .btn-success:hover { background: #34d399; }
+        
+        .tabs { display: flex; gap: 8px; margin-bottom: 20px; flex-wrap: wrap; }
+        .tab { padding: 12px 20px; background: rgba(255,255,255,0.1); border: none; border-radius: 8px; color: #fff; cursor: pointer; transition: all 0.3s; font-size: 14px; }
+        .tab.active { background: #a855f7; color: #fff; }
+        .tab:hover { background: rgba(255,255,255,0.2); }
+        
+        .panel { display: none; }
+        .panel.active { display: block; }
+        
+        .stats-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 15px; margin-bottom: 20px; }
+        .stat-card { background: rgba(255,255,255,0.05); border-radius: 10px; padding: 20px; text-align: center; border: 1px solid rgba(255,255,255,0.1); }
+        .stat-card .value { font-size: 28px; font-weight: bold; }
+        .stat-card .label { font-size: 12px; color: #888; margin-top: 8px; }
+        .stat-card.legendary .value { color: #f59e0b; }
+        .stat-card.epic .value { color: #a855f7; }
+        .stat-card.rare .value { color: #3b82f6; }
+        .stat-card.common .value { color: #9ca3af; }
+        
+        .items-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 15px; }
+        .item-card { background: rgba(255,255,255,0.05); border-radius: 12px; padding: 20px; border: 2px solid rgba(255,255,255,0.1); transition: all 0.3s; }
+        .item-card:hover { border-color: rgba(168, 85, 247, 0.5); }
+        .item-card.legendary { border-color: rgba(245, 158, 11, 0.3); }
+        .item-card.epic { border-color: rgba(168, 85, 247, 0.3); }
+        .item-card.rare { border-color: rgba(59, 130, 246, 0.3); }
+        .item-card.common { border-color: rgba(156, 163, 175, 0.3); }
+        
+        .item-header { display: flex; align-items: center; gap: 12px; margin-bottom: 15px; }
+        .item-icon { font-size: 36px; }
+        .item-info { flex: 1; }
+        .item-name { font-size: 16px; font-weight: bold; margin-bottom: 4px; }
+        .item-rarity { font-size: 12px; padding: 2px 8px; border-radius: 4px; display: inline-block; }
+        .item-rarity.legendary { background: rgba(245, 158, 11, 0.2); color: #f59e0b; }
+        .item-rarity.epic { background: rgba(168, 85, 247, 0.2); color: #a855f7; }
+        .item-rarity.rare { background: rgba(59, 130, 246, 0.2); color: #3b82f6; }
+        .item-rarity.common { background: rgba(156, 163, 175, 0.2); color: #9ca3af; }
+        
+        .weight-control { display: flex; align-items: center; gap: 10px; }
+        .weight-control label { font-size: 13px; color: #888; min-width: 50px; }
+        .weight-control input[type="range"] { flex: 1; height: 6px; -webkit-appearance: none; background: rgba(255,255,255,0.1); border-radius: 3px; }
+        .weight-control input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 16px; height: 16px; background: #a855f7; border-radius: 50%; cursor: pointer; }
+        .weight-control input[type="number"] { width: 70px; padding: 6px 8px; border: 1px solid rgba(255,255,255,0.2); border-radius: 6px; background: rgba(0,0,0,0.3); color: #fff; font-size: 14px; text-align: center; }
+        .weight-control input:focus { outline: none; border-color: #a855f7; }
+        
+        .weight-info { display: flex; justify-content: space-between; margin-top: 10px; font-size: 12px; color: #888; }
+        .weight-info .default-weight { color: #666; }
+        .weight-info .probability { color: #10b981; font-weight: bold; }
+        
+        .bulk-controls { background: rgba(255,255,255,0.05); border-radius: 12px; padding: 20px; margin-bottom: 20px; border: 1px solid rgba(255,255,255,0.1); }
+        .bulk-title { font-size: 16px; font-weight: bold; margin-bottom: 15px; color: #a855f7; }
+        .bulk-row { display: flex; gap: 15px; align-items: center; flex-wrap: wrap; margin-bottom: 10px; }
+        .bulk-row label { color: #888; min-width: 80px; }
+        .bulk-row select { padding: 8px 12px; border: 1px solid rgba(255,255,255,0.2); border-radius: 6px; background: rgba(0,0,0,0.3); color: #fff; font-size: 14px; }
+        .bulk-row input[type="range"] { flex: 1; min-width: 200px; height: 6px; -webkit-appearance: none; background: rgba(255,255,255,0.1); border-radius: 3px; }
+        .bulk-row input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 16px; height: 16px; background: #a855f7; border-radius: 50%; cursor: pointer; }
+        .bulk-value { min-width: 60px; text-align: center; font-weight: bold; color: #a855f7; }
+        
+        .status { margin-top: 20px; padding: 12px; border-radius: 8px; font-size: 14px; display: none; }
+        .status.show { display: block; }
+        .status.success { background: rgba(16, 185, 129, 0.2); color: #10b981; }
+        .status.error { background: rgba(255, 68, 68, 0.2); color: #ff4444; }
+        .status.info { background: rgba(59, 130, 246, 0.2); color: #3b82f6; }
+        
+        .back-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 12px 24px;
+            background: rgba(255,255,255,0.1);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 10px;
+            color: #fff;
+            text-decoration: none;
+            font-size: 14px;
+            transition: all 0.3s;
+            margin-bottom: 20px;
+        }
+        .back-btn:hover { background: rgba(168, 85, 247, 0.2); border-color: #a855f7; }
+        
+        .chart-section { margin-top: 20px; background: rgba(255,255,255,0.05); border-radius: 12px; padding: 20px; border: 1px solid rgba(255,255,255,0.1); }
+        .chart-title { font-size: 16px; font-weight: bold; margin-bottom: 15px; color: #a855f7; }
+        .chart-bar { display: flex; align-items: center; margin-bottom: 10px; }
+        .chart-label { width: 100px; font-size: 13px; color: #888; }
+        .chart-bar-inner { flex: 1; height: 24px; background: rgba(0,0,0,0.3); border-radius: 4px; overflow: hidden; position: relative; }
+        .chart-bar-fill { height: 100%; border-radius: 4px; transition: width 0.5s ease; }
+        .chart-bar-fill.legendary { background: linear-gradient(90deg, #f59e0b, #fbbf24); }
+        .chart-bar-fill.epic { background: linear-gradient(90deg, #a855f7, #c084fc); }
+        .chart-bar-fill.rare { background: linear-gradient(90deg, #3b82f6, #60a5fa); }
+        .chart-bar-fill.common { background: linear-gradient(90deg, #9ca3af, #d1d5db); }
+        .chart-bar-value { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); font-size: 12px; font-weight: bold; color: #fff; text-shadow: 0 1px 2px rgba(0,0,0,0.5); }
+        
+        @media (max-width: 768px) {
+            .items-grid { grid-template-columns: 1fr; }
+            .bulk-row { flex-direction: column; align-items: flex-start; }
+            .bulk-row input[type="range"] { width: 100%; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <a href="index.html" class="back-btn">← 返回工具箱</a>
+        
+        <div class="header">
+            <h1>🎰 奖池爆率调整工具</h1>
+            <p>Death Trench 2D - 自定义抽奖概率</p>
+        </div>
+
+        <div class="buddha-banner">
+/*
+ * ╔══════════════════════════════════════════════════════════════╗
+ * ║                    赛博佛祖 保佑代码平安                      ║
+ *              "一切概率皆虚妄，唯有欧皇是真谛"
+ * ╚══════════════════════════════════════════════════════════════╝
+*/
+        </div>
+
+        <div class="controls-bar">
+            <button class="btn btn-primary" onclick="saveWeights()">💾 保存配置</button>
+            <button class="btn btn-secondary" onclick="resetWeights()">🔄 重置默认</button>
+            <button class="btn btn-success" onclick="simulateDraws()">🎲 模拟100抽</button>
+            <button class="btn btn-warning" onclick="exportConfig()">📤 导出配置</button>
+            <button class="btn btn-secondary" onclick="importConfig()">📥 导入配置</button>
+        </div>
+
+        <div class="stats-grid">
+            <div class="stat-card legendary">
+                <div class="value" id="legendaryProb">0%</div>
+                <div class="label">传说概率</div>
+            </div>
+            <div class="stat-card epic">
+                <div class="value" id="epicProb">0%</div>
+                <div class="label">史诗概率</div>
+            </div>
+            <div class="stat-card rare">
+                <div class="value" id="rareProb">0%</div>
+                <div class="label">稀有概率</div>
+            </div>
+            <div class="stat-card common">
+                <div class="value" id="commonProb">0%</div>
+                <div class="label">普通概率</div>
+            </div>
+        </div>
+
+        <div class="tabs">
+            <button class="tab active" onclick="switchTab('all')">全部</button>
+            <button class="tab" onclick="switchTab('legendary')">传说</button>
+            <button class="tab" onclick="switchTab('epic')">史诗</button>
+            <button class="tab" onclick="switchTab('rare')">稀有</button>
+            <button class="tab" onclick="switchTab('common')">普通</button>
+        </div>
+
+        <div class="bulk-controls">
+            <div class="bulk-title">📊 批量调整</div>
+            <div class="bulk-row">
+                <label>稀有度：</label>
+                <select id="bulkRarity">
+                    <option value="all">全部</option>
+                    <option value="legendary">传说</option>
+                    <option value="epic">史诗</option>
+                    <option value="rare">稀有</option>
+                    <option value="common">普通</option>
+                </select>
+                <label>倍率：</label>
+                <input type="range" id="bulkMultiplier" min="0.1" max="10" step="0.1" value="1" oninput="updateBulkValue()">
+                <span class="bulk-value" id="bulkValue">1.0x</span>
+                <button class="btn btn-primary" onclick="applyBulkMultiplier()">应用</button>
+            </div>
+        </div>
+
+        <div class="panel active" id="panel-all">
+            <div class="items-grid" id="itemsGrid"></div>
+        </div>
+
+        <div class="chart-section">
+            <div class="chart-title">📈 概率分布</div>
+            <div id="probabilityChart"></div>
+        </div>
+
+        <div class="status" id="status"></div>
+    </div>
+
+    <script>
+        // 默认奖池配置（需要和 game.js 保持一致）
+        const DEFAULT_POOLS = [
+            { id: 'skin_thunder', name: '雷霆步枪', icon: '⚡', rarity: 'legendary', weight: 2, type: 'skin', skinId: 'skin_thunder' },
+            { id: 'skin_dragon', name: '龙鳞突击', icon: '🐉', rarity: 'legendary', weight: 2, type: 'skin', skinId: 'skin_dragon' },
+            { id: 'skin_phoenix', name: '凤凰之刃', icon: '🔥', rarity: 'legendary', weight: 2, type: 'skin', skinId: 'skin_phoenix' },
+            { id: 'skin_stellar', name: '星辰猎手', icon: '⭐', rarity: 'legendary', weight: 2, type: 'skin', skinId: 'skin_stellar' },
+            { id: 'skin_obsidian', name: '黑曜毁灭', icon: '🖤', rarity: 'legendary', weight: 1, type: 'skin', skinId: 'skin_obsidian' },
+            { id: 'skin_rainbow', name: '彩虹传说', icon: '🌈', rarity: 'legendary', weight: 1, type: 'skin', skinId: 'skin_rainbow' },
+            { id: 'skin_gold', name: '黄金冲锋', icon: '🥇', rarity: 'epic', weight: 2, type: 'skin', skinId: 'skin_gold' },
+            { id: 'skin_inferno', name: '炽焰霰弹', icon: '🌋', rarity: 'epic', weight: 2, type: 'skin', skinId: 'skin_inferno' },
+            { id: 'skin_viper', name: '毒蛇狙击', icon: '🐍', rarity: 'epic', weight: 2, type: 'skin', skinId: 'skin_viper' },
+            { id: 'skin_platinum', name: '白金手枪', icon: '💎', rarity: 'epic', weight: 2, type: 'skin', skinId: 'skin_platinum' },
+            { id: 'mod_silencer', name: '消音器', icon: '🔇', rarity: 'epic', weight: 2, type: 'mod', modId: 'suppressor' },
+            { id: 'mod_stock', name: '枪托', icon: '🪵', rarity: 'epic', weight: 2, type: 'mod', modId: 'stock' },
+            { id: 'player_ghost', name: '幽灵角色', icon: '👻', rarity: 'epic', weight: 2, type: 'playerSkin', skinId: 'player_ghost' },
+            { id: 'skin_neon', name: '霓虹冲锋', icon: '💜', rarity: 'rare', weight: 5, type: 'skin', skinId: 'skin_neon' },
+            { id: 'skin_red', name: '赤红步枪', icon: '❤️', rarity: 'rare', weight: 5, type: 'skin', skinId: 'skin_red' },
+            { id: 'skin_blue', name: '深蓝机枪', icon: '💙', rarity: 'rare', weight: 5, type: 'skin', skinId: 'skin_blue' },
+            { id: 'skin_arctic', name: '极地步枪', icon: '❄️', rarity: 'rare', weight: 5, type: 'skin', skinId: 'skin_arctic' },
+            { id: 'item_medkit', name: '医疗包 x5', icon: '💊', rarity: 'rare', weight: 5, type: 'item', itemId: 'medkit', value: 5 },
+            { id: 'item_grenade', name: '手雷 x3', icon: '💣', rarity: 'rare', weight: 5, type: 'item', itemId: 'grenade', value: 3 },
+            { id: 'mod_scope', name: '瞄准镜', icon: '🔭', rarity: 'rare', weight: 4, type: 'mod', modId: 'scope' },
+            { id: 'mod_grip', name: '战术握把', icon: '✊', rarity: 'rare', weight: 4, type: 'mod', modId: 'grip' },
+            { id: 'player_elite', name: '精英角色', icon: '🎖️', rarity: 'rare', weight: 3, type: 'playerSkin', skinId: 'player_elite' },
+            { id: 'ammo_ap', name: '穿甲弹 x30', icon: '🎯', rarity: 'rare', weight: 5, type: 'ammo', ammoType: 'ap', value: 30 },
+            { id: 'coins_100', name: '金币 x100', icon: '🪙', rarity: 'common', weight: 10, type: 'coins', value: 100 },
+            { id: 'coins_50', name: '金币 x50', icon: '🪙', rarity: 'common', weight: 10, type: 'coins', value: 50 },
+            { id: 'item_ammo', name: '弹药箱 x2', icon: '📦', rarity: 'common', weight: 10, type: 'item', itemId: 'ammo', value: 2 },
+            { id: 'coins_200', name: '金币 x200', icon: '🪙', rarity: 'common', weight: 4, type: 'coins', value: 200 },
+            { id: 'item_speed', name: '加速卡 x1', icon: '⚡', rarity: 'common', weight: 10, type: 'item', itemId: 'speed', value: 1 },
+            { id: 'coins_30', name: '金币 x30', icon: '🪙', rarity: 'common', weight: 10, type: 'coins', value: 30 },
+            { id: 'mod_extendedmag', name: '扩容弹匣', icon: '📎', rarity: 'common', weight: 6, type: 'mod', modId: 'extendedMag' },
+            { id: 'ammo_exp', name: '爆裂弹 x20', icon: '💥', rarity: 'common', weight: 8, type: 'ammo', ammoType: 'exp', value: 20 },
+            { id: 'ammo_fire', name: '燃烧弹 x20', icon: '🔥', rarity: 'common', weight: 8, type: 'ammo', ammoType: 'fire', value: 20 },
+            { id: 'player_soldier', name: '士兵角色', icon: '🪖', rarity: 'common', weight: 5, type: 'playerSkin', skinId: 'player_soldier' }
+        ];
+
+        let currentWeights = {};
+        let currentTab = 'all';
+
+        // 初始化
+        function init() {
+            loadWeights();
+            renderItems();
+            updateProbabilityStats();
+        }
+
+        // 加载权重配置
+        function loadWeights() {
+            try {
+                const saved = localStorage.getItem('deathTrench_lottery_weights');
+                if (saved) {
+                    currentWeights = JSON.parse(saved);
+                } else {
+                    currentWeights = {};
+                }
+            } catch (e) {
+                currentWeights = {};
+            }
+        }
+
+        // 获取物品当前权重
+        function getItemWeight(item) {
+            return currentWeights[item.id] !== undefined ? currentWeights[item.id] : item.weight;
+        }
+
+        // 获取过滤后的物品列表
+        function getFilteredItems() {
+            if (currentTab === 'all') return DEFAULT_POOLS;
+            return DEFAULT_POOLS.filter(item => item.rarity === currentTab);
+        }
+
+        // 渲染物品列表
+        function renderItems() {
+            const grid = document.getElementById('itemsGrid');
+            const items = getFilteredItems();
+            
+            grid.innerHTML = items.map(item => {
+                const currentWeight = getItemWeight(item);
+                const totalWeight = getTotalWeight();
+                const probability = totalWeight > 0 ? ((currentWeight / totalWeight) * 100).toFixed(2) : 0;
+                const isModified = currentWeights[item.id] !== undefined;
+                
+                return `
+                    <div class="item-card ${item.rarity}">
+                        <div class="item-header">
+                            <div class="item-icon">${item.icon}</div>
+                            <div class="item-info">
+                                <div class="item-name">${item.name}${isModified ? ' ✏️' : ''}</div>
+                                <span class="item-rarity ${item.rarity}">${getRarityName(item.rarity)}</span>
+                            </div>
+                        </div>
+                        <div class="weight-control">
+                            <label>权重：</label>
+                            <input type="range" min="0" max="100" step="1" value="${currentWeight}" 
+                                   oninput="updateWeight('${item.id}', this.value, 'range')"
+                                   data-id="${item.id}" data-type="range">
+                            <input type="number" min="0" max="1000" value="${currentWeight}"
+                                   oninput="updateWeight('${item.id}', this.value, 'number')"
+                                   data-id="${item.id}" data-type="number">
+                        </div>
+                        <div class="weight-info">
+                            <span class="default-weight">默认：${item.weight}</span>
+                            <span class="probability">概率：${probability}%</span>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // 获取总权重
+        function getTotalWeight() {
+            return DEFAULT_POOLS.reduce((sum, item) => sum + getItemWeight(item), 0);
+        }
+
+        // 更新单个物品权重
+        function updateWeight(itemId, value, sourceType) {
+            const numValue = Math.max(0, Math.min(1000, parseInt(value) || 0));
+            const defaultItem = DEFAULT_POOLS.find(item => item.id === itemId);
+            
+            if (numValue === defaultItem.weight) {
+                delete currentWeights[itemId];
+            } else {
+                currentWeights[itemId] = numValue;
+            }
+            
+            // 同步另一个输入控件
+            if (sourceType === 'range') {
+                const numberInput = document.querySelector(`input[data-id="${itemId}"][data-type="number"]`);
+                if (numberInput) numberInput.value = numValue;
+            } else {
+                const rangeInput = document.querySelector(`input[data-id="${itemId}"][data-type="range"]`);
+                if (rangeInput) rangeInput.value = numValue;
+            }
+            
+            updateProbabilityStats();
+            updateItemProbability(itemId);
+        }
+
+        // 更新单个物品的概率显示
+        function updateItemProbability(itemId) {
+            // 重新渲染所有物品（简单但有效）
+            renderItems();
+        }
+
+        // 更新概率统计
+        function updateProbabilityStats() {
+            const totalWeight = getTotalWeight();
+            const rarityWeights = { legendary: 0, epic: 0, rare: 0, common: 0 };
+            
+            DEFAULT_POOLS.forEach(item => {
+                rarityWeights[item.rarity] += getItemWeight(item);
+            });
+            
+            document.getElementById('legendaryProb').textContent = 
+                totalWeight > 0 ? ((rarityWeights.legendary / totalWeight) * 100).toFixed(2) + '%' : '0%';
+            document.getElementById('epicProb').textContent = 
+                totalWeight > 0 ? ((rarityWeights.epic / totalWeight) * 100).toFixed(2) + '%' : '0%';
+            document.getElementById('rareProb').textContent = 
+                totalWeight > 0 ? ((rarityWeights.rare / totalWeight) * 100).toFixed(2) + '%' : '0%';
+            document.getElementById('commonProb').textContent = 
+                totalWeight > 0 ? ((rarityWeights.common / totalWeight) * 100).toFixed(2) + '%' : '0%';
+            
+            renderProbabilityChart();
+        }
+
+        // 渲染概率分布图
+        function renderProbabilityChart() {
+            const chart = document.getElementById('probabilityChart');
+            const totalWeight = getTotalWeight();
+            const rarities = ['legendary', 'epic', 'rare', 'common'];
+            const rarityNames = { legendary: '传说', epic: '史诗', rare: '稀有', common: '普通' };
+            const rarityWeights = { legendary: 0, epic: 0, rare: 0, common: 0 };
+            
+            DEFAULT_POOLS.forEach(item => {
+                rarityWeights[item.rarity] += getItemWeight(item);
+            });
+            
+            chart.innerHTML = rarities.map(rarity => {
+                const percent = totalWeight > 0 ? (rarityWeights[rarity] / totalWeight) * 100 : 0;
+                return `
+                    <div class="chart-bar">
+                        <div class="chart-label">${rarityNames[rarity]}</div>
+                        <div class="chart-bar-inner">
+                            <div class="chart-bar-fill ${rarity}" style="width: ${percent}%"></div>
+                            <div class="chart-bar-value">${percent.toFixed(2)}%</div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // 切换标签
+        function switchTab(tab) {
+            currentTab = tab;
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            event.target.classList.add('active');
+            renderItems();
+        }
+
+        // 更新批量倍率显示
+        function updateBulkValue() {
+            const value = document.getElementById('bulkMultiplier').value;
+            document.getElementById('bulkValue').textContent = parseFloat(value).toFixed(1) + 'x';
+        }
+
+        // 应用批量倍率
+        function applyBulkMultiplier() {
+            const rarity = document.getElementById('bulkRarity').value;
+            const multiplier = parseFloat(document.getElementById('bulkMultiplier').value);
+            
+            const items = rarity === 'all' ? DEFAULT_POOLS : DEFAULT_POOLS.filter(item => item.rarity === rarity);
+            
+            items.forEach(item => {
+                const newWeight = Math.max(0, Math.min(1000, Math.round(item.weight * multiplier)));
+                if (newWeight === item.weight) {
+                    delete currentWeights[item.id];
+                } else {
+                    currentWeights[item.id] = newWeight;
+                }
+            });
+            
+            renderItems();
+            updateProbabilityStats();
+            showStatus(`已将 ${rarity === 'all' ? '全部' : getRarityName(rarity)} 权重调整为 ${multiplier.toFixed(1)}x`, 'success');
+        }
+
+        // 保存权重配置
+        function saveWeights() {
+            try {
+                localStorage.setItem('deathTrench_lottery_weights', JSON.stringify(currentWeights));
+                showStatus('✅ 配置已保存！游戏中抽奖会使用新的权重。', 'success');
+            } catch (e) {
+                showStatus('❌ 保存失败：' + e.message, 'error');
+            }
+        }
+
+        // 重置为默认
+        function resetWeights() {
+            if (confirm('确定要重置所有权重为默认值吗？')) {
+                currentWeights = {};
+                renderItems();
+                updateProbabilityStats();
+                showStatus('🔄 已重置为默认权重', 'info');
+            }
+        }
+
+        // 模拟100抽
+        function simulateDraws() {
+            const results = { legendary: 0, epic: 0, rare: 0, common: 0 };
+            const activePool = DEFAULT_POOLS.map(item => ({
+                ...item,
+                weight: getItemWeight(item)
+            }));
+            
+            const totalWeight = activePool.reduce((sum, p) => sum + p.weight, 0);
+            
+            for (let i = 0; i < 100; i++) {
+                let random = Math.random() * totalWeight;
+                let selected = activePool[0];
+                
+                for (const item of activePool) {
+                    random -= item.weight;
+                    if (random <= 0) {
+                        selected = item;
+                        break;
+                    }
+                }
+                
+                results[selected.rarity]++;
+            }
+            
+            showStatus(`🎲 模拟100抽结果：传说 ${results.legendary} 个，史诗 ${results.epic} 个，稀有 ${results.rare} 个，普通 ${results.common} 个`, 'info');
+        }
+
+        // 导出配置
+        function exportConfig() {
+            const config = {
+                version: '1.0',
+                weights: currentWeights,
+                exportTime: new Date().toISOString()
+            };
+            
+            const dataStr = JSON.stringify(config, null, 2);
+            const dataBlob = new Blob([dataStr], { type: 'application/json' });
+            const url = URL.createObjectURL(dataBlob);
+            
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'lottery_weights_config.json';
+            a.click();
+            
+            URL.revokeObjectURL(url);
+            showStatus('📤 配置已导出', 'success');
+        }
+
+        // 导入配置
+        function importConfig() {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = '.json';
+            input.onchange = function(e) {
+                const file = e.target.files[0];
+                if (!file) return;
+                
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    try {
+                        const config = JSON.parse(e.target.result);
+                        if (config.weights && typeof config.weights === 'object') {
+                            currentWeights = config.weights;
+                            renderItems();
+                            updateProbabilityStats();
+                            showStatus('📥 配置导入成功！', 'success');
+                        } else {
+                            showStatus('❌ 无效的配置文件格式', 'error');
+                        }
+                    } catch (err) {
+                        showStatus('❌ 解析失败：' + err.message, 'error');
+                    }
+                };
+                reader.readAsText(file);
+            };
+            input.click();
+        }
+
+        // 获取稀有度名称
+        function getRarityName(rarity) {
+            const names = { legendary: '传说', epic: '史诗', rare: '稀有', common: '普通' };
+            return names[rarity] || rarity;
+        }
+
+        // 显示状态消息
+        function showStatus(message, type) {
+            const status = document.getElementById('status');
+            status.textContent = message;
+            status.className = 'status show ' + type;
+            
+            setTimeout(() => {
+                status.classList.remove('show');
+            }, 3000);
+        }
+
+        // 页面加载时初始化
+        document.addEventListener('DOMContentLoaded', init);
+    </script>
+</body>
+</html>
