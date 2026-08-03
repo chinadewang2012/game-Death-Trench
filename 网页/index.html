@@ -462,6 +462,9 @@
                                 <div class="mission-reward" id="readyRoomMissionReward">-</div>
                             </div>
                         </div>
+                        <button class="menu-btn secondary" id="missionBriefingBtn" onclick="showMissionBriefing()" style="width:100%;margin-top:8px;display:none;">
+                            📜 查看任务简报与剧情引导
+                        </button>
 
                         <div class="section-title">选择难度</div>
                         <div class="diff-buttons compact">
@@ -1652,6 +1655,44 @@
                 <button class="menu-btn tertiary" style="padding:6px 14px;font-size:12px;" onclick="skipTutorial()">跳过</button>
                 <button class="menu-btn tertiary" style="padding:6px 14px;font-size:12px;" id="tutorialPrev" onclick="prevTutorialStep()">上一步</button>
                 <button class="menu-btn primary" style="padding:6px 14px;font-size:12px;" id="tutorialNext" onclick="nextTutorialStep()">下一步</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- NPC 对话覆盖层 -->
+    <div id="dialogueOverlay" class="dialogue-overlay" style="display:none;">
+        <div class="dialogue-backdrop"></div>
+        <div class="dialogue-box" id="dialogueBox">
+            <div class="dialogue-speaker-row">
+                <div class="dialogue-avatar" id="dialogueAvatar">🎖️</div>
+                <div class="dialogue-speaker-info">
+                    <div class="dialogue-speaker-name" id="dialogueSpeaker">指挥官</div>
+                    <div class="dialogue-speaker-tag" id="dialogueSpeakerTag">Death Trench 特遣队</div>
+                </div>
+            </div>
+            <div class="dialogue-text" id="dialogueText"></div>
+            <div class="dialogue-choices" id="dialogueChoices"></div>
+            <div class="dialogue-nav">
+                <button class="menu-btn tertiary" onclick="skipDialogue()">跳过</button>
+                <button class="menu-btn primary" id="dialogueNextBtn" onclick="nextDialogueLine()">继续</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 任务简报弹窗 -->
+    <div id="missionBriefingModal" class="popup-overlay" style="display:none;">
+        <div class="popup-content briefing-content">
+            <div class="briefing-header">
+                <h2 id="briefingTitle">任务简报</h2>
+            </div>
+            <div class="briefing-body">
+                <div id="briefingStory" class="briefing-story"></div>
+                <div class="briefing-section-title">行动目标</div>
+                <div id="briefingObjectives" class="briefing-objectives"></div>
+            </div>
+            <div class="briefing-actions">
+                <button class="menu-btn tertiary" onclick="closeMissionBriefing()">关闭</button>
+                <button class="menu-btn primary" onclick="closeMissionBriefing(); startGame();">开始行动</button>
             </div>
         </div>
     </div>

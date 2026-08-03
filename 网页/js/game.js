@@ -3398,6 +3398,14 @@ function showLoadingScreen(callback) {
 }
 
 function startGame() {
+    // 若当前任务有未查看的剧情简报，优先弹出
+    if (currentMission && (playerData.selectedMode || 'mission') === 'mission' &&
+        hasMissionBriefing(currentMission.id) &&
+        !storyState.seenBriefings.includes(currentMission.id)) {
+        showMissionBriefing();
+        return;
+    }
+
     // 检查弹药是否充足
     const unlockedWeapons = WEAPONS.filter(w => w.unlocked);
     const lowAmmoWeapons = [];
@@ -6496,6 +6504,12 @@ function showLobby() {
         selectMissionForMap(playerData.selectedMap || 'desert');
     }
     updateReadyRoomMission();
+
+    // 首次进入大厅触发剧情对话
+    if (storyState.chapter === 1 && !isDialogueCompleted('intro_price')) {
+        showDialogue('intro_price');
+    }
+
     if (typeof showItemWheel === 'function') showItemWheel(false);
     if (typeof shiftHeld !== 'undefined') shiftHeld = false;
     if (window.lucide) lucide.createIcons();
@@ -9087,16 +9101,31 @@ function getDefaultMissions() {
 }
 
 function loadMissions() {
+    let missions = [];
     try {
         const stored = localStorage.getItem('deathTrench_missions');
         if (stored) {
             const data = JSON.parse(stored);
             // 兼容两种格式：数组直接使用 / {tasks: [...] }
-            if (Array.isArray(data)) return data;
-            if (Array.isArray(data.tasks)) return data.tasks;
+            if (Array.isArray(data)) missions = data;
+            else if (Array.isArray(data.tasks)) missions = data.tasks;
         }
     } catch (e) { /* fallback */ }
-    return getDefaultMissions();
+
+    if (!missions || missions.length === 0) {
+        missions = getDefaultMissions();
+    }
+
+    // 合并分线剧情任务，避免重复
+    const storyMissions = getStoryMissions();
+    const existingIds = new Set(missions.map(m => m.id));
+    for (const sm of storyMissions) {
+        if (!existingIds.has(sm.id)) {
+            missions.push(sm);
+            existingIds.add(sm.id);
+        }
+    }
+    return missions;
 }
 
 function loadMissionSettings() {
@@ -9196,12 +9225,26 @@ function updateMissionProgress(taskType, value) {
 function completeMission() {
     if (!currentMission) return;
 
+    const finishedId = currentMission.id;
+
     if (!completedMissionIds.includes(currentMission.id)) {
         completedMissionIds.push(currentMission.id);
         saveCompletedMissions();
     }
     playerData.coins += currentMission.reward;
     showNotification('🎖️ 任务完成！获得 ' + currentMission.reward + ' 金币');
+
+    // 分线剧情触发
+    if (finishedId === 'task_kill2') {
+        sendStoryMail('price_after_city');
+        if (storyState.branch === 'truth' || storyState.branch === 'mercy') {
+            sendStoryMail('ghost_warning_mail');
+        }
+        advanceChapter();
+    }
+    if (finishedId === 'task_kill3' && storyState.branch === 'truth' && storyState.chapter < 3) {
+        advanceChapter();
+    }
 
     const missions = loadMissions();
     const currentIdx = missions.findIndex(m => m.id === currentMission.id);
@@ -9284,6 +9327,8 @@ function updateReadyRoomMission() {
     descEl.textContent = currentMission.descZh;
     rewardEl.textContent = '奖励: 🪙 ' + currentMission.reward + ' · 目标: ' + currentMissionProgress + '/' + currentMission.target;
     if (cardEl) cardEl.style.borderColor = '#00cc66';
+
+    toggleMissionBriefingButton();
 }
 
 function hasMissionPrereqs(mission, missions) {
@@ -9871,6 +9916,7 @@ function init() {
     loadMedals();
     loadCompletedMissions();
     loadMissionSettings();
+    loadStoryState();
     syncSettingsUI();
     setupMissionPanelDrag();
     checkAllMedals();
@@ -11204,6 +11250,402 @@ function skipTutorial() {
     const highlight = document.getElementById('tutorialHighlight');
     if (highlight) highlight.style.display = 'none';
 }
+
+// ====================================================================
+// 剧情状态与分线系统
+// ====================================================================
+const STORY_STATE_KEY = 'deathTrench_story_state';
+
+let storyState = {
+    chapter: 1,
+    branch: 'neutral',
+    flags: {},
+    completedDialogues: [],
+    seenBriefings: []
+};
+
+function loadStoryState() {
+    try {
+        const raw = localStorage.getItem(STORY_STATE_KEY);
+        if (raw) Object.assign(storyState, JSON.parse(raw));
+    } catch (e) { console.warn('[Story] load failed', e); }
+}
+
+function saveStoryState() {
+    try {
+        localStorage.setItem(STORY_STATE_KEY, JSON.stringify(storyState));
+    } catch (e) {}
+}
+
+function setStoryFlag(key, value) {
+    storyState.flags[key] = value;
+    saveStoryState();
+}
+
+function hasStoryFlag(key) {
+    return !!storyState.flags[key];
+}
+
+function setStoryBranch(branch) {
+    storyState.branch = branch;
+    saveStoryState();
+}
+
+function advanceChapter() {
+    storyState.chapter++;
+    saveStoryState();
+}
+
+function markDialogueCompleted(dialogueId) {
+    if (!storyState.completedDialogues.includes(dialogueId)) {
+        storyState.completedDialogues.push(dialogueId);
+        saveStoryState();
+    }
+}
+
+function isDialogueCompleted(dialogueId) {
+    return storyState.completedDialogues.includes(dialogueId);
+}
+
+function markBriefingSeen(missionId) {
+    if (!storyState.seenBriefings.includes(missionId)) {
+        storyState.seenBriefings.push(missionId);
+        saveStoryState();
+    }
+}
+
+function resetStoryState() {
+    storyState = { chapter: 1, branch: 'neutral', flags: {}, completedDialogues: [], seenBriefings: [] };
+    saveStoryState();
+}
+
+// NPC 对话数据
+const DIALOGUES = {
+    'intro_price': {
+        speaker: '指挥官 · 普莱斯',
+        avatar: '🎖️',
+        tag: 'Death Trench 特遣队',
+        lines: [
+            { text: '欢迎来到死亡战壕，新兵。这里没有军衔，只有活人和死人。' },
+            { text: '黑潮军团占领了东部资源带，我们的任务很简单：打乱他们的节奏，然后把情报带回来。' },
+            { text: '第一课，我亲自教你。准备好了吗？', choices: [
+                { text: '准备好了，长官。服从命令。', action: () => { setStoryBranch('loyalty'); setStoryFlag('intro_ready'); advanceChapter(); } },
+                { text: '我想先知道黑潮到底在做什么。', action: () => { setStoryBranch('truth'); setStoryFlag('intro_ready'); advanceChapter(); } },
+                { text: '只要能少死人，让我做什么都行。', action: () => { setStoryBranch('mercy'); setStoryFlag('intro_ready'); advanceChapter(); } }
+            ]}
+        ]
+    },
+    'intro_ghost': {
+        speaker: '幽灵',
+        avatar: '👻',
+        tag: '战术支援',
+        lines: [
+            { text: '规则很简单：不要相信任何人，包括我。但你可以相信数据。' },
+            { text: '普通任务模式弹药无限，完成目标即可；搜打撤模式自带装备，活着撤离才能带走战利品。' },
+            { text: '去战备中心吧，普莱斯在等你。', choices: [
+                { text: '明白。', action: () => { setStoryFlag('intro_ready'); advanceChapter(); } }
+            ]}
+        ]
+    },
+    'city_choice': {
+        speaker: '指挥官 · 普莱斯',
+        avatar: '🎖️',
+        tag: 'Death Trench 特遣队',
+        lines: [
+            { text: '断壁城地下有一座黑潮军火库。上级想让我们直接炸平它。' },
+            { text: '但城里还有平民。你选：快速完成任务，还是优先搜救？', choices: [
+                { text: '炸掉军火库，任务第一。', action: () => { setStoryFlag('city_destroyed'); setStoryBranch('loyalty'); } },
+                { text: '先确认平民撤离。', action: () => { setStoryFlag('city_saved'); setStoryBranch('mercy'); } }
+            ]}
+        ]
+    },
+    'ghost_warning': {
+        speaker: '幽灵',
+        avatar: '👻',
+        tag: '战术支援',
+        lines: [
+            { text: '我截获了一段录音。普莱斯一年前和黑潮有过接触。' },
+            { text: '不要问他。先完成任务，证据越多，越能搞清楚他站在哪一边。', choices: [
+                { text: '我会自己查。', action: () => { setStoryFlag('ghost_trust'); setStoryBranch('truth'); } }
+            ]}
+        ]
+    }
+};
+
+let currentDialogueId = null;
+let currentDialogue = null;
+let currentDialogueLineIndex = 0;
+
+function showDialogue(dialogueId) {
+    const dialogue = DIALOGUES[dialogueId];
+    if (!dialogue) { console.warn('[Dialogue] not found:', dialogueId); return; }
+    currentDialogueId = dialogueId;
+    currentDialogue = dialogue;
+    currentDialogueLineIndex = 0;
+
+    const overlay = document.getElementById('dialogueOverlay');
+    console.log('[Dialogue] showDialogue', dialogueId, 'overlay found:', !!overlay);
+    if (overlay) {
+        overlay.style.display = 'flex';
+        overlay.classList.add('active');
+    }
+    renderDialogueLine();
+}
+
+function renderDialogueLine() {
+    if (!currentDialogue) return;
+    const line = currentDialogue.lines[currentDialogueLineIndex];
+    if (!line) { closeDialogue(); return; }
+
+    const speakerEl = document.getElementById('dialogueSpeaker');
+    const avatarEl = document.getElementById('dialogueAvatar');
+    const tagEl = document.getElementById('dialogueSpeakerTag');
+    const textEl = document.getElementById('dialogueText');
+    const choicesEl = document.getElementById('dialogueChoices');
+    const nextBtn = document.getElementById('dialogueNextBtn');
+
+    if (speakerEl) speakerEl.textContent = currentDialogue.speaker || '???';
+    if (avatarEl) avatarEl.textContent = currentDialogue.avatar || '👤';
+    if (tagEl) tagEl.textContent = currentDialogue.tag || '';
+    if (textEl) textEl.textContent = line.text || '';
+    if (choicesEl) choicesEl.innerHTML = '';
+
+    if (line.choices && line.choices.length > 0) {
+        if (nextBtn) nextBtn.style.display = 'none';
+        line.choices.forEach((choice, idx) => {
+            const btn = document.createElement('button');
+            btn.className = 'dialogue-choice-btn';
+            btn.textContent = choice.text;
+            btn.onclick = () => selectDialogueChoice(idx);
+            choicesEl.appendChild(btn);
+        });
+    } else {
+        if (nextBtn) {
+            nextBtn.style.display = 'inline-block';
+            nextBtn.textContent = currentDialogueLineIndex >= currentDialogue.lines.length - 1 ? '结束' : '继续';
+        }
+    }
+}
+
+function nextDialogueLine() {
+    if (!currentDialogue) return;
+    currentDialogueLineIndex++;
+    if (currentDialogueLineIndex >= currentDialogue.lines.length) {
+        closeDialogue();
+    } else {
+        renderDialogueLine();
+    }
+}
+
+function selectDialogueChoice(choiceIndex) {
+    if (!currentDialogue) return;
+    const line = currentDialogue.lines[currentDialogueLineIndex];
+    const choice = line.choices[choiceIndex];
+    if (!choice) return;
+
+    if (choice.action) {
+        try { choice.action(); } catch (e) { console.error('[Dialogue] choice action failed', e); }
+    }
+
+    if (choice.next && DIALOGUES[choice.next]) {
+        const nextId = choice.next;
+        closeDialogue();
+        setTimeout(() => showDialogue(nextId), 250);
+    } else {
+        closeDialogue();
+    }
+}
+
+function closeDialogue() {
+    if (currentDialogueId) markDialogueCompleted(currentDialogueId);
+    currentDialogueId = null;
+    currentDialogue = null;
+    currentDialogueLineIndex = 0;
+    const overlay = document.getElementById('dialogueOverlay');
+    if (overlay) {
+        overlay.style.display = 'none';
+        overlay.classList.remove('active');
+    }
+}
+
+function skipDialogue() {
+    closeDialogue();
+}
+
+window.showDialogue = showDialogue;
+window.nextDialogueLine = nextDialogueLine;
+window.selectDialogueChoice = selectDialogueChoice;
+window.skipDialogue = skipDialogue;
+window.resetStoryState = resetStoryState;
+
+// 任务简报与引导数据
+const MISSION_GUIDES = {
+    'task_kill1': {
+        title: '沙漠突袭：沙海前哨',
+        story: '黑潮在沙漠边缘建立了一座前哨站，用来监视我方补给线。\n\n普莱斯说："这不是杀鸡儆猴，这是剪指甲——让他们知道我们一直在。"',
+        objectives: [
+            '① 选择「沙漠」地图，普通任务模式。',
+            '② 消灭 15 名黑潮士兵。',
+            '③ 沙漠掩体较少，保持移动，优先占据高地。'
+        ]
+    },
+    'task_kill2': {
+        title: '城市清剿：断壁城',
+        story: '断壁城曾是自由贸易港，现在被黑潮改成军火中转站。\n\n情报显示地下有一座弹药库，清理敌人就是切断他们的补给线。',
+        objectives: [
+            '① 选择「城市」地图。',
+            '② 清理 20 名敌人。',
+            '③ 小心建筑物内的伏击，手雷在拐角处效果很好。'
+        ],
+        preDialogue: 'city_choice'
+    },
+    'task_kill3': {
+        title: '丛林猎杀：毒藤密林',
+        story: '黑潮在丛林深处设立了生物实验室，传闻他们在测试一种增强士兵体能的药剂。\n\n进去的人很少能完整出来。',
+        objectives: [
+            '① 选择「丛林」地图。',
+            '② 消灭 25 名敌人。',
+            '③ 视野受限，狙击枪和霰弹枪各有优势。'
+        ]
+    },
+    'task_boss1': {
+        title: 'Boss 猎手：斩首行动',
+        story: '黑潮的一名重甲指挥官「铁砧」出现在战场上。\n\n他从不单独行动，身边总有一群精锐护卫。',
+        objectives: [
+            '① 任意地图均可触发。',
+            '② 消灭 1 名 Boss 单位。',
+            '③ 穿甲弹和爆炸物对重甲目标更有效。'
+        ]
+    }
+};
+
+let currentBriefingMissionId = null;
+
+function hasMissionBriefing(missionId) {
+    return !!MISSION_GUIDES[missionId];
+}
+
+function showMissionBriefing() {
+    if (!currentMission) return;
+    const guide = MISSION_GUIDES[currentMission.id];
+    if (!guide) return;
+
+    currentBriefingMissionId = currentMission.id;
+
+    // 剧情对话优先触发
+    if (guide.preDialogue && !isDialogueCompleted(guide.preDialogue)) {
+        showDialogue(guide.preDialogue);
+        return;
+    }
+
+    const modal = document.getElementById('missionBriefingModal');
+    const titleEl = document.getElementById('briefingTitle');
+    const storyEl = document.getElementById('briefingStory');
+    const objEl = document.getElementById('briefingObjectives');
+
+    if (titleEl) titleEl.textContent = guide.title || currentMission.nameZh;
+    if (storyEl) storyEl.textContent = guide.story || '';
+    if (objEl) objEl.innerHTML = (guide.objectives || []).map(o => `<div class="briefing-objective">${o}</div>`).join('');
+
+    if (modal) modal.style.display = 'flex';
+}
+
+function closeMissionBriefing() {
+    if (currentBriefingMissionId) {
+        markBriefingSeen(currentBriefingMissionId);
+        currentBriefingMissionId = null;
+    }
+    const modal = document.getElementById('missionBriefingModal');
+    if (modal) modal.style.display = 'none';
+}
+
+function toggleMissionBriefingButton() {
+    const btn = document.getElementById('missionBriefingBtn');
+    if (!btn) return;
+    const mode = playerData.selectedMode || 'mission';
+    const visible = mode === 'mission' && currentMission && hasMissionBriefing(currentMission.id);
+    btn.style.display = visible ? 'block' : 'none';
+}
+
+window.showMissionBriefing = showMissionBriefing;
+window.closeMissionBriefing = closeMissionBriefing;
+
+// 分线剧情任务扩展
+function getStoryMissions() {
+    const missions = [];
+    if (storyState.branch === 'truth' && hasStoryFlag('city_saved') && storyState.chapter >= 2) {
+        missions.push({
+            id: 'task_truth_lab',
+            type: 'kill',
+            nameZh: '真相：实验室渗透',
+            nameEn: 'Truth: Lab Infiltration',
+            descZh: '潜入黑潮实验室，销毁纳米控制原型机',
+            descEn: 'Infiltrate Black Tide lab and destroy the nano-control prototype',
+            target: 30,
+            reward: 1200,
+            map: 'ruins'
+        });
+    }
+    if (storyState.branch === 'loyalty' && hasStoryFlag('city_destroyed') && storyState.chapter >= 2) {
+        missions.push({
+            id: 'task_loyalty_convoy',
+            type: 'kill',
+            nameZh: '忠诚：截击补给线',
+            nameEn: 'Loyalty: Supply Intercept',
+            descZh: '摧毁黑潮补给车队，削弱其前线兵力',
+            descEn: 'Destroy Black Tide supply convoys to weaken frontline forces',
+            target: 35,
+            reward: 1200,
+            map: 'wasteland'
+        });
+    }
+    if (storyState.branch === 'mercy' && hasStoryFlag('city_saved') && storyState.chapter >= 2) {
+        missions.push({
+            id: 'task_mercy_rescue',
+            type: 'extract',
+            nameZh: '仁慈：撤离难民',
+            nameEn: 'Mercy: Civilian Extraction',
+            descZh: '保护平民撤离点直至撤离完成',
+            descEn: 'Protect the civilian extraction point until extraction is complete',
+            target: 1,
+            reward: 1200,
+            map: 'forest'
+        });
+    }
+    return missions;
+}
+
+window.getStoryMissions = getStoryMissions;
+
+// 分线剧情邮件
+function sendStoryMail(mailId) {
+    const storyMails = {
+        'ghost_warning_mail': {
+            id: 'ghost_warning_mail',
+            sender: '幽灵',
+            subject: '关于普莱斯',
+            body: '我截获了一段录音。普莱斯一年前和黑潮有过接触。\n\n不要问他。先完成任务，证据越多，越能搞清楚他站在哪一边。\n\n我会再联系你。',
+            date: '2026-06-22 03:14',
+            unread: true
+        },
+        'price_after_city': {
+            id: 'price_after_city',
+            sender: '指挥官 · 普莱斯',
+            subject: '断壁城之后',
+            body: '你今天的选择，总部会记住。\n\n在死亡战壕，没有绝对的对错，只有你能不能活到下一个黎明。\n\n活着回来。',
+            date: '2026-06-22 08:00',
+            unread: true
+        }
+    };
+    const mail = storyMails[mailId];
+    if (!mail) return;
+    if (!_mailListCache) _mailListCache = getDefaultMails();
+    if (_mailListCache.some(m => m.id === mailId)) return;
+    _mailListCache.unshift(mail);
+    saveMailsToStorage();
+}
+
+window.sendStoryMail = sendStoryMail;
 
 // ====================================================================
 // 受击反馈
