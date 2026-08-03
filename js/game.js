@@ -487,6 +487,41 @@ const POOL_BULLET_MAX = 500;
 const POOL_EXPLOSION_MAX = 100;
 const POOL_DROP_MAX = 100;
 
+// 搜打撤实验参数
+const TEAM_MAX_SIZE = 3;                 // 队伍上限（含玩家）
+const LOOT_CRATE_SEARCH_TIME = 1500;     // 开箱时间（毫秒）
+const LOOT_CRATE_NOISE_RADIUS = 18;      // 开箱吸引敌人的半径
+const LOOT_CRATE_LOOT_COUNT = 3;         // 每个箱子掉落物数量
+const LOOT_CRATE_RARITY = {
+    COMMON: { id: 'common', chance: 0.70, color: '#b8860b', glow: '#daa520', icon: '🧰', lootMul: 1, label: '普通' },
+    RARE:   { id: 'rare',   chance: 0.25, color: '#4dabf7', glow: '#91d5ff', icon: '💼', lootMul: 1.5, label: '稀有' },
+    LEGENDARY: { id: 'legendary', chance: 0.05, color: '#ff6b00', glow: '#ffaa00', icon: '👑', lootMul: 2.5, label: '传说' }
+};
+const LOOT_CRATE_DROP_TABLE = {
+    common: [
+        { type: 'coins',  weight: 40, min: 15, max: 35 },
+        { type: 'heal',   weight: 25, min: 20, max: 35 },
+        { type: 'item',   weight: 20, itemId: 'grenade',  value: 1 },
+        { type: 'item',   weight: 15, itemId: 'speedBoost', value: 1 }
+    ],
+    rare: [
+        { type: 'coins',  weight: 30, min: 40, max: 80 },
+        { type: 'heal',   weight: 20, min: 40, max: 60 },
+        { type: 'ammo',   weight: 25, min: 30, max: 60 },
+        { type: 'item',   weight: 15, itemId: 'grenade', value: 2 },
+        { type: 'armor',  weight: 10, value: 30 }
+    ],
+    legendary: [
+        { type: 'coins',  weight: 25, min: 100, max: 200 },
+        { type: 'fullHeal', weight: 15 },
+        { type: 'ammo',   weight: 20, min: 80, max: 150, special: true },
+        { type: 'item',   weight: 15, itemId: 'ammoBox', value: 1 },
+        { type: 'item',   weight: 10, itemId: 'medkit', value: 2 },
+        { type: 'mod',    weight: 10 },
+        { type: 'skin',   weight: 5 }
+    ]
+};
+
 // 游戏版本
 const GAME_VERSION = '2.0.0';
 const UPDATE_CHECK_URL = 'https://gitee.com/wang-zirui-from-beijing/death-trench-ai-game/raw/main/version.json';
@@ -754,8 +789,11 @@ let player;
 // 使用数组 + alive 标记实现对象池（避免频繁 filter 分配）
 let bullets = [];
 let enemies = [];
+let teammates = [];
 let drops = [];
 let explosions = [];
+let lootCrates = [];
+let activeCrate = null;
 
 let gameRunning = false;
 let animationId;
@@ -790,6 +828,19 @@ let settings = {
     fireRate: 100 // 射速调整，100为默认，数值越小射速越快
 };
 window.settings = settings;
+
+// 游戏模式：mission 普通任务 / raid 搜打撤
+let gameMode = 'mission';
+window.gameMode = gameMode;
+
+// 搜打撤临时数据：战利品背包、当前出战配装、局内消耗品
+let raidLoot = [];
+let currentRaidLoadout = null;
+let battleConsumables = null;
+
+// Round 3：地图事件与 AI 埋伏
+let mapEvents = [];
+let nextMapEventAt = 0;
 
 const DEFAULT_TITLES_GAME = [
     { id: 't0', name: '新兵', icon: '🎖️', color: '#ffffff', bg1: 'rgba(139,148,158,0.5)', bg2: 'rgba(139,148,158,0.3)', borderColor: '#8b949e', pattern: 'none', conditionType: 'default', threshold: 0, reqText: '初始' },
@@ -1142,112 +1193,38 @@ const AVATAR_CONFIG = {
     defaultAvatar: '⚔️'
 };
 
+// 兑换码配置：每个账号限用一次，redeemedCodes 不计入存档验证码
 const REDEEM_CODES = [
-    { code: '7S9K2P5G8', kills: 5, coins: 100 },
-    { code: 'F4D7N3X2C', kills: 10, coins: 200 },
-    { code: 'B8R2V5L9M', kills: 15, coins: 300 },
-    { code: 'Q6T3Z7J4H', kills: 20, coins: 400 },
-    { code: 'W2G9C5S7N', kills: 25, coins: 500 },
-    { code: 'X5L8D2P6V', kills: 30, coins: 600 },
-    { code: 'Z7J4M9R3K', kills: 35, coins: 700 },
-    { code: 'H3P6B2T8F', kills: 40, coins: 800 },
-    { code: 'N9V5Q7L2D', kills: 45, coins: 900 },
-    { code: 'K2C8F4Z6J', kills: 50, coins: 1000 },
-    { code: 'M7T3S9B5R', kills: 55, coins: 1100 },
-    { code: 'P5D2H8V7Q', kills: 60, coins: 1200 },
-    { code: 'R8J6N3C9W', kills: 65, coins: 1300 },
-    { code: 'V4L9Z5T2X', kills: 70, coins: 1400 },
-    { code: 'C7B2Q8M3S', kills: 75, coins: 1500 },
-    { code: 'T3F5W7D9P', kills: 80, coins: 1600 },
-    { code: 'L9X8R2J5H', kills: 85, coins: 1700 },
-    { code: 'J2Z7M4N6B', kills: 90, coins: 1800 },
-    { code: 'B5S3P9V8K', kills: 95, coins: 1900 },
-    { code: 'D8Q2H7C4L', kills: 100, coins: 2000 },
-    { code: 'F3N5T9R6M', kills: 120, coins: 2200 },
-    { code: 'G7V2B8S3Z', kills: 140, coins: 2400 },
-    { code: 'H2C9L5Q7J', kills: 160, coins: 2600 },
-    { code: 'K5M8Z3P6D', kills: 180, coins: 2800 },
-    { code: 'L9R4F7V2N', kills: 200, coins: 3000 },
-    { code: 'M3P6X9B5T', kills: 220, coins: 3200 },
-    { code: 'N7J2D8S4Q', kills: 240, coins: 3400 },
-    { code: 'P2V5R9C7H', kills: 260, coins: 3600 },
-    { code: 'Q5B8T3Z6F', kills: 280, coins: 3800 },
-    { code: 'R9S4M7L2K', kills: 300, coins: 4000 },
-    { code: 'S3D7N2X5V', kills: 310, coins: 4150 },
-    { code: 'T8F2G5L9C', kills: 320, coins: 4300 },
-    { code: 'V4H9Q7J3P', kills: 330, coins: 4450 },
-    { code: 'W7K2B5M8R', kills: 340, coins: 4600 },
-    { code: 'X2L5Z9S4D', kills: 350, coins: 4750 },
-    { code: 'Y5M8C3V7F', kills: 360, coins: 4900 },
-    { code: 'Z9N4P7T2H', kills: 370, coins: 5050 },
-    { code: 'A3Q6R2L9K', kills: 380, coins: 5200 },
-    { code: 'B7S2D5J8M', kills: 390, coins: 5350 },
-    { code: 'C2T9F7V3N', kills: 400, coins: 5500 },
-    { code: 'D5V4H9P6R', kills: 410, coins: 5650 },
-    { code: 'E9W7K2C5S', kills: 420, coins: 5800 },
-    { code: 'F3X2L5M8T', kills: 430, coins: 5950 },
-    { code: 'G7Y5N9Q3V', kills: 440, coins: 6100 },
-    { code: 'H2Z8P7B4D', kills: 450, coins: 6250 },
-    { code: 'I5A3R9S7F', kills: 460, coins: 6400 },
-    { code: 'J9B6T2L5H', kills: 470, coins: 6550 },
-    { code: 'K3C2V5M8Q', kills: 480, coins: 6700 },
-    { code: 'L7D9N7J3P', kills: 490, coins: 6850 },
-    { code: 'M2E5F9R6K', kills: 500, coins: 7000 },
-    { code: 'N5G8H3S7B', kills: 510, coins: 7150 },
-    { code: 'P9H4J7T2C', kills: 520, coins: 7300 },
-    { code: 'Q3J2K5V8D', kills: 530, coins: 7450 },
-    { code: 'R7K5L9P3F', kills: 540, coins: 7600 },
-    { code: 'S2L8M7Q6H', kills: 550, coins: 7750 },
-    { code: 'T5M3N9R2V', kills: 560, coins: 7900 },
-    { code: 'U9N6P2S5K', kills: 570, coins: 8050 },
-    { code: 'V3P2Q5T8L', kills: 580, coins: 8200 },
-    { code: 'W7Q5R9V3M', kills: 590, coins: 8350 },
-    { code: 'X2R8S7B6N', kills: 600, coins: 8500 },
-    { code: 'Y5S3T9C2P', kills: 620, coins: 8700 },
-    { code: 'Z9T6V2D5J', kills: 640, coins: 8900 },
-    { code: 'A3U2W5F8R', kills: 660, coins: 9100 },
-    { code: 'B7W5X9G3L', kills: 680, coins: 9300 },
-    { code: 'C2X8Y7H6M', kills: 700, coins: 9500 },
-    { code: 'D5Y3Z9J2N', kills: 720, coins: 9700 },
-    { code: 'E9Z6A2K5P', kills: 740, coins: 9900 },
-    { code: 'F3A2B5L8Q', kills: 760, coins: 10100 },
-    { code: 'G7B5C9M3R', kills: 780, coins: 10300 },
-    { code: 'H2C8D7N6S', kills: 800, coins: 10500 },
-    { code: 'I5D3E9P2T', kills: 820, coins: 10700 },
-    { code: 'J9E6F2Q5V', kills: 840, coins: 10900 },
-    { code: 'K3F2G5R8W', kills: 860, coins: 11100 },
-    { code: 'L7G5H9S3X', kills: 880, coins: 11300 },
-    { code: 'M2H8I7T6Y', kills: 900, coins: 11500 },
-    { code: 'N5I3J9U2Z', kills: 920, coins: 11700 },
-    { code: 'P9J6K2V5A', kills: 940, coins: 11900 },
-    { code: 'Q3K2L5W8B', kills: 960, coins: 12100 },
-    { code: 'R7L5M9X3C', kills: 980, coins: 12300 },
-    { code: 'S2M8N7Y6D', kills: 1000, coins: 12500 },
-    { code: 'T5N3P9Z2E', kills: 1030, coins: 12750 },
-    { code: 'U9P6Q2A5F', kills: 1060, coins: 13000 },
-    { code: 'V3Q2R5B8G', kills: 1090, coins: 13250 },
-    { code: 'W7R5S9C3H', kills: 1120, coins: 13500 },
-    { code: 'X2S8T7D6I', kills: 1150, coins: 13750 },
-    { code: 'Y5T3U9E2J', kills: 1180, coins: 14000 },
-    { code: 'Z9U6V2F5K', kills: 1210, coins: 14250 },
-    { code: 'A3V2W5G8L', kills: 1240, coins: 14500 },
-    { code: 'B7W5X9H3M', kills: 1270, coins: 14750 },
-    { code: 'C2X8Y7I6N', kills: 1300, coins: 15000 },
-    { code: 'D5Y3Z9J2P', kills: 1340, coins: 15300 },
-    { code: 'E9Z6A2K5Q', kills: 1380, coins: 15600 },
-    { code: 'F3A2B5L8R', kills: 1420, coins: 15900 },
-    { code: 'G7B5C9M3S', kills: 1460, coins: 16200 },
-    { code: 'H2C8D7N6T', kills: 1500, coins: 16500 },
-    { code: 'I5D3E9P2V', kills: 1550, coins: 16850 },
-    { code: 'J9E6F2Q5W', kills: 1600, coins: 17200 },
-    { code: 'K3F2G5R8X', kills: 1650, coins: 17550 },
-    { code: 'L7G5H9S3Y', kills: 1700, coins: 17900 },
-    { code: 'M2H8I7T6Z', kills: 1750, coins: 18250 },
-    { code: 'N5I3J9U2A', kills: 1800, coins: 18600 },
-    { code: 'P9J6K2V5B', kills: 1860, coins: 19000 },
-    { code: 'Q3K2L5W8C', kills: 1920, coins: 19400 },
-    { code: 'R7L5M9X3D', kills: 1980, coins: 19800 },
-    { code: 'S2M8N7Y6E', kills: 2050, coins: 20250 }
+    { code: 'DT2026A01', kills: 5, coins: 100 },
+    { code: 'DT2026A02', kills: 10, coins: 200 },
+    { code: 'DT2026A03', kills: 15, coins: 300 },
+    { code: 'DT2026A04', kills: 20, coins: 400 },
+    { code: 'DT2026A05', kills: 25, coins: 500 },
+    { code: 'DT2026A06', kills: 30, coins: 600 },
+    { code: 'DT2026A07', kills: 35, coins: 700 },
+    { code: 'DT2026A08', kills: 40, coins: 800 },
+    { code: 'DT2026A09', kills: 45, coins: 900 },
+    { code: 'DT2026A10', kills: 50, coins: 1000 },
+    { code: 'DT2026A11', kills: 55, coins: 1100 },
+    { code: 'DT2026A12', kills: 60, coins: 1200 },
+    { code: 'DT2026A13', kills: 65, coins: 1300 },
+    { code: 'DT2026A14', kills: 70, coins: 1400 },
+    { code: 'DT2026A15', kills: 75, coins: 1500 },
+    { code: 'DT2026A16', kills: 80, coins: 1600 },
+    { code: 'DT2026A17', kills: 85, coins: 1700 },
+    { code: 'DT2026A18', kills: 90, coins: 1800 },
+    { code: 'DT2026A19', kills: 95, coins: 1900 },
+    { code: 'DT2026A20', kills: 100, coins: 2000 },
+    { code: 'DT2026A21', kills: 120, coins: 2200 },
+    { code: 'DT2026A22', kills: 140, coins: 2400 },
+    { code: 'DT2026A23', kills: 160, coins: 2600 },
+    { code: 'DT2026A24', kills: 180, coins: 2800 },
+    { code: 'DT2026A25', kills: 200, coins: 3000 },
+    { code: 'DT2026A26', kills: 220, coins: 3200 },
+    { code: 'DT2026A27', kills: 240, coins: 3400 },
+    { code: 'DT2026A28', kills: 260, coins: 3600 },
+    { code: 'DT2026A29', kills: 280, coins: 3800 },
+    { code: 'DT2026A30', kills: 300, coins: 4000 }
 ];
 
 let playerData = {
@@ -1260,6 +1237,12 @@ let playerData = {
     title: '新兵',
     equippedArmor: '',
     selectedMap: 'desert',
+    selectedMode: 'mission',
+    teammateCount: 0,
+    equippedWeapons: { primary: 'rifle', secondary: 'pistol' },
+    raidLoadout: {
+        consumables: { medkits: 0, grenades: 0, speedBoost: 0 }
+    },
     avatar: {
         source: 'default', // 'default' | 'file' | 'url'
         dataUrl: '',
@@ -1314,6 +1297,14 @@ function loadPlayerData() {
             }
         }
 
+        // 初始化搜打撤出战配装
+        if (!playerData.raidLoadout) {
+            playerData.raidLoadout = { consumables: { medkits: 0, grenades: 0, speedBoost: 0 } };
+        }
+        if (!playerData.raidLoadout.consumables) {
+            playerData.raidLoadout.consumables = { medkits: 0, grenades: 0, speedBoost: 0 };
+        }
+
         savePlayerData();
         AntiCheat.recordPlayerSnapshot(playerData);
     } catch (e) {}
@@ -1334,7 +1325,7 @@ function savePlayerData() {
 
         // 同步一份无签名的 legacy 数据到 deathTrench_playerData，供旧版面板兼容读取
         const legacy = JSON.parse(localStorage.getItem('deathTrench_playerData') || '{}');
-        const syncFields = ['playerName', 'coins', 'totalKills', 'totalDeaths', 'totalScore', 'playTimeSeconds', 'title', 'equippedArmor', 'selectedMap', 'avatar', 'inventory', 'backpack', 'equippedWeapons', 'ammo', 'ownedSkins', 'equippedSkin', 'weaponAmmoSlots'];
+        const syncFields = ['playerName', 'coins', 'totalKills', 'totalDeaths', 'totalScore', 'playTimeSeconds', 'title', 'equippedArmor', 'selectedMap', 'teammateCount', 'avatar', 'inventory', 'backpack', 'equippedWeapons', 'ammo', 'ownedSkins', 'equippedSkin', 'weaponAmmoSlots'];
         for (const key of syncFields) {
             if (playerData[key] !== undefined) legacy[key] = playerData[key];
         }
@@ -2554,6 +2545,9 @@ function getAmmoName(ammoType) {
 
 // 检查并消耗弹药
 function consumeAmmo(weapon, count = 1) {
+    // 普通任务模式不消耗子弹
+    if (gameMode !== 'raid') return true;
+
     // 获取武器装备的弹药类型，如果没有则使用默认
     const equippedType = playerMods.equippedAmmoTypes?.[weapon.id];
     const ammoType = equippedType || weapon.ammoType || AMMO_TYPES.NORMAL;
@@ -2662,6 +2656,25 @@ function addAmmoToBackpack(ammoType, count) {
     saveAmmoBackpack();
 }
 
+// 从弹药背包扣除指定数量（用于搜打撤换弹消耗）
+function removeAmmoFromBackpack(ammoType, count) {
+    let remaining = count;
+    for (let i = 0; i < AMMO_BACKPACK_SLOTS; i++) {
+        if (ammoBackpack[i].type === ammoType) {
+            const remove = Math.min(remaining, ammoBackpack[i].count);
+            ammoBackpack[i].count -= remove;
+            remaining -= remove;
+            if (ammoBackpack[i].count <= 0) {
+                ammoBackpack[i].type = null;
+                ammoBackpack[i].count = 0;
+            }
+            if (remaining <= 0) break;
+        }
+    }
+    updateAmmoBackpackDisplay();
+    saveAmmoBackpack();
+}
+
 // 同步弹药数据到各存储并刷新 UI
 function syncAmmoUI() {
     try {
@@ -2685,6 +2698,60 @@ function syncAmmoUI() {
 function selectAmmoSlot(index) {
     selectedAmmoSlotIndex = index;
     updateAmmoBackpackDisplay();
+}
+
+// 搜打撤局内弹药补充面板状态
+let raidAmmoPanelOpen = false;
+let raidAmmoSelectedCount = 30;
+const RAID_AMMO_PRICES = {
+    normal: 5,
+    ap: 15,
+    exp: 25,
+    fire: 20
+};
+
+function toggleRaidAmmoPanel() {
+    const panel = document.getElementById('raidAmmoPanel');
+    if (!panel) return;
+    raidAmmoPanelOpen = !raidAmmoPanelOpen;
+    panel.style.display = raidAmmoPanelOpen ? 'block' : 'none';
+    if (raidAmmoPanelOpen) {
+        raidAmmoSelectedCount = 30;
+        document.getElementById('raidAmmoCount').textContent = raidAmmoSelectedCount;
+        updateRaidAmmoCost();
+    }
+}
+
+function adjustRaidAmmo(delta) {
+    raidAmmoSelectedCount = Math.max(10, raidAmmoSelectedCount + delta);
+    document.getElementById('raidAmmoCount').textContent = raidAmmoSelectedCount;
+    updateRaidAmmoCost();
+}
+
+function updateRaidAmmoCost() {
+    const type = document.getElementById('raidAmmoType').value;
+    const price = RAID_AMMO_PRICES[type] || 5;
+    const cost = raidAmmoSelectedCount * price;
+    const costEl = document.getElementById('raidAmmoCost');
+    if (costEl) costEl.textContent = cost;
+    const buyBtn = document.getElementById('raidAmmoBuyBtn');
+    if (buyBtn) buyBtn.disabled = playerData.coins < cost;
+}
+
+function buyRaidAmmo() {
+    const type = document.getElementById('raidAmmoType').value;
+    const price = RAID_AMMO_PRICES[type] || 5;
+    const cost = raidAmmoSelectedCount * price;
+    if (playerData.coins < cost) {
+        showNotification('金币不足！');
+        return;
+    }
+    playerData.coins -= cost;
+    ammoInventory[type] = (ammoInventory[type] || 0) + raidAmmoSelectedCount;
+    addAmmoToBackpack(type, raidAmmoSelectedCount);
+    syncAmmoUI();
+    updateHUD();
+    showNotification(`购买 ${getAmmoName(type)}×${raidAmmoSelectedCount}，花费 ${cost} 🪙`);
 }
 
 // 拆分弹药
@@ -2832,51 +2899,208 @@ function generateMap(theme) {
         snow: { ground: '#e0e8f0', obstacle: '#9aa5b1', cover: '#7a8a9a', building: '#aab7c4', water: '#3a5a7a' },
         volcano: { ground: '#3a1a1a', obstacle: '#1a0a0a', cover: '#4a1a1a', building: '#6b3a3a', water: '#5a1515' },
         ruins: { ground: '#c9b896', obstacle: '#8a7a5a', cover: '#a89a7a', building: '#6b6b5a', water: '#4a7a9a' },
-        base: { ground: '#3a3a4a', obstacle: '#1a1a2a', cover: '#2a3a4a', building: '#4a5a6a', water: '#1e3a5f' }
+        base: { ground: '#3a3a4a', obstacle: '#1a1a2a', cover: '#2a3a4a', building: '#4a5a6a', water: '#1e3a5f' },
+        forest: { ground: '#3a5a2a', obstacle: '#1a2f12', cover: '#2a4a1a', building: '#4a3a2a', water: '#2a6a8a' },
+        wasteland: { ground: '#8a7a5a', obstacle: '#5a4a3a', cover: '#6a5a4a', building: '#4a3a2a', water: '#3a5a6a' },
+        swamp: { ground: '#2d3a22', obstacle: '#1a2412', cover: '#3a4a2a', building: '#3a3a2a', water: '#2a4a3a' }
     };
     const c = colors[theme] || colors.desert;
 
     mapData = {};
     const seed = Date.now();
+    let rngState = seed % 2147483647;
+    function rand() {
+        rngState = (rngState * 16807) % 2147483647;
+        return rngState / 2147483647;
+    }
+    function randInt(min, max) {
+        return Math.floor(rand() * (max - min + 1)) + min;
+    }
 
     const obstacleRate = gameParams.MAP.obstacleRate || 0.08;
     const coverRate = gameParams.MAP.coverRate || 0.14;
     const buildingRate = gameParams.MAP.buildingRate || 0.18;
     const waterRate = gameParams.MAP.waterRate || 0.20;
 
+    // 初始化全地图为地面
     for (let y = 0; y < MAP_SIZE; y++) {
         for (let x = 0; x < MAP_SIZE; x++) {
-            const rand = ((seed + x * 9301 + y * 49297) % 233280) / 233280;
-            let type = 'ground';
-            let color = c.ground;
+            mapData[`${x}_${y}`] = { type: 'ground', color: c.ground };
+        }
+    }
 
-            if (rand < obstacleRate) {
-                type = 'obstacle';
-                color = c.obstacle;
-            } else if (rand < coverRate) {
-                type = 'cover';
-                color = c.cover;
-            } else if (rand < buildingRate) {
-                type = 'building';
-                color = c.building;
-            } else if (rand < waterRate && theme !== 'snow' && theme !== 'volcano') {
-                type = 'water';
-                color = c.water;
+    const centerX = Math.floor(MAP_SIZE / 2);
+    const centerY = Math.floor(MAP_SIZE / 2);
+
+    function setTile(x, y, type, color) {
+        if (x < 0 || x >= MAP_SIZE || y < 0 || y >= MAP_SIZE) return;
+        mapData[`${x}_${y}`] = { type, color };
+    }
+
+    function fillRect(x, y, w, h, type, color) {
+        for (let dy = 0; dy < h; dy++) {
+            for (let dx = 0; dx < w; dx++) {
+                setTile(x + dx, y + dy, type, color);
             }
+        }
+    }
 
-            // 出生点附近保持空地
-            const centerX = MAP_SIZE / 2;
-            const centerY = MAP_SIZE / 2;
-            if (Math.abs(x - centerX) < 5 && Math.abs(y - centerY) < 5) {
-                type = 'ground';
-                color = c.ground;
+    function drawRoad(x1, y1, x2, y2, width, color) {
+        const dist = Math.max(Math.abs(x2 - x1), Math.abs(y2 - y1));
+        for (let i = 0; i <= dist; i++) {
+            const t = dist === 0 ? 0 : i / dist;
+            const cx = Math.round(x1 + (x2 - x1) * t);
+            const cy = Math.round(y1 + (y2 - y1) * t);
+            for (let dy = -Math.floor(width / 2); dy <= Math.floor(width / 2); dy++) {
+                for (let dx = -Math.floor(width / 2); dx <= Math.floor(width / 2); dx++) {
+                    const tile = mapData[`${cx + dx}_${cy + dy}`];
+                    if (tile && tile.type !== 'building' && tile.type !== 'obstacle') {
+                        setTile(cx + dx, cy + dy, 'ground', color);
+                    }
+                }
             }
+        }
+    }
 
-            const tile = { type, color };
+    function drawRiver(x1, y1, x2, y2, width) {
+        let cx = x1, cy = y1;
+        while (Math.abs(cx - x2) > 1 || Math.abs(cy - y2) > 1) {
+            for (let dy = -Math.floor(width / 2); dy <= Math.floor(width / 2); dy++) {
+                for (let dx = -Math.floor(width / 2); dx <= Math.floor(width / 2); dx++) {
+                    if (rand() < 0.85) setTile(cx + dx, cy + dy, 'water', c.water);
+                }
+            }
+            if (rand() < 0.5) cx += Math.sign(x2 - cx);
+            else cy += Math.sign(y2 - cy);
+        }
+    }
 
-            // 为各种地块添加随机装饰细节，增强地图层次感
+    function distToCenter(x, y) {
+        return Math.sqrt((x - centerX) ** 2 + (y - centerY) ** 2);
+    }
+
+    // 1. 道路/河流骨架：让地图有“街区”感，而不是随机后室
+    const roadColor = theme === 'desert' ? '#d4c49a' : (theme === 'jungle' ? '#3a6a3a' : '#555555');
+    drawRoad(0, randInt(20, MAP_SIZE - 20), MAP_SIZE - 1, randInt(20, MAP_SIZE - 20), 3, roadColor);
+    drawRoad(randInt(20, MAP_SIZE - 20), 0, randInt(20, MAP_SIZE - 20), MAP_SIZE - 1, 3, roadColor);
+    if (rand() < waterRate && theme !== 'snow' && theme !== 'volcano') {
+        drawRiver(randInt(10, MAP_SIZE - 10), 0, randInt(10, MAP_SIZE - 10), MAP_SIZE - 1, randInt(2, 4));
+    }
+
+    // 2. 建筑区：生成若干矩形建筑群，内部为空地，边缘为建筑/掩体
+    const buildingCount = Math.floor(buildingRate * 30) + 6;
+    for (let i = 0; i < buildingCount; i++) {
+        const bx = randInt(8, MAP_SIZE - 18);
+        const by = randInt(8, MAP_SIZE - 18);
+        const bw = randInt(5, 10);
+        const bh = randInt(5, 10);
+        if (distToCenter(bx, by) < 12) continue; // 避开出生点
+
+        // 建筑外墙
+        for (let dy = 0; dy < bh; dy++) {
+            for (let dx = 0; dx < bw; dx++) {
+                if (dx === 0 || dx === bw - 1 || dy === 0 || dy === bh - 1) {
+                    setTile(bx + dx, by + dy, 'building', c.building);
+                } else {
+                    setTile(bx + dx, by + dy, 'ground', c.ground);
+                }
+            }
+        }
+        // 建筑周围加掩体
+        for (let dy = -1; dy <= bh; dy++) {
+            for (let dx = -1; dx <= bw; dx++) {
+                if (dx === -1 || dx === bw || dy === -1 || dy === bh) {
+                    if (rand() < 0.6 && distToCenter(bx + dx, by + dy) > 8) {
+                        setTile(bx + dx, by + dy, 'cover', c.cover);
+                    }
+                }
+            }
+        }
+    }
+
+    // 3. 自然障碍物集群（岩石/废墟/树木）
+    const clusterCount = Math.floor(obstacleRate * 60) + 4;
+    for (let i = 0; i < clusterCount; i++) {
+        const cx = randInt(5, MAP_SIZE - 6);
+        const cy = randInt(5, MAP_SIZE - 6);
+        if (distToCenter(cx, cy) < 10) continue;
+        const radius = randInt(2, 4);
+        for (let dy = -radius; dy <= radius; dy++) {
+            for (let dx = -radius; dx <= radius; dx++) {
+                if (dx * dx + dy * dy <= radius * radius && rand() < 0.7) {
+                    const tile = mapData[`${cx + dx}_${cy + dy}`];
+                    if (tile && tile.type === 'ground') {
+                        setTile(cx + dx, cy + dy, 'obstacle', c.obstacle);
+                    }
+                }
+            }
+        }
+    }
+
+    // 4. 零散掩体（沙袋/矮墙/灌木）
+    const coverCount = Math.floor(coverRate * 80) + 8;
+    for (let i = 0; i < coverCount; i++) {
+        const cx = randInt(3, MAP_SIZE - 4);
+        const cy = randInt(3, MAP_SIZE - 4);
+        if (distToCenter(cx, cy) < 8) continue;
+        const len = randInt(2, 5);
+        const horizontal = rand() < 0.5;
+        for (let k = 0; k < len; k++) {
+            const tx = horizontal ? cx + k : cx;
+            const ty = horizontal ? cy : cy + k;
+            const tile = mapData[`${tx}_${ty}`];
+            if (tile && tile.type === 'ground') {
+                setTile(tx, ty, 'cover', c.cover);
+            }
+        }
+    }
+
+    // 5. 主题特色区域
+    if (theme === 'base') {
+        // 军事基地：外围围墙
+        for (let x = 4; x < MAP_SIZE - 4; x++) {
+            if (rand() < 0.9) setTile(x, 4, 'building', c.building);
+            if (rand() < 0.9) setTile(x, MAP_SIZE - 5, 'building', c.building);
+        }
+        for (let y = 4; y < MAP_SIZE - 4; y++) {
+            if (rand() < 0.9) setTile(4, y, 'building', c.building);
+            if (rand() < 0.9) setTile(MAP_SIZE - 5, y, 'building', c.building);
+        }
+    } else if (theme === 'ruins') {
+        // 废墟：散落的断墙
+        for (let i = 0; i < 20; i++) {
+            const rx = randInt(5, MAP_SIZE - 6);
+            const ry = randInt(5, MAP_SIZE - 6);
+            const len = randInt(3, 8);
+            const horizontal = rand() < 0.5;
+            for (let k = 0; k < len; k++) {
+                const tx = horizontal ? rx + k : rx;
+                const ty = horizontal ? ry : ry + k;
+                if (rand() < 0.7) setTile(tx, ty, 'obstacle', c.obstacle);
+            }
+        }
+    } else if (theme === 'factory') {
+        // 工厂：大型中央厂房
+        fillRect(centerX - 12, centerY - 8, 24, 16, 'ground', c.ground);
+        for (let dy = 0; dy < 16; dy++) {
+            for (let dx = 0; dx < 24; dx++) {
+                if (dx === 0 || dx === 23 || dy === 0 || dy === 15) {
+                    setTile(centerX - 12 + dx, centerY - 8 + dy, 'building', c.building);
+                }
+            }
+        }
+    }
+
+    // 6. 确保出生点 7x7 完全为空地
+    fillRect(centerX - 3, centerY - 3, 7, 7, 'ground', c.ground);
+
+    // 7. 为各种地块添加随机装饰细节，增强地图层次感
+    for (let y = 0; y < MAP_SIZE; y++) {
+        for (let x = 0; x < MAP_SIZE; x++) {
+            const tile = mapData[`${x}_${y}`];
+            if (!tile) continue;
             const detailRand = ((seed + x * 17417 + y * 31051) % 233280) / 233280;
-            if (type === 'ground') {
+            if (tile.type === 'ground') {
                 if (detailRand < 0.05) {
                     if (theme === 'jungle' || theme === 'ruins') {
                         tile.detail = 'grass';
@@ -2892,31 +3116,29 @@ function generateMap(theme) {
                         tile.detailColor = 'rgba(0,0,0,0.2)';
                     }
                 }
-            } else if (type === 'obstacle') {
+            } else if (tile.type === 'obstacle') {
                 if (detailRand < 0.35) {
                     tile.detail = detailRand < 0.15 ? 'crack' : 'rock';
                     tile.detailColor = 'rgba(0,0,0,0.35)';
                 }
-            } else if (type === 'building') {
+            } else if (tile.type === 'building') {
                 if (detailRand < 0.18) {
                     tile.detail = 'window';
                     tile.detailColor = 'rgba(20,30,40,0.6)';
                 }
-            } else if (type === 'cover') {
+            } else if (tile.type === 'cover') {
                 if (detailRand < 0.45) {
                     tile.detail = 'sandbags';
                     tile.detailColor = 'rgba(60,50,35,0.5)';
                 }
-            } else if (type === 'water') {
+            } else if (tile.type === 'water') {
                 tile.detail = 'ripple';
                 tile.detailColor = 'rgba(255,255,255,0.12)';
             }
-
-            mapData[`${x}_${y}`] = tile;
         }
     }
-    
-    console.log('[MAP] Generated map with', Object.keys(mapData).length, 'tiles');
+
+    console.log('[MAP] Generated structured map with', Object.keys(mapData).length, 'tiles');
 }
 
 function loadCustomMapIfExists(mapName) {
@@ -3009,15 +3231,15 @@ function isBlocked(x, y) {
 
 // 圆形多采样碰撞检测
 function isBlockedCircle(x, y, radius) {
-    // 地图边界外禁止进入
-    if (x - radius < 0 || x + radius >= MAP_SIZE || y - radius < 0 || y + radius >= MAP_SIZE) {
+    // 地图边界外禁止进入（使用 > 允许实体刚好贴边，避免贴墙时误拦截）
+    if (x - radius < 0 || x + radius > MAP_SIZE || y - radius < 0 || y + radius > MAP_SIZE) {
         return true;
     }
     const samples = 8;
     for (let i = 0; i < samples; i++) {
         const angle = (i / samples) * Math.PI * 2;
-        const sx = x + Math.cos(angle) * radius * 0.9;
-        const sy = y + Math.sin(angle) * radius * 0.9;
+        const sx = x + Math.cos(angle) * radius * 0.95;
+        const sy = y + Math.sin(angle) * radius * 0.95;
         const tx = Math.floor(sx);
         const ty = Math.floor(sy);
         const tile = getTile(tx, ty);
@@ -3176,6 +3398,14 @@ function showLoadingScreen(callback) {
 }
 
 function startGame() {
+    // 若当前任务有未查看的剧情简报，优先弹出
+    if (currentMission && (playerData.selectedMode || 'mission') === 'mission' &&
+        hasMissionBriefing(currentMission.id) &&
+        !storyState.seenBriefings.includes(currentMission.id)) {
+        showMissionBriefing();
+        return;
+    }
+
     // 检查弹药是否充足
     const unlockedWeapons = WEAPONS.filter(w => w.unlocked);
     const lowAmmoWeapons = [];
@@ -3213,6 +3443,47 @@ function startGame() {
 }
 
 function actuallyStartGame() {
+    // 确定当前游戏模式
+    gameMode = playerData.selectedMode || 'mission';
+    window.gameMode = gameMode;
+
+    // 重置搜打撤临时数据
+    raidLoot = [];
+    currentRaidLoadout = null;
+
+    if (gameMode === 'raid') {
+        // 记录本局出战配装（武器、护甲、消耗品）
+        currentRaidLoadout = {
+            weapons: { ...(playerData.equippedWeapons || { primary: 'rifle', secondary: 'pistol' }) },
+            armor: playerData.equippedArmor || '',
+            consumables: { ...(playerData.raidLoadout && playerData.raidLoadout.consumables ? playerData.raidLoadout.consumables : { medkits: 0, grenades: 0, speedBoost: 0 }) }
+        };
+
+        // 扣除带入的消耗品（护甲在 equipArmor 时已扣除，这里不再重复）
+        const inv = playerData.inventory;
+        const rc = currentRaidLoadout.consumables;
+        for (const key of Object.keys(rc)) {
+            const take = rc[key] || 0;
+            if (take > 0) {
+                inv[key] = Math.max(0, (inv[key] || 0) - take);
+            }
+        }
+        savePlayerData();
+        updateSupplyUI();
+    }
+
+    // 初始化局内消耗品：普通模式每局给 10 手雷且医疗/加速不限；搜打撤只能用携带数量
+    if (gameMode === 'raid') {
+        battleConsumables = {
+            medkits: (currentRaidLoadout && currentRaidLoadout.consumables ? currentRaidLoadout.consumables.medkits : 0) || 0,
+            grenades: (currentRaidLoadout && currentRaidLoadout.consumables ? currentRaidLoadout.consumables.grenades : 0) || 0,
+            speedBoost: (currentRaidLoadout && currentRaidLoadout.consumables ? currentRaidLoadout.consumables.speedBoost : 0) || 0
+        };
+    } else {
+        // 普通模式：医疗/加速/弹药箱 generous，手雷每局固定 10 个
+        battleConsumables = { medkits: 99999, grenades: 10, speedBoost: 99999, ammoBox: 99999 };
+    }
+
     // 隐藏大厅和所有面板
     const lobby = document.getElementById('lobby');
     if (lobby) {
@@ -3298,9 +3569,21 @@ function actuallyStartGame() {
     // 渲染武器按钮，与 player.weapons 保持同步
     renderWeaponButtons();
 
-    // 撤离点：玩家出生位置
-    extractX = startX;
-    extractY = startY;
+    // 撤离点：地图边缘随机位置（与出生点保持一定距离，营造搜打撤体验）
+    const edgePositions = [
+        { x: 5, y: Math.floor(MAP_SIZE / 2) },
+        { x: MAP_SIZE - 5, y: Math.floor(MAP_SIZE / 2) },
+        { x: Math.floor(MAP_SIZE / 2), y: 5 },
+        { x: Math.floor(MAP_SIZE / 2), y: MAP_SIZE - 5 }
+    ];
+    const farEdges = edgePositions.filter(function(p) {
+        return Math.abs(p.x - startX) + Math.abs(p.y - startY) > MAP_SIZE / 3;
+    });
+    const extractPos = farEdges.length > 0
+        ? farEdges[Math.floor(Math.random() * farEdges.length)]
+        : edgePositions[0];
+    extractX = extractPos.x;
+    extractY = extractPos.y;
     isExtracting = false;
     extractStartTime = 0;
     extractProgress = 0;
@@ -3319,9 +3602,27 @@ function actuallyStartGame() {
     // 重置对象池数组，防止旧引用造成问题
     bullets = [];
     enemies = [];
+    teammates = [];
     drops = [];
     explosions = [];
+    lootCrates = [];
+    activeCrate = null;
     lastEnemySpawn = Date.now();
+
+    // 生成队友（双模式均可用）
+    spawnTeammates(playerData.teammateCount || 0);
+
+    // 摸金箱子与地图事件仅在搜打撤模式生成
+    if (gameMode === 'raid') {
+        const difficultyCrateBonus = settings.difficulty === 'hard' ? 4 : (settings.difficulty === 'easy' ? -2 : 0);
+        const crateCount = Math.max(6, 10 + Math.floor(Math.random() * 5) + difficultyCrateBonus);
+        generateLootCrates(crateCount);
+    }
+
+    // Round 3：初始化搜打撤地图事件
+    if (gameMode === 'raid') {
+        initMapEvents();
+    }
 
     // 清空按键状态与冲刺状态
     keys.clear();
@@ -3330,10 +3631,22 @@ function actuallyStartGame() {
     sprintMultiplier = 1.0;
     lastSprintUpdate = Date.now();
 
+    // 进入战斗后显示小地图
+    toggleMinimap(true);
+
     gameRunning = true;
     gameStartTime = Date.now();
     updateHUD();
-    
+
+    // 搜打撤模式显示局内弹药补充入口
+    const raidAmmoToggle = document.getElementById('raidAmmoToggle');
+    if (raidAmmoToggle) raidAmmoToggle.style.display = gameMode === 'raid' ? 'block' : 'none';
+    const raidAmmoPanel = document.getElementById('raidAmmoPanel');
+    if (raidAmmoPanel) {
+        raidAmmoPanel.style.display = 'none';
+        raidAmmoPanelOpen = false;
+    }
+
     // 初始化自动射击 UI 状态
     const statusEl = document.getElementById('autoFireStatus');
     if (statusEl) {
@@ -3390,6 +3703,9 @@ function cleanupGameState() {
     isExtracting = false;
     extractProgress = 0;
     extractStartTime = 0;
+
+    // 隐藏小地图
+    toggleMinimap(false);
     
     // 清理按键状态
     keys.clear();
@@ -3397,9 +3713,14 @@ function cleanupGameState() {
     // 清理对象池
     bullets = [];
     enemies = [];
+    teammates = [];
     drops = [];
     explosions = [];
-    
+    lootCrates = [];
+    activeCrate = null;
+    mapEvents = [];
+    nextMapEventAt = 0;
+
     // 重置时间相关状态
     lastTickTime = 0;
     tickAccumulator = 0;
@@ -3508,27 +3829,43 @@ function update() {
         dx = (dx / length) * speed;
         dy = (dy / length) * speed;
 
-        // 独立轴滑动：分别尝试 X / Y 方向，碰到墙时另一方向仍可移动，手感更顺滑
+        // 碰撞处理：优先尝试组合移动，卡在拐角时 fallback 到单轴滑动
         const radius = PLAYER_SIZE * 0.5;
-        if (!isBlockedCircle(player.x + dx, player.y, radius)) {
+        let movedX = false, movedY = false;
+
+        // 1) 组合移动（对角线方向优先，减少墙角卡顿）
+        if (!isBlockedCircle(player.x + dx, player.y + dy, radius)) {
             player.x += dx;
-        } else {
-            // 完全阻挡时尝试部分滑动，减少贴墙顿挫感
-            for (let s = 0.5; s >= 0.1; s -= 0.2) {
-                if (!isBlockedCircle(player.x + dx * s, player.y, radius)) {
-                    player.x += dx * s;
-                    break;
+            player.y += dy;
+            movedX = true;
+            movedY = true;
+        }
+
+        // 2) 单轴滑动：X 方向
+        if (!movedX) {
+            if (!isBlockedCircle(player.x + dx, player.y, radius)) {
+                player.x += dx;
+            } else {
+                // 完全阻挡时尝试部分滑动，减少贴墙顿挫感
+                for (let s = 0.5; s >= 0.1; s -= 0.2) {
+                    if (!isBlockedCircle(player.x + dx * s, player.y, radius)) {
+                        player.x += dx * s;
+                        break;
+                    }
                 }
             }
         }
 
-        if (!isBlockedCircle(player.x, player.y + dy, radius)) {
-            player.y += dy;
-        } else {
-            for (let s = 0.5; s >= 0.1; s -= 0.2) {
-                if (!isBlockedCircle(player.x, player.y + dy * s, radius)) {
-                    player.y += dy * s;
-                    break;
+        // 3) 单轴滑动：Y 方向
+        if (!movedY) {
+            if (!isBlockedCircle(player.x, player.y + dy, radius)) {
+                player.y += dy;
+            } else {
+                for (let s = 0.5; s >= 0.1; s -= 0.2) {
+                    if (!isBlockedCircle(player.x, player.y + dy * s, radius)) {
+                        player.y += dy * s;
+                        break;
+                    }
                 }
             }
         }
@@ -3572,10 +3909,19 @@ function update() {
             }
         }
 
+        // 远离屏幕的子弹仅累计距离，跳过碰撞与渲染级计算
+        if (Math.abs(bullet.x - player.x) > VIEW_RANGE_X + 8 || Math.abs(bullet.y - player.y) > VIEW_RANGE_Y + 8) {
+            continue;
+        }
+
         const newX = bullet.x + Math.cos(bullet.angle) * bullet.speed;
         const newY = bullet.y + Math.sin(bullet.angle) * bullet.speed;
 
-        if (isBlocked(newX, newY)) {
+        // 手雷使用小半径圆形碰撞，避免靠近墙体时提前引爆
+        const bulletRadius = bullet.type === 'grenade' ? 0.15 : 0;
+        const blocked = bulletRadius > 0 ? isBlockedCircle(newX, newY, bulletRadius) : isBlocked(newX, newY);
+
+        if (blocked) {
             if (bullet.type === 'grenade') {
                 explodeGrenade(bullet.x, bullet.y);
             } else {
@@ -3588,7 +3934,7 @@ function update() {
         bullet.x = newX;
         bullet.y = newY;
 
-        if (bullet.owner === 'player' && bullet.type !== 'grenade') {
+        if ((bullet.owner === 'player' || bullet.owner === 'teammate') && bullet.type !== 'grenade') {
             let hit = false;
             for (let j = 0; j < enemies.length; j++) {
                 const enemy = enemies[j];
@@ -3616,6 +3962,8 @@ function update() {
                     }
                     enemy.health -= damage;
                     enemy.hitFlash = 5; // 受击闪烁帧数
+                    // 敌人受击会提醒周围同伴前来协防/调查
+                    alertNearbyEnemies(enemy.x, enemy.y, 10);
 
                     // 爆裂弹：范围伤害
                     if (ammoType === 'exp') {
@@ -3681,6 +4029,16 @@ function update() {
                     damage = Math.max(1, Math.floor(damage * (1 - player.buffs.damageReduction)));
                 }
                 player.health -= damage;
+                // 受到伤害中断搜索物资箱
+                if (activeCrate && activeCrate.state === 'opening') {
+                    activeCrate.state = 'closed';
+                    activeCrate.searchStart = 0;
+                    activeCrate.progress = 0;
+                    activeCrate = null;
+                    showNotification('受到伤害，搜索中断！', 'warning');
+                    const fill = document.getElementById('lootProgressFill');
+                    if (fill) fill.style.width = '0%';
+                }
                 poolPushExplosion({ x: player.x, y: player.y, radius: 5, alpha: 1, color: '#ff0000' });
                 if (player.health <= 0) {
                     gameOver();
@@ -3688,6 +4046,25 @@ function update() {
                 bullet.alive = false;
                 continue;
             }
+            // 敌人子弹也会命中队友
+            for (let k = 0; k < teammates.length; k++) {
+                const tm = teammates[k];
+                if (!tm.alive) continue;
+                const dxm = bullet.x - tm.x;
+                const dym = bullet.y - tm.y;
+                if (dxm * dxm + dym * dym < 1.0) {
+                    tm.health -= bullet.damage;
+                    tm.hitFlash = 5;
+                    poolPushExplosion({ x: tm.x, y: tm.y, radius: 4, alpha: 1, color: '#ff0000' });
+                    if (tm.health <= 0) {
+                        tm.alive = false;
+                        showNotification(tm.name + ' 阵亡');
+                    }
+                    bullet.alive = false;
+                    break;
+                }
+            }
+            if (!bullet.alive) continue;
         }
     }
 
@@ -3696,14 +4073,20 @@ function update() {
         if (!enemies[i].alive) enemies.splice(i, 1);
     }
 
-    // 生成敌人
+    // 生成敌人：根据难度和队友数量调整上限与间隔
     const difficultyMul = settings.difficulty === 'hard' ? 1.8 : settings.difficulty === 'easy' ? 0.6 : 1;
-    const enemyCount = Math.floor((gameParams.ENEMY.count || 5) * difficultyMul);
-    const spawnInterval = Math.floor((gameParams.ENEMY.spawnInterval || 3500) / difficultyMul);
+    const teammateMul = 1 + (teammates ? teammates.length : 0) * 0.35;
+    const enemyCount = Math.floor((gameParams.ENEMY.count || 5) * difficultyMul * teammateMul);
+    const spawnInterval = Math.floor((gameParams.ENEMY.spawnInterval || 3500) / (difficultyMul * teammateMul));
 
     if (enemies.length < enemyCount && now - lastEnemySpawn > spawnInterval) {
         spawnEnemy();
         lastEnemySpawn = now;
+    }
+
+    // Round 3：搜打撤地图事件与 AI 埋伏
+    if (gameMode === 'raid') {
+        updateMapEvents(now);
     }
 
     // ==================== A* 寻路算法（替代原 DFS，避免随机分支造成的性能死锁） ====================
@@ -3857,248 +4240,362 @@ function update() {
 
     for (let i = 0; i < enemies.length; i++) {
         const enemy = enemies[i];
-        const dxE = player.x - enemy.x;
-        const dyE = player.y - enemy.y;
-        const distSq = dxE * dxE + dyE * dyE;
-        const dist = distSq > 0 ? Math.sqrt(distSq) : 0.01;
 
+        // 状态字段初始化与清理
         if (typeof enemy.speedMul === 'undefined') {
             enemy.speedMul = 0.85 + Math.random() * 0.3;
         }
         const curEnemySpeed = enemyMoveSpeed * enemy.speedMul;
+        if (typeof enemy.aiState !== 'string') {
+            enemy.aiState = 'chase';
+            enemy.aiStateTimer = 0;
+        }
+        if (typeof enemy.aiStateTimer !== 'number') enemy.aiStateTimer = 0;
+        if (!enemy.investigateTarget) enemy.investigateTarget = null;
+        if (!enemy.coverTarget) enemy.coverTarget = null;
 
-        if (dist < 30) {
+        // 1. 目标选择：玩家或最近的威胁（队友）
+        let target = player;
+        if (typeof getNearestEnemyThreat === 'function') {
+            const t = getNearestEnemyThreat(enemy);
+            if (t) target = t;
+        }
+
+        const dxE = target.x - enemy.x;
+        const dyE = target.y - enemy.y;
+        const distSq = dxE * dxE + dyE * dyE;
+        const dist = distSq > 0 ? Math.sqrt(distSq) : 0.01;
+
+        // 远距离敌人：不做完整 AI，仅直接向目标靠近，减少每帧计算
+        if (dist >= 30 && dist < 70) {
             enemy.angle = Math.atan2(dyE, dxE);
+            const stepX = (dxE / dist) * curEnemySpeed * 0.6;
+            const stepY = (dyE / dist) * curEnemySpeed * 0.6;
+            const enemyRadius = getEnemyRadius(enemy);
+            if (!isBlockedCircle(enemy.x + stepX, enemy.y, enemyRadius)) enemy.x += stepX;
+            if (!isBlockedCircle(enemy.x, enemy.y + stepY, enemyRadius)) enemy.y += stepY;
+            continue;
+        }
+        if (dist >= 70) continue;
 
-            const directChase = dist < 10 && hasLineOfSight(enemy.x, enemy.y, player.x, player.y);
+        const hasVisibleTarget = hasLineOfSight(enemy.x, enemy.y, target.x, target.y);
+        enemy.angle = Math.atan2(dyE, dxE);
 
-            if (!directChase) {
-                const dynamicInterval = dist < 8 ? 400 : (dist < 15 ? 700 : 1200);
-                const pathInterval = typeof enemy.pathUpdateInterval === 'number'
-                    ? enemy.pathUpdateInterval
-                    : dynamicInterval;
-                const timeOk = (now - (enemy.lastPathUpdate || 0)) > pathInterval;
-                const isSelected = (i === pathfinderIndex) || !enemy.path;
-                if (isSelected && timeOk && !pathComputedThisFrame) {
-                    const enemyGridX = Math.floor(enemy.x);
-                    const enemyGridY = Math.floor(enemy.y);
-                    const playerGridX = Math.floor(player.x);
-                    const playerGridY = Math.floor(player.y);
-                    enemy.path = aStarPath(enemyGridX, enemyGridY, playerGridX, playerGridY);
-                    enemy.pathIndex = 1;
-                    enemy.lastPathUpdate = now;
-                    pathComputedThisFrame = true;
-                    window.__nextEnemyPathfinder = (pathfinderIndex + 1) % Math.max(1, enemies.length);
-                }
-            } else {
+        const healthPercent = enemy.health / enemy.maxHealth;
+
+        // flee 超时恢复 chase
+        if (enemy.aiState === 'flee' && now > enemy.aiStateTimer) {
+            enemy.aiState = 'chase';
+            enemy.coverTarget = null;
+            enemy.path = null;
+        }
+        // investigate 超时清理
+        if (enemy.investigateTarget && now > enemy.investigateTarget.until) {
+            enemy.investigateTarget = null;
+            if (enemy.aiState === 'investigate') {
+                enemy.aiState = 'chase';
+                enemy.path = null;
+            }
+        }
+
+        // 状态切换
+        if (hasVisibleTarget) {
+            enemy.investigateTarget = null;
+            if (enemy.aiState === 'investigate') {
+                enemy.aiState = 'chase';
                 enemy.path = null;
             }
 
-            // 沿路径移动
-            if (enemy.path && enemy.pathIndex < enemy.path.length) {
-                const lookAhead = Math.min(4, enemy.path.length - enemy.pathIndex);
-                let targetX = 0, targetY = 0;
-                for (let k = 0; k < lookAhead; k++) {
-                    targetX += enemy.path[enemy.pathIndex + k].x + 0.5;
-                    targetY += enemy.path[enemy.pathIndex + k].y + 0.5;
+            // 3. 低血量非 Boss 概率寻找掩体 flee
+            if (enemy.aiState !== 'flee' && enemy.aiState !== 'investigate' &&
+                healthPercent < 0.30 && !enemy.isBoss && Math.random() < 0.02) {
+                enemy.aiState = 'flee';
+                enemy.aiStateTimer = now + 2000 + Math.random() * 2000;
+                enemy.path = null;
+                const cover = findNearestCover(enemy.x, enemy.y, target.x, target.y, 12);
+                enemy.coverTarget = cover ? { x: cover.x, y: cover.y } : null;
+                if (!enemy.coverTarget) {
+                    // 找不到掩体时向远离目标的方向跑
+                    enemy.coverTarget = { x: enemy.x - dxE * 5, y: enemy.y - dyE * 5 };
                 }
-                targetX /= lookAhead;
-                targetY /= lookAhead;
+            }
+        } else if (enemy.investigateTarget && enemy.aiState !== 'flee') {
+            // 2. 没有可见目标且存在噪音源时进入 investigate
+            if (enemy.aiState !== 'investigate') {
+                enemy.aiState = 'investigate';
+                enemy.path = null;
+            }
+        }
 
-                const dxPath = targetX - enemy.x;
-                const dyPath = targetY - enemy.y;
-                const distToTarget = Math.sqrt(dxPath * dxPath + dyPath * dyPath);
-                const nextNode = enemy.path[enemy.pathIndex];
-                const distToNext = Math.sqrt(
-                    (nextNode.x + 0.5 - enemy.x) ** 2 +
-                    (nextNode.y + 0.5 - enemy.y) ** 2
-                );
+        // 5. A* 目标：chase 时追目标，flee 时去掩体，investigate 时去噪音源
+        let destX = target.x;
+        let destY = target.y;
+        if (enemy.aiState === 'flee' && enemy.coverTarget) {
+            destX = enemy.coverTarget.x;
+            destY = enemy.coverTarget.y;
+        } else if (enemy.aiState === 'investigate' && enemy.investigateTarget) {
+            destX = enemy.investigateTarget.x;
+            destY = enemy.investigateTarget.y;
+        }
 
-                if (typeof enemy.stuckTimer === 'undefined') {
-                    enemy.stuckTimer = 0;
-                    enemy.lastPosX = enemy.x;
-                    enemy.lastPosY = enemy.y;
-                }
-                const movedDist = Math.sqrt(
-                    (enemy.x - enemy.lastPosX) ** 2 + (enemy.y - enemy.lastPosY) ** 2
-                );
-                if (movedDist < 0.02) {
-                    enemy.stuckTimer++;
-                    if (enemy.stuckTimer > 30) {
-                        enemy.pathIndex++;
-                        enemy.stuckTimer = 0;
-                    }
-                } else {
-                    enemy.stuckTimer = 0;
-                }
+        const directChase = (enemy.aiState !== 'flee' && enemy.aiState !== 'investigate')
+            && dist < 10 && hasVisibleTarget;
+
+        if (!directChase) {
+            const dynamicInterval = dist < 8 ? 400 : (dist < 15 ? 700 : 1200);
+            const pathInterval = typeof enemy.pathUpdateInterval === 'number'
+                ? enemy.pathUpdateInterval
+                : dynamicInterval;
+            const timeOk = (now - (enemy.lastPathUpdate || 0)) > pathInterval;
+            const isSelected = (i === pathfinderIndex) || !enemy.path;
+            if (isSelected && timeOk && !pathComputedThisFrame) {
+                const enemyGridX = Math.floor(enemy.x);
+                const enemyGridY = Math.floor(enemy.y);
+                const destGridX = Math.floor(destX);
+                const destGridY = Math.floor(destY);
+                enemy.path = aStarPath(enemyGridX, enemyGridY, destGridX, destGridY);
+                enemy.pathIndex = 1;
+                enemy.lastPathUpdate = now;
+                pathComputedThisFrame = true;
+                window.__nextEnemyPathfinder = (pathfinderIndex + 1) % Math.max(1, enemies.length);
+            }
+        } else {
+            enemy.path = null;
+        }
+
+        // 沿路径移动
+        if (enemy.path && enemy.pathIndex < enemy.path.length) {
+            const lookAhead = Math.min(4, enemy.path.length - enemy.pathIndex);
+            let targetX = 0, targetY = 0;
+            for (let k = 0; k < lookAhead; k++) {
+                targetX += enemy.path[enemy.pathIndex + k].x + 0.5;
+                targetY += enemy.path[enemy.pathIndex + k].y + 0.5;
+            }
+            targetX /= lookAhead;
+            targetY /= lookAhead;
+
+            const dxPath = targetX - enemy.x;
+            const dyPath = targetY - enemy.y;
+            const distToTarget = Math.sqrt(dxPath * dxPath + dyPath * dyPath);
+            const nextNode = enemy.path[enemy.pathIndex];
+            const distToNext = Math.sqrt(
+                (nextNode.x + 0.5 - enemy.x) ** 2 +
+                (nextNode.y + 0.5 - enemy.y) ** 2
+            );
+
+            if (typeof enemy.stuckTimer === 'undefined') {
+                enemy.stuckTimer = 0;
                 enemy.lastPosX = enemy.x;
                 enemy.lastPosY = enemy.y;
-
-                if (distToNext < 0.4) {
+            }
+            const movedDist = Math.sqrt(
+                (enemy.x - enemy.lastPosX) ** 2 + (enemy.y - enemy.lastPosY) ** 2
+            );
+            if (movedDist < 0.02) {
+                enemy.stuckTimer++;
+                if (enemy.stuckTimer > 30) {
                     enemy.pathIndex++;
                     enemy.stuckTimer = 0;
-                } else if (distToTarget > 0.01) {
-                    const stepX = (dxPath / distToTarget) * curEnemySpeed;
-                    const stepY = (dyPath / distToTarget) * curEnemySpeed;
-                    const enemyRadius = getEnemyRadius(enemy);
-                    let movedAny = false;
-                    const testX = enemy.x + stepX;
-                    if (!isBlockedCircle(testX, enemy.y, enemyRadius)) {
-                        enemy.x = testX;
-                        movedAny = true;
-                    }
-                    const testY = enemy.y + stepY;
-                    if (!isBlockedCircle(enemy.x, testY, enemyRadius)) {
-                        enemy.y = testY;
-                        movedAny = true;
-                    }
-                    if (!movedAny) {
-                        const tryOffsets = [
-                            [stepY, -stepX], [-stepY, stepX]
-                        ];
-                        for (const [ox, oy] of tryOffsets) {
-                            const altX = enemy.x + ox;
-                            const altY = enemy.y + oy;
-                            if (!isBlockedCircle(altX, altY, enemyRadius)) {
-                                enemy.x = altX;
-                                enemy.y = altY;
-                                movedAny = true;
-                                break;
-                            }
-                        }
-                        if (!movedAny) enemy.path = null;
-                    }
                 }
             } else {
-                // 无路径：根据玩家武器与敌人状态决定移动方向
-                const healthPercent = enemy.health / enemy.maxHealth;
-                if (typeof enemy.aiState !== 'string') { enemy.aiState = 'chase'; enemy.aiStateTimer = 0; }
-                if (enemy.aiState === 'flee' && now > enemy.aiStateTimer) enemy.aiState = 'chase';
-                if (enemy.aiState !== 'flee' && healthPercent < 0.25 && !enemy.isBoss && Math.random() < 0.02) {
-                    enemy.aiState = 'flee';
-                    enemy.aiStateTimer = now + 2000 + Math.random() * 2000;
-                }
+                enemy.stuckTimer = 0;
+            }
+            enemy.lastPosX = enemy.x;
+            enemy.lastPosY = enemy.y;
 
-                const playerWeapon = player.weapons[player.currentWeapon];
-                const pwt = playerWeapon ? playerWeapon.type : WEAPON_TYPES.RIFLE;
-                const isPlayerMelee = pwt === WEAPON_TYPES.MELEE;
-                const isPlayerShotgun = pwt === WEAPON_TYPES.SHOTGUN;
-                const isPlayerSniper = pwt === WEAPON_TYPES.SNIPER;
-
-                let desiredAngle;
-                if (enemy.aiState === 'flee') {
-                    desiredAngle = Math.atan2(-dyE, -dxE);
-                } else if (isPlayerMelee) {
-                    if (dist < 5) desiredAngle = Math.atan2(-dyE, -dxE);
-                    else if (dist > 9) desiredAngle = Math.atan2(dyE, dxE);
-                    else desiredAngle = Math.atan2(dyE, dxE) + Math.PI / 2;
-                } else if (isPlayerShotgun) {
-                    if (dist < 7) desiredAngle = Math.atan2(-dyE, -dxE);
-                    else desiredAngle = Math.atan2(dyE, dxE) + (Math.sin(now * 0.003 + i) > 0 ? 1 : -1) * Math.PI / 3;
-                } else if (isPlayerSniper) {
-                    if (dist > 14) desiredAngle = Math.atan2(dyE, dxE);
-                    else desiredAngle = Math.atan2(dyE, dxE) + (Math.sin(now * 0.006 + i) > 0 ? 1 : -1) * Math.PI / 2.2;
-                } else {
-                    desiredAngle = Math.atan2(dyE, dxE);
-                }
-
-                let moveX = 0, moveY = 0;
-                if (enemy.aiState === 'flee') {
-                    moveX = Math.cos(desiredAngle) * curEnemySpeed * 1.3;
-                    moveY = Math.sin(desiredAngle) * curEnemySpeed * 1.3;
-                } else if (isPlayerMelee) {
-                    if (dist > 12 || dist < 5) {
-                        moveX = Math.cos(desiredAngle) * curEnemySpeed;
-                        moveY = Math.sin(desiredAngle) * curEnemySpeed;
-                    } else {
-                        moveX = Math.cos(desiredAngle) * curEnemySpeed * 0.4;
-                        moveY = Math.sin(desiredAngle) * curEnemySpeed * 0.4;
-                    }
-                } else if (isPlayerShotgun && dist < 10) {
-                    moveX = Math.cos(desiredAngle) * curEnemySpeed;
-                    moveY = Math.sin(desiredAngle) * curEnemySpeed;
-                } else if (isPlayerSniper) {
-                    moveX = Math.cos(desiredAngle) * curEnemySpeed * 1.1;
-                    moveY = Math.sin(desiredAngle) * curEnemySpeed * 1.1;
-                } else {
-                    if (dist > 12) {
-                        moveX = Math.cos(desiredAngle) * curEnemySpeed;
-                        moveY = Math.sin(desiredAngle) * curEnemySpeed;
-                    } else if (dist < 3) {
-                        moveX = -(dxE / dist) * curEnemySpeed;
-                        moveY = -(dyE / dist) * curEnemySpeed;
-                    } else {
-                        const perp = Math.sin(now * 0.002 + i) > 0 ? 1 : -1;
-                        moveX = -dyE / dist * curEnemySpeed * 0.3 * perp;
-                        moveY = dxE / dist * curEnemySpeed * 0.3 * perp;
-                    }
-                }
+            if (distToNext < 0.4) {
+                enemy.pathIndex++;
+                enemy.stuckTimer = 0;
+            } else if (distToTarget > 0.01) {
+                const stepX = (dxPath / distToTarget) * curEnemySpeed;
+                const stepY = (dyPath / distToTarget) * curEnemySpeed;
                 const enemyRadius = getEnemyRadius(enemy);
                 let movedAny = false;
-                const testX = enemy.x + moveX;
+                const testX = enemy.x + stepX;
                 if (!isBlockedCircle(testX, enemy.y, enemyRadius)) {
                     enemy.x = testX;
                     movedAny = true;
                 }
-                const testY = enemy.y + moveY;
+                const testY = enemy.y + stepY;
                 if (!isBlockedCircle(enemy.x, testY, enemyRadius)) {
                     enemy.y = testY;
                     movedAny = true;
                 }
                 if (!movedAny) {
-                    const tryOffsets = [[moveY, -moveX], [-moveY, moveX]];
+                    const tryOffsets = [
+                        [stepY, -stepX], [-stepY, stepX]
+                    ];
                     for (const [ox, oy] of tryOffsets) {
                         const altX = enemy.x + ox;
                         const altY = enemy.y + oy;
                         if (!isBlockedCircle(altX, altY, enemyRadius)) {
                             enemy.x = altX;
                             enemy.y = altY;
+                            movedAny = true;
                             break;
                         }
                     }
+                    if (!movedAny) enemy.path = null;
                 }
             }
+        } else {
+            // 4. 武器类型战术：目标是玩家时读取其当前武器，目标是队友时按步枪默认处理
+            const targetWeapon = (target === player && player.weapons && player.weapons[player.currentWeapon])
+                ? player.weapons[player.currentWeapon]
+                : null;
+            const twt = targetWeapon ? targetWeapon.type : WEAPON_TYPES.RIFLE;
+            const isTargetMelee = twt === WEAPON_TYPES.MELEE;
+            const isTargetShotgun = twt === WEAPON_TYPES.SHOTGUN;
+            const isTargetSniper = twt === WEAPON_TYPES.SNIPER;
 
-            // 敌人分离：避免重叠；Boss 体积大、分离半径也更大
+            let desiredAngle;
+            if (enemy.aiState === 'flee' && enemy.coverTarget) {
+                const cdx = enemy.coverTarget.x - enemy.x;
+                const cdy = enemy.coverTarget.y - enemy.y;
+                desiredAngle = Math.atan2(cdy, cdx);
+            } else if (enemy.aiState === 'flee') {
+                desiredAngle = Math.atan2(-dyE, -dxE);
+            } else if (enemy.aiState === 'investigate' && enemy.investigateTarget) {
+                const idx = enemy.investigateTarget.x - enemy.x;
+                const idy = enemy.investigateTarget.y - enemy.y;
+                desiredAngle = Math.atan2(idy, idx);
+            } else if (isTargetMelee) {
+                if (dist < 5) desiredAngle = Math.atan2(-dyE, -dxE);
+                else if (dist > 9) desiredAngle = Math.atan2(dyE, dxE);
+                else desiredAngle = Math.atan2(dyE, dxE) + Math.PI / 2;
+            } else if (isTargetShotgun) {
+                if (dist < 7) desiredAngle = Math.atan2(-dyE, -dxE);
+                else desiredAngle = Math.atan2(dyE, dxE) + (Math.sin(now * 0.003 + i) > 0 ? 1 : -1) * Math.PI / 3;
+            } else if (isTargetSniper) {
+                if (dist > 14) desiredAngle = Math.atan2(dyE, dxE);
+                else desiredAngle = Math.atan2(dyE, dxE) + (Math.sin(now * 0.006 + i) > 0 ? 1 : -1) * Math.PI / 2.2;
+            } else {
+                desiredAngle = Math.atan2(dyE, dxE);
+            }
+
+            let moveX = 0, moveY = 0;
+            if (enemy.aiState === 'flee') {
+                moveX = Math.cos(desiredAngle) * curEnemySpeed * 1.3;
+                moveY = Math.sin(desiredAngle) * curEnemySpeed * 1.3;
+            } else if (enemy.aiState === 'investigate') {
+                moveX = Math.cos(desiredAngle) * curEnemySpeed;
+                moveY = Math.sin(desiredAngle) * curEnemySpeed;
+            } else if (isTargetMelee) {
+                if (dist > 12 || dist < 5) {
+                    moveX = Math.cos(desiredAngle) * curEnemySpeed;
+                    moveY = Math.sin(desiredAngle) * curEnemySpeed;
+                } else {
+                    moveX = Math.cos(desiredAngle) * curEnemySpeed * 0.4;
+                    moveY = Math.sin(desiredAngle) * curEnemySpeed * 0.4;
+                }
+            } else if (isTargetShotgun && dist < 10) {
+                moveX = Math.cos(desiredAngle) * curEnemySpeed;
+                moveY = Math.sin(desiredAngle) * curEnemySpeed;
+            } else if (isTargetSniper) {
+                moveX = Math.cos(desiredAngle) * curEnemySpeed * 1.1;
+                moveY = Math.sin(desiredAngle) * curEnemySpeed * 1.1;
+            } else {
+                if (dist > 12) {
+                    moveX = Math.cos(desiredAngle) * curEnemySpeed;
+                    moveY = Math.sin(desiredAngle) * curEnemySpeed;
+                } else if (dist < 3) {
+                    moveX = -(dxE / dist) * curEnemySpeed;
+                    moveY = -(dyE / dist) * curEnemySpeed;
+                } else {
+                    const perp = Math.sin(now * 0.002 + i) > 0 ? 1 : -1;
+                    moveX = -dyE / dist * curEnemySpeed * 0.3 * perp;
+                    moveY = dxE / dist * curEnemySpeed * 0.3 * perp;
+                }
+            }
             const enemyRadius = getEnemyRadius(enemy);
-            const sepRadius = enemy.isBoss ? 2.5 : 1.2;
-            const sepForce = enemyMoveSpeed * 0.4;
-            for (let j = 0; j < enemies.length; j++) {
-                if (j === i) continue;
-                const other = enemies[j];
-                if (!other.alive) continue;
-                const sdx = enemy.x - other.x;
-                const sdy = enemy.y - other.y;
-                const sdist = Math.sqrt(sdx * sdx + sdy * sdy);
-                if (sdist > 0 && sdist < sepRadius) {
-                    const push = (sepRadius - sdist) / sepRadius * sepForce;
-                    const pdx = (sdx / sdist) * push;
-                    const pdy = (sdy / sdist) * push;
-                    if (!isBlockedCircle(enemy.x + pdx, enemy.y, enemyRadius)) enemy.x += pdx;
-                    if (!isBlockedCircle(enemy.x, enemy.y + pdy, enemyRadius)) enemy.y += pdy;
+            let movedAny = false;
+            const testX = enemy.x + moveX;
+            if (!isBlockedCircle(testX, enemy.y, enemyRadius)) {
+                enemy.x = testX;
+                movedAny = true;
+            }
+            const testY = enemy.y + moveY;
+            if (!isBlockedCircle(enemy.x, testY, enemyRadius)) {
+                enemy.y = testY;
+                movedAny = true;
+            }
+            if (!movedAny) {
+                const tryOffsets = [[moveY, -moveX], [-moveY, moveX]];
+                for (const [ox, oy] of tryOffsets) {
+                    const altX = enemy.x + ox;
+                    const altY = enemy.y + oy;
+                    if (!isBlockedCircle(altX, altY, enemyRadius)) {
+                        enemy.x = altX;
+                        enemy.y = altY;
+                        break;
+                    }
                 }
             }
-
-            // 在 3~12 格范围内射击
-            if (dist >= 3 && dist <= 12 && now - enemy.lastShot > enemy.fireRate) {
-                poolPushBullet({
-                    x: enemy.x + Math.cos(enemy.angle) * 0.5,
-                    y: enemy.y + Math.sin(enemy.angle) * 0.5,
-                    angle: enemy.angle,
-                    speed: 0.5,
-                    damage: enemyDamage,
-                    range: 20,
-                    distance: 0,
-                    owner: 'enemy',
-                    type: 'bullet'
-                });
-                enemy.lastShot = now;
-            }
-
-            // 受击闪烁逐帧衰减
-            if (enemy.hitFlash > 0) enemy.hitFlash--;
         }
+
+        // 2/3. 到达/超时后的状态清理
+        if (enemy.aiState === 'investigate' && enemy.investigateTarget) {
+            const ix = enemy.investigateTarget.x - enemy.x;
+            const iy = enemy.investigateTarget.y - enemy.y;
+            if (Math.sqrt(ix * ix + iy * iy) < 2 || now > enemy.investigateTarget.until) {
+                enemy.aiState = 'chase';
+                enemy.investigateTarget = null;
+                enemy.path = null;
+            }
+        }
+        if (enemy.aiState === 'flee' && enemy.coverTarget) {
+            const cx = enemy.coverTarget.x - enemy.x;
+            const cy = enemy.coverTarget.y - enemy.y;
+            if (Math.sqrt(cx * cx + cy * cy) < 1) {
+                enemy.aiState = 'chase';
+                enemy.coverTarget = null;
+                enemy.path = null;
+            }
+        }
+
+        // 敌人分离：避免重叠；Boss 体积大、分离半径也更大
+        const enemyRadius = getEnemyRadius(enemy);
+        const sepRadius = enemy.isBoss ? 2.5 : 1.2;
+        const sepForce = enemyMoveSpeed * 0.4;
+        for (let j = 0; j < enemies.length; j++) {
+            if (j === i) continue;
+            const other = enemies[j];
+            if (!other.alive) continue;
+            const sdx = enemy.x - other.x;
+            const sdy = enemy.y - other.y;
+            const sdist = Math.sqrt(sdx * sdx + sdy * sdy);
+            if (sdist > 0 && sdist < sepRadius) {
+                const push = (sepRadius - sdist) / sepRadius * sepForce;
+                const pdx = (sdx / sdist) * push;
+                const pdy = (sdy / sdist) * push;
+                if (!isBlockedCircle(enemy.x + pdx, enemy.y, enemyRadius)) enemy.x += pdx;
+                if (!isBlockedCircle(enemy.x, enemy.y + pdy, enemyRadius)) enemy.y += pdy;
+            }
+        }
+
+        // 6. 在 3~12 格范围内射击（需要视线）
+        if (dist >= 3 && dist <= 12 && now - enemy.lastShot > enemy.fireRate && hasVisibleTarget) {
+            poolPushBullet({
+                x: enemy.x + Math.cos(enemy.angle) * 0.5,
+                y: enemy.y + Math.sin(enemy.angle) * 0.5,
+                angle: enemy.angle,
+                speed: 0.5,
+                damage: enemyDamage,
+                range: 20,
+                distance: 0,
+                owner: 'enemy',
+                type: 'bullet'
+            });
+            enemy.lastShot = now;
+        }
+
+        // 受击闪烁逐帧衰减
+        if (enemy.hitFlash > 0) enemy.hitFlash--;
     }
+
+    // 更新队友 AI 与摸金箱子
+    updateTeammates(now);
+    updateLootCrates(now);
 
     // 燃烧弹：持续伤害（DOT）
     for (let i = 0; i < enemies.length; i++) {
@@ -4134,6 +4631,11 @@ function update() {
     for (let i = 0; i < explosions.length; i++) {
         const exp = explosions[i];
         if (!exp.alive) continue;
+        // 远离屏幕的爆炸效果快速淡出，减少无效计算
+        if (Math.abs(exp.x - player.x) > VIEW_RANGE_X + 5 || Math.abs(exp.y - player.y) > VIEW_RANGE_Y + 5) {
+            exp.alive = false;
+            continue;
+        }
         exp.radius += 0.5;
         exp.alpha -= 0.1;
         if (exp.alpha <= 0) exp.alive = false;
@@ -4143,6 +4645,7 @@ function update() {
     for (let i = 0; i < drops.length; i++) {
         const drop = drops[i];
         if (!drop.alive) continue;
+        if (Math.abs(drop.x - player.x) > VIEW_RANGE_X + 3 || Math.abs(drop.y - player.y) > VIEW_RANGE_Y + 3) continue;
         const dxd = player.x - drop.x;
         const dyd = player.y - drop.y;
         if (dxd * dxd + dyd * dyd < 4) {
@@ -4163,6 +4666,8 @@ function update() {
 function explodeGrenade(x, y) {
     const grenadeRadius = gameParams.DROPS.grenadeRadius || 4;
     const grenadeDamage = gameParams.DROPS.grenadeDamage || 150;
+    // 爆炸声会吸引远处敌人
+    alertNearbyEnemies(x, y, grenadeRadius * 4 + 8);
     poolPushExplosion({ x, y, radius: grenadeRadius, alpha: 1, color: '#ff8800' });
     poolPushExplosion({ x, y, radius: grenadeRadius / 2, alpha: 1, color: '#ffdd00' });
 
@@ -4174,7 +4679,7 @@ function explodeGrenade(x, y) {
         if (!enemy.alive) continue;
         const ddx = enemy.x - x;
         const ddy = enemy.y - y;
-        if (ddx * ddx + ddy * ddy < blastRadiusSq) {
+        if (ddx * ddx + ddy * ddy <= blastRadiusSq) {
             enemy.health -= blastDamage;
             poolPushExplosion({ x: enemy.x, y: enemy.y, radius: 3, alpha: 1, color: '#ff0044' });
             if (enemy.health <= 0) {
@@ -4197,7 +4702,7 @@ function explodeGrenade(x, y) {
     // 对玩家自身也造成一定伤害（避免在脚下扔）
     const pdx = player.x - x;
     const pdy = player.y - y;
-    if (pdx * pdx + pdy * pdy < blastRadiusSq) {
+    if (pdx * pdx + pdy * pdy <= blastRadiusSq) {
         player.health -= 30;
         poolPushExplosion({ x: player.x, y: player.y, radius: 4, alpha: 1, color: '#ff0000' });
         if (player.health <= 0) gameOver();
@@ -4241,12 +4746,24 @@ function throwGrenade() {
         if (now - lastItemUse < ITEM_COOLDOWN) return;
         lastItemUse = now;
     }
-    if (!BackpackManager.hasItem('grenade', 1)) {
-        showNotification('没有手雷！');
+
+    // 局内消耗品检查
+    if (battleConsumables && (battleConsumables.grenades || 0) <= 0) {
+        const modeHint = gameMode === 'raid' ? '携带的手雷已用完！' : '本局手雷已用完！';
+        showNotification(modeHint);
         return;
     }
-    BackpackManager.useItem('grenade', 1);
-    playerData.inventory.grenades = Math.max(0, (playerData.inventory.grenades || 0) - 1);
+    if (battleConsumables) {
+        battleConsumables.grenades--;
+    }
+
+    // 兼容旧版背包系统：仅在大厅或需要持久化时扣减全局库存
+    if (BackpackManager.hasItem('grenade', 1)) {
+        BackpackManager.useItem('grenade', 1);
+    }
+    if ((playerData.inventory.grenades || 0) > 0) {
+        playerData.inventory.grenades = Math.max(0, (playerData.inventory.grenades || 0) - 1);
+    }
     // 以玩家位置为中心飞向鼠标方向，速度 1.5 格/帧
     poolPushBullet({
         x: player.x + Math.cos(player.angle) * 0.5,
@@ -4454,6 +4971,18 @@ function draw() {
     // 绘制玩家
     drawPlayer();
 
+    // 绘制队友
+    drawTeammates();
+
+    // 绘制队友离屏方向指示箭头
+    drawTeammateIndicators();
+
+    // 绘制摸金箱子
+    drawLootCrates();
+
+    // 绘制地图事件标记（搜打撤）
+    drawMapEvents();
+
     // 绘制敌人
     for (let i = 0; i < enemies.length; i++) {
         const enemy = enemies[i];
@@ -4497,6 +5026,9 @@ function draw() {
 
     // 恢复屏幕震动前的绘制状态
     ctx.restore();
+
+    // 绘制小地图（在屏幕震动恢复后绘制，避免震动影响）
+    drawMinimap();
 }
 
 function drawExtractionZone() {
@@ -4554,7 +5086,12 @@ function drawPlayer() {
     const skin = SKINS.players.find(s => s.id === playerMods.equippedPlayerSkin);
     const glowColor = skin && skin.color ? lightenColor(skin.color, 30) : '#00ff88';
 
+    // 身体：应用皮肤颜色，带发光描边，确保深色皮肤在战场上也能看清
     ctx.fillStyle = skinColor;
+    ctx.strokeStyle = glowColor;
+    ctx.lineWidth = 2;
+    ctx.shadowColor = glowColor;
+    ctx.shadowBlur = 8;
     ctx.beginPath();
     ctx.moveTo(PLAYER_SIZE * TILE_SIZE, 0);
     ctx.lineTo(-PLAYER_SIZE * TILE_SIZE * 0.7, -PLAYER_SIZE * TILE_SIZE * 0.7);
@@ -4562,12 +5099,15 @@ function drawPlayer() {
     ctx.lineTo(-PLAYER_SIZE * TILE_SIZE * 0.7, PLAYER_SIZE * TILE_SIZE * 0.7);
     ctx.closePath();
     ctx.fill();
+    ctx.stroke();
+    ctx.shadowBlur = 0;
 
+    // 核心：高亮发光，突出皮肤主题色
     ctx.fillStyle = glowColor;
     ctx.shadowColor = glowColor;
-    ctx.shadowBlur = 10;
+    ctx.shadowBlur = 12;
     ctx.beginPath();
-    ctx.arc(0, 0, PLAYER_SIZE * TILE_SIZE * 0.5, 0, Math.PI * 2);
+    ctx.arc(0, 0, PLAYER_SIZE * TILE_SIZE * 0.45, 0, Math.PI * 2);
     ctx.fill();
     ctx.shadowBlur = 0;
 
@@ -4851,6 +5391,10 @@ function shoot() {
 
     weapon.currentAmmo--;
     lastShot = Date.now();
+
+    // 玩家枪声会吸引附近敌人前来调查（不同武器声音半径不同）
+    const noiseRadiusTable = { pistol: 14, smg: 16, rifle: 20, ar: 20, lmg: 22, shotgun: 24, sniper: 26 };
+    alertNearbyEnemies(player.x, player.y, noiseRadiusTable[weapon.type] || 16);
 }
 
 function meleeAttack(weapon) {
@@ -4951,12 +5495,29 @@ function reload() {
         const w = player.weapons[idx];
         if (w) {
             const mw = getModifiedWeapon(w);
-            w.currentAmmo = mw.clipSize;
+            const need = mw.clipSize - (w.currentAmmo || 0);
+            if (gameMode === 'raid') {
+                // 搜打撤模式：从库存消耗弹药填满弹夹
+                const ammoType = getWeaponAmmoType(w.id) || AMMO_TYPES.NORMAL;
+                const available = ammoInventory[ammoType] || 0;
+                const take = Math.min(need, available);
+                if (take > 0) {
+                    ammoInventory[ammoType] -= take;
+                    w.currentAmmo = (w.currentAmmo || 0) + take;
+                    removeAmmoFromBackpack(ammoType, take); // 同步背包显示
+                    showNotification(`换弹完成 (+${take})`);
+                } else {
+                    showNotification('库存弹药不足，无法换弹');
+                }
+            } else {
+                // 普通模式：无限弹药，直接补满
+                w.currentAmmo = mw.clipSize;
+                showNotification('换弹完成');
+            }
         }
         player.isReloading = false;
         player.reloadEndTime = 0;
         player.reloadWeaponIndex = null;
-        showNotification('换弹完成');
         updateHUD();
     }, durationMs);
 }
@@ -5061,10 +5622,11 @@ function spawnEnemy() {
     const enemyHealth = gameParams.ENEMY.health || 80;
     const enemyFireRate = gameParams.ENEMY.fireRate || 2000;
 
+    const difficultyHealthMul = settings.difficulty === 'hard' ? 1.3 : (settings.difficulty === 'easy' ? 0.75 : 1);
     enemies.push({
         x, y,
-        health: isBoss ? enemyHealth * 3 : (settings.difficulty === 'hard' ? enemyHealth * 1.2 : enemyHealth),
-        maxHealth: isBoss ? enemyHealth * 3 : (settings.difficulty === 'hard' ? enemyHealth * 1.2 : enemyHealth),
+        health: isBoss ? enemyHealth * 3 * difficultyHealthMul : enemyHealth * difficultyHealthMul,
+        maxHealth: isBoss ? enemyHealth * 3 * difficultyHealthMul : enemyHealth * difficultyHealthMul,
         angle: Math.random() * Math.PI * 2,
         lastShot: 0,
         fireRate: isBoss ? enemyFireRate * 0.75 : enemyFireRate,
@@ -5140,6 +5702,14 @@ function gameOver() {
     playerMods.equippedMods = {};
     savePlayerMods();
 
+    // 搜打撤模式死亡惩罚：丢失出战装备与本次战利品
+    if (gameMode === 'raid' && currentRaidLoadout) {
+        playerData.equippedWeapons = { primary: 'rifle', secondary: 'pistol' };
+        playerData.equippedArmor = '';
+        raidLoot = [];
+        showNotification('⚠️ 搜打撤行动失败：出战装备与战利品全部丢失', 'error');
+    }
+
     playerData.totalKills += player.kills;
     playerData.totalScore += player.score;
     playerData.coins += Math.floor(player.score / 10);
@@ -5183,6 +5753,12 @@ function extractionSuccess() {
         playerData.playTimeSeconds += Math.floor((Date.now() - gameStartTime) / 1000);
     }
     updatePlayerTitle();
+
+    // 搜打撤模式：成功撤离时结算战利品
+    if (gameMode === 'raid') {
+        applyRaidLoot();
+    }
+
     savePlayerData();
 
     // 对象池已在cleanupGameState中清理，这里无需重复
@@ -5201,7 +5777,13 @@ function extractionSuccess() {
         const titleEl = extractPanel.querySelector('h2');
         if (titleEl) titleEl.textContent = '🎖️ 撤离成功';
         const subtitleEl = extractPanel.querySelector('p');
-        if (subtitleEl) subtitleEl.textContent = `击杀 ${player.kills} 人 | 得分 ${player.score} | 获得 ${Math.floor(player.score / 5)} 金币`;
+        if (subtitleEl) {
+            if (gameMode === 'raid') {
+                subtitleEl.textContent = `搜打撤撤离成功！装备与战利品已安全带回仓库`;
+            } else {
+                subtitleEl.textContent = `击杀 ${player.kills} 人 | 得分 ${player.score} | 获得 ${Math.floor(player.score / 5)} 金币`;
+            }
+        }
         extractPanel.style.display = 'block';
     }
 }
@@ -5221,7 +5803,13 @@ function endGame() {
         gameOver();
         return;
     }
-    
+
+    // 搜打撤模式必须撤离，不能 ESC 直接安全退出
+    if (gameMode === 'raid') {
+        showNotification('搜打撤模式无法主动退出，请前往撤离点撤离');
+        return;
+    }
+
     // 先清理游戏状态
     cleanupGameState();
     
@@ -5317,8 +5905,13 @@ function updateHUD() {
         } else {
             const totalAmmo = ammoInventory[currentAmmoType] || 0;
             const clipSize = modifiedWeapon.clipSize || 0;
-            // 弹药不足时显示 枪膛弹药/总弹药，充足时显示 枪膛弹药/弹匣容量
-            ammoMaxEl.textContent = totalAmmo < clipSize ? totalAmmo : clipSize;
+            // 普通模式子弹无限，显示弹匣容量；搜打撤按实际库存显示
+            if (gameMode !== 'raid') {
+                ammoMaxEl.textContent = clipSize;
+            } else {
+                // 弹药不足时显示 枪膛弹药/总弹药，充足时显示 枪膛弹药/弹匣容量
+                ammoMaxEl.textContent = totalAmmo < clipSize ? totalAmmo : clipSize;
+            }
         }
     }
     if (ammoSlashEl) ammoSlashEl.style.display = isMelee ? 'none' : '';
@@ -5340,16 +5933,17 @@ function updateHUD() {
         btn.classList.toggle('active', index === player.currentWeapon);
     });
 
-    // 物资数量（圆盘显示用）
+    // 物资数量（圆盘显示用）：战斗中优先显示局内消耗品数量
     const inv = playerData.inventory || {};
+    const bc = gameRunning && battleConsumables ? battleConsumables : null;
     const invMedkit = document.getElementById('invMedkit');
-    if (invMedkit) invMedkit.textContent = inv.medkits || 0;
+    if (invMedkit) invMedkit.textContent = bc ? (bc.medkits || 0) : (inv.medkits || 0);
     const invAmmo = document.getElementById('invAmmo');
-    if (invAmmo) invAmmo.textContent = inv.ammoBox || 0;
+    if (invAmmo) invAmmo.textContent = bc ? (bc.ammoBox || 0) : (inv.ammoBox || 0);
     const invSpeed = document.getElementById('invSpeed');
-    if (invSpeed) invSpeed.textContent = inv.speedBoost || 0;
+    if (invSpeed) invSpeed.textContent = bc ? (bc.speedBoost || 0) : (inv.speedBoost || 0);
     const invGrenade = document.getElementById('invGrenade');
-    if (invGrenade) invGrenade.textContent = inv.grenades || 0;
+    if (invGrenade) invGrenade.textContent = bc ? (bc.grenades || 0) : (inv.grenades || 0);
 }
 
 // Shift 按住显示物资圆盘；Ctrl 按住冲刺
@@ -5575,6 +6169,13 @@ function hideGameUI() {
     if (hud) hud.style.display = 'none';
     const ctrl = document.getElementById('controls');
     if (ctrl) ctrl.style.display = 'none';
+    const raidAmmoToggle = document.getElementById('raidAmmoToggle');
+    if (raidAmmoToggle) raidAmmoToggle.style.display = 'none';
+    const raidAmmoPanel = document.getElementById('raidAmmoPanel');
+    if (raidAmmoPanel) {
+        raidAmmoPanel.style.display = 'none';
+        raidAmmoPanelOpen = false;
+    }
 }
 
 // ==================== 改装面板函数 ====================
@@ -5903,6 +6504,12 @@ function showLobby() {
         selectMissionForMap(playerData.selectedMap || 'desert');
     }
     updateReadyRoomMission();
+
+    // 首次进入大厅触发剧情对话
+    if (storyState.chapter === 1 && !isDialogueCompleted('intro_price')) {
+        showDialogue('intro_price');
+    }
+
     if (typeof showItemWheel === 'function') showItemWheel(false);
     if (typeof shiftHeld !== 'undefined') shiftHeld = false;
     if (window.lucide) lucide.createIcons();
@@ -6256,6 +6863,23 @@ function setDifficulty(diff) {
     if (btn) btn.classList.add('active');
 }
 
+function setGameMode(mode) {
+    if (mode !== 'mission' && mode !== 'raid') return;
+    playerData.selectedMode = mode;
+    gameMode = mode;
+    savePlayerData();
+    updateGameModeUI();
+    updateReadyRoomMission();
+    updateRaidLoadoutUI();
+}
+
+function updateGameModeUI() {
+    const mode = playerData.selectedMode || 'mission';
+    document.querySelectorAll('#modeSelectRow .mode-btn').forEach(b => {
+        b.classList.toggle('active', b.dataset.mode === mode);
+    });
+}
+
 function selectMap(mapName) {
     playerData.selectedMap = mapName;
     document.querySelectorAll('.map-card').forEach(c => c.classList.remove('selected'));
@@ -6266,7 +6890,7 @@ function selectMap(mapName) {
 }
 
 function renderMapPreviews() {
-    const themes = ['desert', 'city', 'factory', 'jungle', 'snow', 'volcano', 'ruins', 'base'];
+    const themes = ['desert', 'city', 'factory', 'jungle', 'snow', 'volcano', 'ruins', 'base', 'forest', 'wasteland', 'swamp'];
     const colors = {
         desert: { ground: '#2d2d1a', obstacle: '#8b7355', cover: '#4a3728', building: '#6b5344' },
         city: { ground: '#2a2a2a', obstacle: '#4a4a4a', cover: '#3a3a5a', building: '#5a5a6a' },
@@ -6275,7 +6899,10 @@ function renderMapPreviews() {
         snow: { ground: '#4a4a5a', obstacle: '#6a6a7a', cover: '#5a6a8a', building: '#7a7a8a' },
         volcano: { ground: '#2d1a1a', obstacle: '#5a2a2a', cover: '#4a1a1a', building: '#6b3a3a' },
         ruins: { ground: '#2a2a20', obstacle: '#5a5a50', cover: '#4a4a40', building: '#6b6b5a' },
-        base: { ground: '#1a1a2a', obstacle: '#3a3a4a', cover: '#2a2a3a', building: '#4a4a5a' }
+        base: { ground: '#1a1a2a', obstacle: '#3a3a4a', cover: '#2a2a3a', building: '#4a4a5a' },
+        forest: { ground: '#1a2a12', obstacle: '#0f1f0a', cover: '#2a3a1a', building: '#3a2a1a' },
+        wasteland: { ground: '#4a3a2a', obstacle: '#2a1f15', cover: '#3a2a1a', building: '#2a1a10' },
+        swamp: { ground: '#1a2412', obstacle: '#0f1a0a', cover: '#2a3a15', building: '#2a2515' }
     };
 
     themes.forEach(theme => {
@@ -6473,6 +7100,49 @@ function updateSupplyUI() {
     }
 }
 
+// ============================================================
+// 搜打撤：战前配装 UI
+// ============================================================
+function updateRaidLoadoutUI() {
+    const isRaid = (playerData.selectedMode || 'mission') === 'raid';
+    const title = document.getElementById('raidConsumablesTitle');
+    const panel = document.getElementById('raidConsumablesPanel');
+    if (title) title.style.display = isRaid ? 'block' : 'none';
+    if (panel) panel.style.display = isRaid ? 'block' : 'none';
+    if (!isRaid) return;
+
+    const inv = playerData.inventory || {};
+    const loadout = playerData.raidLoadout && playerData.raidLoadout.consumables ? playerData.raidLoadout.consumables : { medkits: 0, grenades: 0, speedBoost: 0 };
+
+    const fields = [
+        { key: 'medkits', ui: 'raidMedkits', owned: 'ownedMedkits' },
+        { key: 'grenades', ui: 'raidGrenades', owned: 'ownedGrenades' },
+        { key: 'speedBoost', ui: 'raidSpeedBoost', owned: 'ownedSpeedBoost' }
+    ];
+    for (const f of fields) {
+        const uiEl = document.getElementById(f.ui);
+        const ownedEl = document.getElementById(f.owned);
+        if (uiEl) uiEl.textContent = loadout[f.key] || 0;
+        if (ownedEl) ownedEl.textContent = inv[f.key] || 0;
+    }
+}
+
+function adjustRaidConsumable(key, delta) {
+    if (!playerData.raidLoadout) playerData.raidLoadout = { consumables: { medkits: 0, grenades: 0, speedBoost: 0 } };
+    if (!playerData.raidLoadout.consumables) playerData.raidLoadout.consumables = { medkits: 0, grenades: 0, speedBoost: 0 };
+    const loadout = playerData.raidLoadout.consumables;
+    const inv = playerData.inventory || {};
+    const current = loadout[key] || 0;
+    const owned = inv[key] || 0;
+    let next = current + delta;
+    if (next < 0) next = 0;
+    if (next > owned) next = owned;
+    if (next > 5) next = 5; // 单种消耗品最多带 5 个
+    loadout[key] = next;
+    savePlayerData();
+    updateRaidLoadoutUI();
+}
+
 let currentNotificationEl = null;
 let notificationTimeout = null;
 let notificationMessages = [];
@@ -6649,8 +7319,17 @@ function showReadyRoom() {
     renderReadyRoomMapPreviews();
     // 渲染物资数据
     updateSupplyUI();
+    // 更新模式选择按钮
+    updateGameModeUI();
     // 更新任务信息
     updateReadyRoomMission();
+    // 更新战备中心武器装备显示
+    updateReadyRoomLoadout();
+    // 更新搜打撤出战补给面板
+    updateRaidLoadoutUI();
+    // 更新队友配置显示
+    updateTeammateCountUI();
+    updateTeammateLoadoutPreview();
     // 根据当前地图高亮地图卡
     if (playerData.selectedMap) {
         document.querySelectorAll('#readyPresetMapGrid .map-card, #readyCustomMapGrid .map-card').forEach(c => c.classList.remove('selected'));
@@ -6665,6 +7344,106 @@ function exitReadyRoom() {
     if (lobby) lobby.classList.remove('lobby-in-ready');
     showLobby();
 }
+
+function updateReadyRoomLoadout() {
+    if (!playerData.equippedWeapons) {
+        playerData.equippedWeapons = { primary: 'rifle', secondary: 'pistol' };
+    }
+    const primary = WEAPONS.find(function(w) { return w.id === playerData.equippedWeapons.primary; }) || WEAPONS.find(function(w) { return w.id === 'rifle'; });
+    const secondary = WEAPONS.find(function(w) { return w.id === playerData.equippedWeapons.secondary; }) || WEAPONS.find(function(w) { return w.id === 'pistol'; });
+
+    const pIcon = document.getElementById('readyPrimaryIcon');
+    const pName = document.getElementById('readyPrimaryName');
+    const sIcon = document.getElementById('readySecondaryIcon');
+    const sName = document.getElementById('readySecondaryName');
+
+    if (pIcon) pIcon.textContent = primary ? primary.icon : '🔫';
+    if (pName) pName.textContent = primary ? primary.name : '主武器';
+    if (sIcon) sIcon.textContent = secondary ? secondary.icon : '🔫';
+    if (sName) sName.textContent = secondary ? secondary.name : '副武器';
+}
+
+let _loadoutSelectingSlot = 'primary';
+
+function openLoadoutWeaponSelector(slot) {
+    _loadoutSelectingSlot = slot || 'primary';
+    const modal = document.getElementById('loadoutWeaponModal');
+    const label = document.getElementById('loadoutWeaponSlotLabel');
+    const grid = document.getElementById('loadoutWeaponGrid');
+    if (!modal || !grid) return;
+
+    if (label) label.textContent = slot === 'secondary' ? '副武器' : '主武器';
+    grid.innerHTML = '';
+
+    // 列出所有非近战枪械
+    WEAPONS.forEach(function(weapon) {
+        if (weapon.type === WEAPON_TYPES.MELEE) return;
+
+        const isOwned = weapon.unlocked;
+        const isEquipped = playerData.equippedWeapons && playerData.equippedWeapons[_loadoutSelectingSlot] === weapon.id;
+        const priceText = isOwned ? (isEquipped ? '当前装备' : '已拥有') : '🪙 ' + weapon.price;
+        const btnText = isOwned ? (isEquipped ? '已装备' : '装备') : '购买并装备';
+
+        const item = document.createElement('div');
+        item.className = 'market-item' + (isEquipped ? ' equipped' : '') + (isOwned ? ' unlocked' : '');
+        item.innerHTML = '<div class="item-icon">' + weapon.icon + '</div>' +
+            '<div class="item-info"><div class="item-name">' + weapon.name + '</div>' +
+            '<div class="item-desc">伤害: ' + weapon.damage + ' | 射速: ' + weapon.fireRate + '</div></div>' +
+            '<div class="item-price">' + priceText + '</div>' +
+            '<button class="buy-btn">' + btnText + '</button>';
+
+        const btn = item.querySelector('.buy-btn');
+        btn.onclick = function() {
+            if (isOwned) {
+                selectLoadoutWeapon(_loadoutSelectingSlot, weapon.id);
+            } else {
+                buyAndEquipWeapon(weapon.id, _loadoutSelectingSlot);
+            }
+        };
+        grid.appendChild(item);
+    });
+
+    modal.style.display = 'flex';
+}
+
+function closeLoadoutWeaponSelector() {
+    const modal = document.getElementById('loadoutWeaponModal');
+    if (modal) modal.style.display = 'none';
+}
+
+function selectLoadoutWeapon(slot, weaponId) {
+    if (!playerData.equippedWeapons) playerData.equippedWeapons = { primary: 'rifle', secondary: 'pistol' };
+    playerData.equippedWeapons[slot] = weaponId;
+    savePlayerData();
+    updateReadyRoomLoadout();
+    closeLoadoutWeaponSelector();
+    showNotification(slot === 'secondary' ? '副武器已切换' : '主武器已切换');
+}
+
+function buyAndEquipWeapon(weaponId, slot) {
+    const result = buyWeapon(weaponId);
+    if (result && result.success) {
+        selectLoadoutWeapon(slot, weaponId);
+    } else {
+        showNotification(result && result.message ? result.message : '购买失败');
+    }
+}
+
+window.updateReadyRoomLoadout = updateReadyRoomLoadout;
+window.openLoadoutWeaponSelector = openLoadoutWeaponSelector;
+window.closeLoadoutWeaponSelector = closeLoadoutWeaponSelector;
+window.selectLoadoutWeapon = selectLoadoutWeapon;
+window.buyAndEquipWeapon = buyAndEquipWeapon;
+window.setTeammateCount = setTeammateCount;
+window.updateTeammateCountUI = updateTeammateCountUI;
+window.setGameMode = setGameMode;
+window.updateGameModeUI = updateGameModeUI;
+window.updateRaidLoadoutUI = updateRaidLoadoutUI;
+window.adjustRaidConsumable = adjustRaidConsumable;
+window.toggleRaidAmmoPanel = toggleRaidAmmoPanel;
+window.adjustRaidAmmo = adjustRaidAmmo;
+window.updateRaidAmmoCost = updateRaidAmmoCost;
+window.buyRaidAmmo = buyRaidAmmo;
 
 function hideLobbyBottom() {
     const lobbyBottom = document.querySelector('.lobby-bottom');
@@ -6974,66 +7753,168 @@ function updateDamageVignette(healthPercent) {
     }
 }
 
-// 小地图绘制
+// 小地图绘制（搜打撤风格）
 function drawMinimap() {
     const canvas = document.getElementById('minimapCanvas');
     const minimap = document.getElementById('minimap');
-    if (!canvas || !minimap) return;
-    
-    const ctx = canvas.getContext('2d');
-    const scale = canvas.width / (typeof mapWidth !== 'undefined' ? mapWidth : 2000);
-    
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    
-    // 绘制地形底色
-    ctx.fillStyle = '#1a2a1a';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-    
-    // 绘制网格
-    ctx.strokeStyle = 'rgba(74, 93, 35, 0.2)';
-    for (let x = 0; x < canvas.width; x += 20) {
-        ctx.beginPath();
-        ctx.moveTo(x, 0);
-        ctx.lineTo(x, canvas.height);
-        ctx.stroke();
+    if (!canvas || !minimap || minimap.style.display === 'none') return;
+
+    const mctx = canvas.getContext('2d');
+    const mapSize = typeof MAP_SIZE !== 'undefined' ? MAP_SIZE : 150;
+    const scale = canvas.width / mapSize;
+    const px = player ? player.x : mapSize / 2;
+    const py = player ? player.y : mapSize / 2;
+
+    mctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    // 深色战术背景
+    mctx.fillStyle = '#0d140d';
+    mctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    // 动态扫描线
+    const scanOffset = (Date.now() / 25) % canvas.height;
+    mctx.fillStyle = 'rgba(0, 255, 136, 0.06)';
+    mctx.fillRect(0, scanOffset, canvas.width, 1);
+
+    // 战术网格
+    mctx.strokeStyle = 'rgba(74, 93, 35, 0.12)';
+    mctx.lineWidth = 0.5;
+    const gridCount = 6;
+    const gridStep = canvas.width / gridCount;
+    for (let i = 1; i < gridCount; i++) {
+        const x = i * gridStep;
+        mctx.beginPath(); mctx.moveTo(x, 0); mctx.lineTo(x, canvas.height); mctx.stroke();
+        const y = i * gridStep;
+        mctx.beginPath(); mctx.moveTo(0, y); mctx.lineTo(canvas.width, y); mctx.stroke();
     }
-    for (let y = 0; y < canvas.height; y += 20) {
-        ctx.beginPath();
-        ctx.moveTo(0, y);
-        ctx.lineTo(canvas.width, y);
-        ctx.stroke();
-    }
-    
-    // 绘制建筑物（如果有的话）
-    if (typeof buildings !== 'undefined' && buildings.length > 0) {
-        buildings.forEach(b => {
-            ctx.fillStyle = '#333';
-            ctx.fillRect(b.x * scale, b.y * scale, Math.max(4, b.w * scale), Math.max(4, b.h * scale));
-        });
-    }
-    
-    // 绘制敌人
-    if (typeof enemies !== 'undefined') {
-        enemies.forEach(e => {
-            if (!e.dead) {
-                ctx.fillStyle = '#cc3333';
-                ctx.beginPath();
-                ctx.arc(e.x * scale, e.y * scale, 2, 0, Math.PI * 2);
-                ctx.fill();
+
+    // 绘制主要建筑/障碍轮廓（降采样，避免性能问题）
+    if (typeof mapData !== 'undefined' && mapData) {
+        mctx.fillStyle = 'rgba(60, 55, 45, 0.55)';
+        const step = Math.max(2, Math.floor(mapSize / 30));
+        for (let y = 0; y < mapSize; y += step) {
+            for (let x = 0; x < mapSize; x += step) {
+                const key = x + '_' + y;
+                const tile = mapData[key];
+                if (tile && (tile.type === 'obstacle' || tile.type === 'building' || tile.type === 'cover')) {
+                    mctx.fillRect(x * scale, y * scale, Math.max(2, step * scale), Math.max(2, step * scale));
+                }
             }
-        });
+        }
     }
-    
-    // 绘制玩家
-    if (typeof player !== 'undefined') {
-        ctx.fillStyle = '#00ff88';
-        ctx.shadowColor = '#00ff88';
-        ctx.shadowBlur = 6;
-        ctx.beginPath();
-        ctx.arc(player.x * scale, player.y * scale, 4, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.shadowBlur = 0;
+
+    // 绘制撤离点（蓝色光圈）
+    if (typeof extractX !== 'undefined' && typeof extractY !== 'undefined') {
+        const ex = extractX * scale;
+        const ey = extractY * scale;
+        mctx.strokeStyle = '#00ccff';
+        mctx.lineWidth = 1.5;
+        mctx.beginPath();
+        mctx.arc(ex, ey, 5, 0, Math.PI * 2);
+        mctx.stroke();
+        mctx.fillStyle = 'rgba(0, 204, 255, 0.35)';
+        mctx.beginPath();
+        mctx.arc(ex, ey, 3, 0, Math.PI * 2);
+        mctx.fill();
+        // 撤离点脉冲环
+        const pulse = (Math.sin(Date.now() / 300) + 1) * 0.5;
+        mctx.strokeStyle = 'rgba(0, 204, 255, ' + (0.2 + pulse * 0.3) + ')';
+        mctx.beginPath();
+        mctx.arc(ex, ey, 5 + pulse * 4, 0, Math.PI * 2);
+        mctx.stroke();
     }
+
+    // 绘制摸金箱子（按稀有度着色）
+    if (typeof lootCrates !== 'undefined') {
+        for (let i = 0; i < lootCrates.length; i++) {
+            const c = lootCrates[i];
+            if (!c || c.state === 'opened') continue;
+            const rarityInfo = LOOT_CRATE_RARITY[c.rarity.toUpperCase()] || LOOT_CRATE_RARITY.COMMON;
+            const cx = c.x * scale;
+            const cy = c.y * scale;
+            mctx.fillStyle = rarityInfo.color;
+            mctx.shadowColor = rarityInfo.glow;
+            mctx.shadowBlur = c.rarity === 'legendary' ? 5 : 3;
+            mctx.beginPath();
+            mctx.arc(cx, cy, c.rarity === 'legendary' ? 2.5 : 2, 0, Math.PI * 2);
+            mctx.fill();
+            mctx.shadowBlur = 0;
+        }
+    }
+
+    // 绘制掉落物/物资（黄色小点）
+    if (typeof drops !== 'undefined') {
+        mctx.fillStyle = '#ffcc00';
+        for (let i = 0; i < drops.length; i++) {
+            const d = drops[i];
+            if (!d || !d.alive) continue;
+            mctx.beginPath();
+            mctx.arc(d.x * scale, d.y * scale, 1.8, 0, Math.PI * 2);
+            mctx.fill();
+        }
+    }
+
+    // 绘制敌人（红色光点）
+    if (typeof enemies !== 'undefined') {
+        for (let i = 0; i < enemies.length; i++) {
+            const e = enemies[i];
+            if (!e || e.dead) continue;
+            mctx.fillStyle = e.isBoss ? '#ff00ff' : '#ff3333';
+            mctx.shadowColor = e.isBoss ? '#ff00ff' : '#ff3333';
+            mctx.shadowBlur = e.isBoss ? 6 : 3;
+            mctx.beginPath();
+            mctx.arc(e.x * scale, e.y * scale, e.isBoss ? 3.5 : 2, 0, Math.PI * 2);
+            mctx.fill();
+            mctx.shadowBlur = 0;
+        }
+    }
+
+    // 绘制玩家（带视野扇形与朝向箭头，颜色跟随当前皮肤）
+    if (player) {
+        const x = px * scale;
+        const y = py * scale;
+        mctx.save();
+        mctx.translate(x, y);
+        mctx.rotate(player.angle || 0);
+
+        const pSkinColor = getPlayerSkinColor();
+        const pSkin = SKINS.players.find(s => s.id === playerMods.equippedPlayerSkin);
+        const pGlowColor = pSkin && pSkin.color ? lightenColor(pSkin.color, 30) : '#00ff88';
+
+        // 视野扇形
+        mctx.fillStyle = pSkinColor;
+        mctx.globalAlpha = 0.12;
+        mctx.beginPath();
+        mctx.moveTo(0, 0);
+        mctx.arc(0, 0, 28, -Math.PI / 5, Math.PI / 5);
+        mctx.closePath();
+        mctx.fill();
+        mctx.globalAlpha = 1.0;
+
+        // 玩家点
+        mctx.fillStyle = pSkinColor;
+        mctx.shadowColor = pGlowColor;
+        mctx.shadowBlur = 8;
+        mctx.beginPath();
+        mctx.arc(0, 0, 3.5, 0, Math.PI * 2);
+        mctx.fill();
+        mctx.shadowBlur = 0;
+
+        // 朝向箭头
+        mctx.strokeStyle = pGlowColor;
+        mctx.lineWidth = 1.5;
+        mctx.beginPath();
+        mctx.moveTo(0, 0);
+        mctx.lineTo(7, 0);
+        mctx.stroke();
+
+        mctx.restore();
+    }
+
+    // 外框
+    mctx.strokeStyle = 'rgba(0, 255, 136, 0.25)';
+    mctx.lineWidth = 1;
+    mctx.strokeRect(0, 0, canvas.width, canvas.height);
 }
 
 // 显示/隐藏小地图
@@ -7084,22 +7965,21 @@ function buyAttachment(modId) {
 }
 
 function buyWeapon(weaponId) {
-    const weapon = WEAPONS.find(w => w.id === weaponId);
-    if (!weapon) return;
+    const weapon = WEAPONS.find(function(w) { return w.id === weaponId; });
+    if (!weapon) return { success: false, message: '武器不存在' };
     if (weapon.unlocked) {
-        showNotification('已拥有该武器');
-        return;
+        return { success: false, message: '已拥有该武器' };
     }
     if (playerData.coins < weapon.price) {
-        showNotification('金币不足！');
-        return;
+        return { success: false, message: '金币不足！' };
     }
     playerData.coins -= weapon.price;
     weapon.unlocked = true;
     savePlayerData();
     updatePlayerStats();
-    showNotification(`解锁了 ${weapon.name}！`);
+    showNotification('解锁了 ' + weapon.name + '！');
     updateMarketUI();
+    return { success: true, message: '解锁成功' };
 }
 
 function switchMarketTab(tab) {
@@ -7168,20 +8048,29 @@ function renderWeaponMarketGrid() {
     grid.innerHTML = '';
 
     WEAPONS.forEach(weapon => {
-        if (weapon.id === 'pistol' || weapon.id === 'rifle' || weapon.id === 'sniper') return;
+        // 跳过近战武器，近战武器在专属商店/任务奖励中获取
+        if (weapon.type === WEAPON_TYPES.MELEE) return;
+
+        const isOwned = weapon.unlocked;
+        const isFree = weapon.price === 0;
+        const priceText = isOwned ? '已拥有' : (isFree ? '免费' : '🪙 ' + weapon.price);
+        const btnText = isOwned ? '已拥有' : (isFree ? '领取' : '购买');
+        const canBuy = !isOwned;
 
         const item = document.createElement('div');
-        item.className = 'market-item' + (weapon.unlocked ? ' unlocked' : '');
+        item.className = 'market-item' + (isOwned ? ' unlocked' : '');
         item.innerHTML = `
             <div class="item-icon">${weapon.icon}</div>
             <div class="item-info">
                 <div class="item-name">${weapon.name}</div>
                 <div class="item-desc">${weapon.description || '伤害: ' + weapon.damage + ' | 射速: ' + weapon.fireRate}</div>
             </div>
-            <div class="item-price">🪙 ${weapon.price}</div>
-            <button class="buy-btn" ${weapon.unlocked ? 'disabled' : ''}>${weapon.unlocked ? '已拥有' : '购买'}</button>
+            <div class="item-price">${priceText}</div>
+            <button class="buy-btn" ${!canBuy ? 'disabled' : ''}>${btnText}</button>
         `;
-        item.querySelector('.buy-btn').onclick = () => buyWeapon(weapon.id);
+        if (canBuy) {
+            item.querySelector('.buy-btn').onclick = function() { buyWeapon(weapon.id); };
+        }
         grid.appendChild(item);
     });
 }
@@ -8212,16 +9101,31 @@ function getDefaultMissions() {
 }
 
 function loadMissions() {
+    let missions = [];
     try {
         const stored = localStorage.getItem('deathTrench_missions');
         if (stored) {
             const data = JSON.parse(stored);
             // 兼容两种格式：数组直接使用 / {tasks: [...] }
-            if (Array.isArray(data)) return data;
-            if (Array.isArray(data.tasks)) return data.tasks;
+            if (Array.isArray(data)) missions = data;
+            else if (Array.isArray(data.tasks)) missions = data.tasks;
         }
     } catch (e) { /* fallback */ }
-    return getDefaultMissions();
+
+    if (!missions || missions.length === 0) {
+        missions = getDefaultMissions();
+    }
+
+    // 合并分线剧情任务，避免重复
+    const storyMissions = getStoryMissions();
+    const existingIds = new Set(missions.map(m => m.id));
+    for (const sm of storyMissions) {
+        if (!existingIds.has(sm.id)) {
+            missions.push(sm);
+            existingIds.add(sm.id);
+        }
+    }
+    return missions;
 }
 
 function loadMissionSettings() {
@@ -8321,12 +9225,26 @@ function updateMissionProgress(taskType, value) {
 function completeMission() {
     if (!currentMission) return;
 
+    const finishedId = currentMission.id;
+
     if (!completedMissionIds.includes(currentMission.id)) {
         completedMissionIds.push(currentMission.id);
         saveCompletedMissions();
     }
     playerData.coins += currentMission.reward;
     showNotification('🎖️ 任务完成！获得 ' + currentMission.reward + ' 金币');
+
+    // 分线剧情触发
+    if (finishedId === 'task_kill2') {
+        sendStoryMail('price_after_city');
+        if (storyState.branch === 'truth' || storyState.branch === 'mercy') {
+            sendStoryMail('ghost_warning_mail');
+        }
+        advanceChapter();
+    }
+    if (finishedId === 'task_kill3' && storyState.branch === 'truth' && storyState.chapter < 3) {
+        advanceChapter();
+    }
 
     const missions = loadMissions();
     const currentIdx = missions.findIndex(m => m.id === currentMission.id);
@@ -8388,8 +9306,18 @@ function updateReadyRoomMission() {
     const rewardEl = document.getElementById('readyRoomMissionReward');
     const cardEl = document.getElementById('readyRoomMissionCard');
 
-    if (!nameEl || !currentMission) {
-        if (nameEl) nameEl.textContent = '暂无进行中的任务';
+    if (!nameEl) return;
+
+    if ((playerData.selectedMode || 'mission') === 'raid') {
+        nameEl.textContent = '搜打撤行动';
+        descEl.textContent = '进入地图搜索物资、击败敌人，并在撤离点安全撤离。成功撤离才能带走战利品！';
+        rewardEl.textContent = '奖励: 战利品可带回仓库并出售';
+        if (cardEl) cardEl.style.borderColor = '#ffaa00';
+        return;
+    }
+
+    if (!currentMission) {
+        nameEl.textContent = '暂无进行中的任务';
         if (descEl) descEl.textContent = '选择地图以开始新任务';
         if (rewardEl) rewardEl.textContent = '';
         return;
@@ -8399,6 +9327,8 @@ function updateReadyRoomMission() {
     descEl.textContent = currentMission.descZh;
     rewardEl.textContent = '奖励: 🪙 ' + currentMission.reward + ' · 目标: ' + currentMissionProgress + '/' + currentMission.target;
     if (cardEl) cardEl.style.borderColor = '#00cc66';
+
+    toggleMissionBriefingButton();
 }
 
 function hasMissionPrereqs(mission, missions) {
@@ -8654,7 +9584,7 @@ function useItem(itemName) {
         showNotification('请先开始游戏！');
         return;
     }
-    
+
     // 检查物品使用间隔
     if (enableItemCooldown) {
         const now = Date.now();
@@ -8670,16 +9600,25 @@ function useItem(itemName) {
         return;
     }
 
-    const itemKey = getItemKey(itemName);
-    if (!itemKey || !playerData.inventory[itemKey] || playerData.inventory[itemKey] <= 0) {
-        showNotification('没有该物品！');
-        return;
-    }
+    const keyMap = {
+        'medkit': 'medkits',
+        'ammoBox': 'ammoBox',
+        'speedBoost': 'speedBoost',
+        'grenade': 'grenades'
+    };
+    const battleKey = keyMap[itemName];
 
-    // 统一扣减一次；但 'grenade' 走 throwGrenade 路径（throwGrenade 自己会扣一次），
-    // 为避免重复扣减，手雷这里不先扣。
-    if (itemName !== 'grenade') {
-        playerData.inventory[itemKey]--;
+    // 局内消耗品检查（搜打撤按携带量限制，普通模式 generous）
+    if (battleKey && battleConsumables) {
+        if ((battleConsumables[battleKey] || 0) <= 0) {
+            const modeHint = gameMode === 'raid' ? '携带数量已用完！' : '本局已用完！';
+            showNotification(`${getItemDisplayName(itemName)} ${modeHint}`);
+            return;
+        }
+        // 手雷走 throwGrenade 路径，那里会扣减
+        if (itemName !== 'grenade') {
+            battleConsumables[battleKey]--;
+        }
     }
 
     switch (itemName) {
@@ -8897,6 +9836,7 @@ function init() {
 
         if (e.code === 'KeyR' && gameRunning) reload();
         if (e.code === 'KeyG' && gameRunning) throwGrenade();
+        if (e.code === 'KeyE' && gameRunning) tryInteractLootCrate();
         if (e.code === 'Digit1' && gameRunning) switchWeapon(0);
         if (e.code === 'Digit2' && gameRunning) switchWeapon(1);
         if (e.code === 'Digit3' && gameRunning) switchWeapon(2);
@@ -8976,6 +9916,7 @@ function init() {
     loadMedals();
     loadCompletedMissions();
     loadMissionSettings();
+    loadStoryState();
     syncSettingsUI();
     setupMissionPanelDrag();
     checkAllMedals();
@@ -9055,6 +9996,961 @@ function setupMissionPanelDrag() {
         localStorage.setItem('deathTrench_missionPanel_pos',
             JSON.stringify({ left: rect.left, top: rect.top }));
     });
+}
+
+// ============================================================
+// 搜打撤实验：队友系统
+// ============================================================
+function setTeammateCount(n) {
+    n = Math.max(0, Math.min(TEAM_MAX_SIZE - 1, n));
+    playerData.teammateCount = n;
+    updateTeammateCountUI();
+    updateTeammateLoadoutPreview();
+    savePlayerData();
+}
+
+function updateTeammateCountUI() {
+    const count = typeof playerData.teammateCount === 'number' ? playerData.teammateCount : 0;
+    document.querySelectorAll('.teammate-count-btn').forEach(btn => {
+        btn.classList.toggle('active', parseInt(btn.dataset.count) === count);
+    });
+    const label = document.getElementById('teammateCountLabel');
+    if (label) label.textContent = count === 0 ? '单人作战' : count === 1 ? '1 名队友' : '2 名队友';
+}
+
+function updateTeammateLoadoutPreview() {
+    const preview = document.getElementById('teammateLoadoutPreview');
+    if (!preview) return;
+    const count = typeof playerData.teammateCount === 'number' ? playerData.teammateCount : 0;
+    if (count <= 0) {
+        preview.innerHTML = '';
+        return;
+    }
+    const armorMap = { none: '无甲', light: '轻型护甲', heavy: '重型护甲' };
+    const parts = [];
+    for (let i = 0; i < count; i++) {
+        const loadout = generateRandomTeammateLoadout();
+        parts.push(`队友${i + 1}：${loadout.weapon.icon} ${loadout.weapon.name} · ${armorMap[loadout.armor] || loadout.armor}`);
+    }
+    preview.innerHTML = parts.join('<br>');
+}
+
+function generateRandomTeammateLoadout() {
+    let candidates = WEAPONS.filter(w => !w.isMelee && w.type !== WEAPON_TYPES.MELEE && w.unlocked);
+    if (candidates.length === 0) {
+        candidates = WEAPONS.filter(w => w.id === 'rifle' || w.id === 'pistol');
+    }
+    const baseWeapon = candidates[Math.floor(Math.random() * candidates.length)];
+    const weapon = { ...baseWeapon };
+    const armorRoll = Math.random();
+    const armor = armorRoll < 0.5 ? 'none' : (armorRoll < 0.8 ? 'light' : 'heavy');
+    const armorBonus = armor === 'heavy' ? 60 : armor === 'light' ? 30 : 0;
+    return { weapon, armor, maxHealth: (gameParams.PLAYER.maxHealth || 100) + armorBonus };
+}
+
+function spawnTeammates(count) {
+    teammates = [];
+    if (!count || count <= 0 || !player) return;
+    const startX = player.x;
+    const startY = player.y;
+    for (let i = 0; i < count; i++) {
+        let x, y, attempts = 0;
+        do {
+            const angle = Math.random() * Math.PI * 2;
+            const dist = 2 + Math.random() * 2.5;
+            x = startX + Math.cos(angle) * dist;
+            y = startY + Math.sin(angle) * dist;
+            attempts++;
+        } while ((isBlockedCircle(x, y, 0.45) || Math.abs(x - startX) + Math.abs(y - startY) < 1.5) && attempts < 30);
+        const loadout = generateRandomTeammateLoadout();
+        teammates.push({
+            x, y,
+            angle: Math.random() * Math.PI * 2,
+            health: loadout.maxHealth,
+            maxHealth: loadout.maxHealth,
+            radius: 0.45,
+            speedMul: 0.8 + Math.random() * 0.25,
+            weapon: loadout.weapon,
+            currentAmmo: loadout.weapon.clipSize || 30,
+            lastShot: 0,
+            alive: true,
+            hitFlash: 0,
+            targetEnemy: null,
+            name: '队友' + (i + 1),
+            armor: loadout.armor
+        });
+    }
+}
+
+function getNearestTeammateTarget(x, y, maxRange) {
+    let best = null;
+    let bestDist = maxRange * maxRange;
+    for (let i = 0; i < enemies.length; i++) {
+        const e = enemies[i];
+        if (!e || !e.alive) continue;
+        const dx = e.x - x;
+        const dy = e.y - y;
+        const d2 = dx * dx + dy * dy;
+        if (d2 < bestDist) {
+            bestDist = d2;
+            best = e;
+        }
+    }
+    return best;
+}
+
+function updateTeammates(now) {
+    if (!gameRunning || !player || teammates.length === 0) return;
+    const baseSpeed = (gameParams.ENEMY && gameParams.ENEMY.moveSpeed ? gameParams.ENEMY.moveSpeed : 0.35) * 0.9;
+
+    // 找到对玩家威胁最大的敌人，队友会优先协防
+    let threatToPlayer = null;
+    let threatDistSq = 20 * 20;
+    for (let k = 0; k < enemies.length; k++) {
+        const e = enemies[k];
+        if (!e || !e.alive) continue;
+        const dx = e.x - player.x;
+        const dy = e.y - player.y;
+        const d2 = dx * dx + dy * dy;
+        if (d2 < threatDistSq) {
+            threatDistSq = d2;
+            threatToPlayer = e;
+        }
+    }
+
+    for (let i = 0; i < teammates.length; i++) {
+        const tm = teammates[i];
+        if (!tm.alive) continue;
+
+        // 初始化换弹状态
+        if (typeof tm.isReloading === 'undefined') tm.isReloading = false;
+        if (typeof tm.reloadStart === 'undefined') tm.reloadStart = 0;
+
+        // 选择目标：优先攻击对玩家威胁最大的敌人，其次才是离自己最近的敌人
+        let target = threatToPlayer;
+        if (!target || Math.random() < 0.4) {
+            target = getNearestTeammateTarget(tm.x, tm.y, tm.weapon.range || 35);
+        }
+        tm.targetEnemy = target;
+
+        const speed = baseSpeed * tm.speedMul;
+        let desiredX, desiredY;
+
+        if (target) {
+            // 计算以玩家-目标连线为基准的侧翼位置，左右分散
+            const angleToTarget = Math.atan2(target.y - player.y, target.x - player.x);
+            const side = (i % 2 === 0) ? 1 : -1;
+            const flankAngle = angleToTarget + side * (Math.PI / 3 + Math.sin(now / 1000 + i) * 0.2);
+            const followDist = Math.min(7, (tm.weapon.range || 35) * 0.4);
+            desiredX = player.x + Math.cos(flankAngle) * followDist;
+            desiredY = player.y + Math.sin(flankAngle) * followDist;
+
+            // 如果期望位置没有视线，尝试向目标靠近一点
+            if (!hasLineOfSight(desiredX, desiredY, target.x, target.y)) {
+                const approachAngle = Math.atan2(target.y - tm.y, target.x - tm.x);
+                desiredX = tm.x + Math.cos(approachAngle) * speed * 2;
+                desiredY = tm.y + Math.sin(approachAngle) * speed * 2;
+            }
+        } else {
+            // 无目标时呈扇形护卫玩家
+            const offsetAngle = (i / Math.max(1, teammates.length)) * Math.PI * 2 + player.angle + Math.PI / 4;
+            desiredX = player.x + Math.cos(offsetAngle) * 3;
+            desiredY = player.y + Math.sin(offsetAngle) * 3;
+        }
+
+        // 受击时向侧向闪避
+        if (tm.hitFlash > 0 && target) {
+            const dodgeAngle = Math.atan2(target.y - tm.y, target.x - tm.x) + (Math.random() < 0.5 ? Math.PI / 2 : -Math.PI / 2);
+            desiredX = tm.x + Math.cos(dodgeAngle) * 1.5;
+            desiredY = tm.y + Math.sin(dodgeAngle) * 1.5;
+        }
+
+        // 向期望位置移动
+        const dx = desiredX - tm.x;
+        const dy = desiredY - tm.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        if (dist > 0.3) {
+            let moveX = (dx / dist) * speed;
+            let moveY = (dy / dist) * speed;
+            let moved = false;
+            if (!isBlockedCircle(tm.x + moveX, tm.y, tm.radius)) {
+                tm.x += moveX; moved = true;
+            }
+            if (!isBlockedCircle(tm.x, tm.y + moveY, tm.radius)) {
+                tm.y += moveY; moved = true;
+            }
+            if (!moved) {
+                const perpX = -moveY, perpY = moveX;
+                if (!isBlockedCircle(tm.x + perpX, tm.y, tm.radius)) tm.x += perpX;
+                else if (!isBlockedCircle(tm.x - perpX, tm.y, tm.radius)) tm.x -= perpX;
+                if (!isBlockedCircle(tm.x, tm.y + perpY, tm.radius)) tm.y += perpY;
+                else if (!isBlockedCircle(tm.x, tm.y - perpY, tm.radius)) tm.y -= perpY;
+            }
+        }
+
+        // 与玩家/其他队友分离
+        const separateTargets = [player].concat(teammates.filter((t, idx) => idx !== i && t.alive));
+        for (const other of separateTargets) {
+            const sdx = tm.x - other.x;
+            const sdy = tm.y - other.y;
+            const sd = Math.sqrt(sdx * sdx + sdy * sdy);
+            if (sd > 0 && sd < 1.2) {
+                const push = (1.2 - sd) / 1.2 * speed * 0.5;
+                const px = (sdx / sd) * push;
+                const py = (sdy / sd) * push;
+                if (!isBlockedCircle(tm.x + px, tm.y, tm.radius)) tm.x += px;
+                if (!isBlockedCircle(tm.x, tm.y + py, tm.radius)) tm.y += py;
+            }
+        }
+
+        // 换弹逻辑
+        if (tm.isReloading) {
+            const reloadTime = tm.weapon.reloadTime || tm.weapon.fireRate * 4 || 1000;
+            if (now - tm.reloadStart >= reloadTime) {
+                tm.currentAmmo = tm.weapon.clipSize || 30;
+                tm.isReloading = false;
+            }
+            if (tm.hitFlash > 0) tm.hitFlash--;
+            continue;
+        }
+
+        // 射击
+        if (target) {
+            tm.angle = Math.atan2(target.y - tm.y, target.x - tm.x);
+            const tdx = target.x - tm.x;
+            const tdy = target.y - tm.y;
+            const tdist = Math.sqrt(tdx * tdx + tdy * tdy);
+            if (tdist <= (tm.weapon.range || 35) && hasLineOfSight(tm.x, tm.y, target.x, target.y) && now - tm.lastShot > (tm.weapon.fireRate || 300)) {
+                if (tm.currentAmmo > 0) {
+                    const pellets = tm.weapon.pellets || 1;
+                    for (let p = 0; p < pellets; p++) {
+                        const spread = pellets > 1 ? (Math.random() - 0.5) * 0.25 : 0;
+                        poolPushBullet({
+                            x: tm.x + Math.cos(tm.angle) * 0.5,
+                            y: tm.y + Math.sin(tm.angle) * 0.5,
+                            angle: tm.angle + spread,
+                            speed: 1,
+                            damage: tm.weapon.damage || 20,
+                            range: tm.weapon.range || 30,
+                            distance: 0,
+                            owner: 'teammate',
+                            type: getWeaponAmmoType(tm.weapon.id) || 'normal',
+                            weaponType: tm.weapon.type
+                        });
+                    }
+                    tm.currentAmmo--;
+                    tm.lastShot = now;
+                    alertNearbyEnemies(tm.x, tm.y, 12);
+                }
+                if (tm.currentAmmo <= 0) {
+                    tm.isReloading = true;
+                    tm.reloadStart = now;
+                }
+            }
+        }
+
+        if (tm.hitFlash > 0) tm.hitFlash--;
+    }
+
+    // 清理死亡队友
+    for (let i = teammates.length - 1; i >= 0; i--) {
+        if (!teammates[i].alive) teammates.splice(i, 1);
+    }
+}
+
+function drawTeammates() {
+    if (!player || teammates.length === 0) return;
+    for (let i = 0; i < teammates.length; i++) {
+        const tm = teammates[i];
+        if (!tm.alive) continue;
+        if (Math.abs(tm.x - player.x) > VIEW_RANGE_X + 2 || Math.abs(tm.y - player.y) > VIEW_RANGE_Y + 2) continue;
+        const screenX = canvas.width / 2 + (tm.x - player.x) * TILE_SIZE;
+        const screenY = canvas.height / 2 + (tm.y - player.y) * TILE_SIZE;
+        ctx.save();
+        ctx.translate(screenX, screenY);
+        ctx.rotate(tm.angle);
+
+        const bodyColor = '#4dabf7';
+        const glowColor = '#91d5ff';
+        if (tm.hitFlash > 0) ctx.fillStyle = '#ffffff';
+        else ctx.fillStyle = bodyColor;
+        ctx.strokeStyle = glowColor;
+        ctx.lineWidth = 2;
+        ctx.shadowColor = glowColor;
+        ctx.shadowBlur = 8;
+        ctx.beginPath();
+        ctx.moveTo(PLAYER_SIZE * TILE_SIZE, 0);
+        ctx.lineTo(-PLAYER_SIZE * TILE_SIZE * 0.7, -PLAYER_SIZE * TILE_SIZE * 0.7);
+        ctx.lineTo(-PLAYER_SIZE * TILE_SIZE * 0.5, 0);
+        ctx.lineTo(-PLAYER_SIZE * TILE_SIZE * 0.7, PLAYER_SIZE * TILE_SIZE * 0.7);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+        ctx.shadowBlur = 0;
+
+        // 生命条
+        ctx.restore();
+        const hpPercent = Math.max(0, tm.health / tm.maxHealth);
+        ctx.fillStyle = 'rgba(0,0,0,0.5)';
+        ctx.fillRect(screenX - 14, screenY - 22, 28, 4);
+        ctx.fillStyle = hpPercent > 0.5 ? '#00cc66' : '#ff4444';
+        ctx.fillRect(screenX - 14, screenY - 22, 28 * hpPercent, 4);
+        ctx.fillStyle = '#91d5ff';
+        ctx.font = '10px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText(tm.name, screenX, screenY - 26);
+
+        // 换弹提示
+        if (tm.isReloading) {
+            ctx.fillStyle = '#ffaa00';
+            ctx.font = '9px Arial';
+            ctx.fillText('换弹中', screenX, screenY - 36);
+        }
+    }
+}
+
+// ============================================================
+// 队友离屏指示箭头
+// ============================================================
+function drawTeammateIndicators() {
+    if (!player || teammates.length === 0 || !canvas || !ctx) return;
+    const w = canvas.width;
+    const h = canvas.height;
+    const cx = w / 2;
+    const cy = h / 2;
+    const pad = 28;
+    const maxHalfW = w / 2 - pad;
+    const maxHalfH = h / 2 - pad;
+
+    for (let i = 0; i < teammates.length; i++) {
+        const tm = teammates[i];
+        if (!tm.alive) continue;
+
+        const pdx = (tm.x - player.x) * TILE_SIZE;
+        const pdy = (tm.y - player.y) * TILE_SIZE;
+
+        // 在视野内不显示指示器
+        if (Math.abs(pdx) < maxHalfW && Math.abs(pdy) < maxHalfH) continue;
+
+        const angle = Math.atan2(pdy, pdx);
+        let t = Infinity;
+        if (Math.abs(Math.cos(angle)) > 0.0001) {
+            t = Math.min(t, maxHalfW / Math.abs(Math.cos(angle)));
+        }
+        if (Math.abs(Math.sin(angle)) > 0.0001) {
+            t = Math.min(t, maxHalfH / Math.abs(Math.sin(angle)));
+        }
+        if (!isFinite(t) || t < 0) t = 0;
+
+        const ex = cx + Math.cos(angle) * t;
+        const ey = cy + Math.sin(angle) * t;
+        const dist = Math.floor(Math.sqrt((tm.x - player.x) * (tm.x - player.x) + (tm.y - player.y) * (tm.y - player.y)));
+
+        ctx.save();
+        ctx.translate(ex, ey);
+        ctx.rotate(angle);
+        ctx.fillStyle = '#4dabf7';
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 2;
+        ctx.shadowColor = '#4dabf7';
+        ctx.shadowBlur = 10;
+
+        const size = 10;
+        ctx.beginPath();
+        ctx.moveTo(size, 0);
+        ctx.lineTo(-size, -size * 0.7);
+        ctx.lineTo(-size * 0.4, 0);
+        ctx.lineTo(-size, size * 0.7);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+        ctx.shadowBlur = 0;
+
+        ctx.fillStyle = '#ffffff';
+        ctx.font = 'bold 11px Arial';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(dist + 'm', 0, -size - 10);
+        ctx.restore();
+    }
+}
+
+// ============================================================
+// 搜打撤实验：摸金箱子
+// ============================================================
+function generateLootCrates(count) {
+    lootCrates = [];
+    const startX = player.x;
+    const startY = player.y;
+    const rarityList = Object.values(LOOT_CRATE_RARITY);
+    for (let i = 0; i < count; i++) {
+        let x, y, attempts = 0;
+        do {
+            x = Math.floor(Math.random() * MAP_SIZE);
+            y = Math.floor(Math.random() * MAP_SIZE);
+            attempts++;
+            const tile = getTile(x, y);
+            const distStart = Math.abs(x - startX) + Math.abs(y - startY);
+            const distExtract = Math.abs(x - extractX) + Math.abs(y - extractY);
+            if (!tile || (tile.type !== 'ground' && tile.type !== 'cover')) continue;
+            if (distStart < 10 || distExtract < 5) continue;
+            // 避免与其他箱子过近
+            let tooClose = false;
+            for (const c of lootCrates) {
+                if (Math.abs(c.x - x) + Math.abs(c.y - y) < 8) { tooClose = true; break; }
+            }
+            if (tooClose) continue;
+            x += 0.5; y += 0.5;
+            break;
+        } while (attempts < 80);
+        if (attempts >= 80) continue;
+        const roll = Math.random();
+        let cumulative = 0;
+        let rarity = rarityList[0];
+        for (const r of rarityList) {
+            cumulative += r.chance;
+            if (roll < cumulative) { rarity = r; break; }
+        }
+        lootCrates.push({
+            x, y,
+            state: 'closed',
+            progress: 0,
+            searchStart: 0,
+            icon: rarity.icon,
+            rarity: rarity.id
+        });
+    }
+}
+
+function tryInteractLootCrate() {
+    if (!gameRunning || !player) return;
+    if (activeCrate && activeCrate.state === 'opening') return;
+    let nearest = null;
+    let nearestDist = 2.5 * 2.5;
+    for (const crate of lootCrates) {
+        if (crate.state !== 'closed') continue;
+        const dx = crate.x - player.x;
+        const dy = crate.y - player.y;
+        const d2 = dx * dx + dy * dy;
+        if (d2 < nearestDist) {
+            nearestDist = d2;
+            nearest = crate;
+        }
+    }
+    if (nearest) {
+        nearest.state = 'opening';
+        nearest.searchStart = Date.now();
+        activeCrate = nearest;
+        alertNearbyEnemies(nearest.x, nearest.y, LOOT_CRATE_NOISE_RADIUS);
+        showNotification('正在搜索物资箱...');
+    }
+}
+
+function openLootCrate(crate) {
+    crate.state = 'opened';
+    crate.progress = 1;
+    activeCrate = null;
+    alertNearbyEnemies(crate.x, crate.y, LOOT_CRATE_NOISE_RADIUS * 1.2);
+
+    const rarityInfo = LOOT_CRATE_RARITY[crate.rarity.toUpperCase()] || LOOT_CRATE_RARITY.COMMON;
+    const drops = LOOT_CRATE_DROP_TABLE[crate.rarity] || LOOT_CRATE_DROP_TABLE.common;
+    const lootCount = Math.max(1, Math.floor(LOOT_CRATE_LOOT_COUNT * rarityInfo.lootMul));
+    const lootMessages = [];
+    const isRaid = gameMode === 'raid';
+
+    function pickDrop() {
+        const totalWeight = drops.reduce((sum, d) => sum + d.weight, 0);
+        let roll = Math.random() * totalWeight;
+        for (const drop of drops) {
+            roll -= drop.weight;
+            if (roll <= 0) return drop;
+        }
+        return drops[0];
+    }
+
+    for (let i = 0; i < lootCount; i++) {
+        const drop = pickDrop();
+        switch (drop.type) {
+            case 'coins': {
+                const coins = drop.min + Math.floor(Math.random() * (drop.max - drop.min + 1));
+                if (isRaid) {
+                    raidLoot.push({ type: 'coins', value: coins });
+                    lootMessages.push(`待撤离 +${coins} 金币`);
+                } else {
+                    playerData.coins += coins;
+                    lootMessages.push(`+${coins} 金币`);
+                }
+                break;
+            }
+            case 'heal': {
+                const heal = drop.min + Math.floor(Math.random() * (drop.max - drop.min + 1));
+                player.health = Math.min(player.maxHealth, player.health + heal);
+                lootMessages.push(`+${heal} 生命`);
+                break;
+            }
+            case 'fullHeal': {
+                player.health = player.maxHealth;
+                lootMessages.push('生命全满');
+                break;
+            }
+            case 'item': {
+                const key = drop.itemId === 'ammoBox' ? 'ammoBox' :
+                            drop.itemId === 'medkit' ? 'medkits' :
+                            drop.itemId === 'grenade' ? 'grenades' :
+                            drop.itemId === 'speedBoost' ? 'speedBoost' : drop.itemId;
+                const value = drop.value || 1;
+                if (isRaid) {
+                    raidLoot.push({ type: 'item', key: key, value: value });
+                    lootMessages.push(`待撤离 +${value} ${itemName(drop.itemId)}`);
+                } else {
+                    playerData.inventory[key] = (playerData.inventory[key] || 0) + value;
+                    lootMessages.push(`+${value} ${itemName(drop.itemId)}`);
+                }
+                break;
+            }
+            case 'ammo': {
+                const w = player.weapons[player.currentWeapon];
+                if (w && !w.isMelee && w.type !== WEAPON_TYPES.MELEE) {
+                    const ammoType = getWeaponAmmoType(w.id);
+                    const amount = drop.min + Math.floor(Math.random() * (drop.max - drop.min + 1));
+                    ammoInventory[ammoType] = (ammoInventory[ammoType] || 0) + amount;
+                    lootMessages.push(`+${amount} ${ammoType} 弹药`);
+                } else {
+                    playerData.inventory.grenades = (playerData.inventory.grenades || 0) + 1;
+                    lootMessages.push('+1 手雷');
+                }
+                break;
+            }
+            case 'armor': {
+                player.health = Math.min(player.maxHealth, player.health + (drop.value || 30));
+                lootMessages.push(`+${drop.value || 30} 护甲/生命`);
+                break;
+            }
+            case 'mod': {
+                const modList = Object.keys(MODIFICATIONS || {});
+                if (modList.length > 0) {
+                    const modId = modList[Math.floor(Math.random() * modList.length)];
+                    const mod = MODIFICATIONS[modId];
+                    if (isRaid) {
+                        raidLoot.push({ type: 'mod', modId: modId });
+                        lootMessages.push(`待撤离 +1 ${mod ? mod.name : modId} 配件`);
+                    } else {
+                        playerMods.ownedMods[modId] = (playerMods.ownedMods[modId] || 0) + 1;
+                        lootMessages.push(`+1 ${mod ? mod.name : modId} 配件`);
+                    }
+                } else {
+                    if (isRaid) {
+                        raidLoot.push({ type: 'coins', value: 100 });
+                        lootMessages.push('待撤离 +100 金币');
+                    } else {
+                        playerData.coins += 100;
+                        lootMessages.push('+100 金币');
+                    }
+                }
+                break;
+            }
+            case 'skin': {
+                const skinTemplates = SKIN_TEMPLATES.filter(s => s.id !== 'default' && s.price > 0);
+                if (skinTemplates.length > 0) {
+                    const skin = skinTemplates[Math.floor(Math.random() * skinTemplates.length)];
+                    const skinId = 'skin_' + skin.id;
+                    if (!playerMods.ownedSkins.includes(skinId)) {
+                        if (isRaid) {
+                            raidLoot.push({ type: 'skin', skinId: skinId });
+                            lootMessages.push(`🎨 待撤离 皮肤碎片：${skin.name}`);
+                        } else {
+                            playerMods.ownedSkins.push(skinId);
+                            lootMessages.push(`🎨 皮肤碎片：${skin.name}`);
+                        }
+                    } else {
+                        if (isRaid) {
+                            raidLoot.push({ type: 'coins', value: 50 });
+                            lootMessages.push('待撤离 +50 金币（重复皮肤）');
+                        } else {
+                            playerData.coins += 50;
+                            lootMessages.push('+50 金币（重复皮肤）');
+                        }
+                    }
+                } else {
+                    if (isRaid) {
+                        raidLoot.push({ type: 'coins', value: 80 });
+                        lootMessages.push('待撤离 +80 金币');
+                    } else {
+                        playerData.coins += 80;
+                        lootMessages.push('+80 金币');
+                    }
+                }
+                break;
+            }
+            default:
+                if (isRaid) {
+                    raidLoot.push({ type: 'coins', value: 10 });
+                    lootMessages.push('待撤离 +10 金币');
+                } else {
+                    playerData.coins += 10;
+                    lootMessages.push('+10 金币');
+                }
+        }
+    }
+    showNotification(`${rarityInfo.icon} ${rarityInfo.label}物资箱：${lootMessages.join(' / ')}`, 'success');
+    updateHUD();
+}
+
+// ============================================================
+// 搜打撤：战利品结算
+// ============================================================
+function applyRaidLoot() {
+    if (!raidLoot || raidLoot.length === 0) return;
+    const summary = { coins: 0, items: [], mods: 0, skins: 0 };
+    for (const loot of raidLoot) {
+        switch (loot.type) {
+            case 'coins':
+                playerData.coins += loot.value || 0;
+                summary.coins += loot.value || 0;
+                break;
+            case 'item':
+                if (loot.key) {
+                    playerData.inventory[loot.key] = (playerData.inventory[loot.key] || 0) + (loot.value || 1);
+                    summary.items.push(`${loot.value || 1} ${itemName(loot.key)}`);
+                }
+                break;
+            case 'mod':
+                if (loot.modId) {
+                    playerMods.ownedMods[loot.modId] = (playerMods.ownedMods[loot.modId] || 0) + 1;
+                    summary.mods++;
+                }
+                break;
+            case 'skin':
+                if (loot.skinId && !playerMods.ownedSkins.includes(loot.skinId)) {
+                    playerMods.ownedSkins.push(loot.skinId);
+                    summary.skins++;
+                }
+                break;
+        }
+    }
+    raidLoot = [];
+    savePlayerData();
+    savePlayerMods();
+
+    const parts = [];
+    if (summary.coins > 0) parts.push(`金币 +${summary.coins}`);
+    if (summary.items.length > 0) parts.push(summary.items.join('、'));
+    if (summary.mods > 0) parts.push(`配件 +${summary.mods}`);
+    if (summary.skins > 0) parts.push(`皮肤 +${summary.skins}`);
+    if (parts.length > 0) {
+        showNotification(`🎒 成功带回战利品：${parts.join(' / ')}`, 'success');
+    }
+}
+
+function itemName(id) {
+    const map = { ammoBox: '弹药箱', medkit: '医疗包', grenade: '手雷', speedBoost: '加速卡' };
+    return map[id] || id;
+}
+
+function updateLootCrates(now) {
+    const prompt = document.getElementById('lootPrompt');
+    const fill = document.getElementById('lootProgressFill');
+    let nearClosed = null;
+    let nearestDist = 2.5 * 2.5;
+    for (const crate of lootCrates) {
+        if (crate.state !== 'closed') continue;
+        const dx = crate.x - player.x;
+        const dy = crate.y - player.y;
+        const d2 = dx * dx + dy * dy;
+        if (d2 < nearestDist) {
+            nearestDist = d2;
+            nearClosed = crate;
+        }
+    }
+
+    if (nearClosed && (!activeCrate || activeCrate.state !== 'opening')) {
+        if (prompt) prompt.classList.add('active');
+        if (fill) fill.style.width = '0%';
+    } else {
+        if (prompt) prompt.classList.remove('active');
+    }
+
+    if (activeCrate && activeCrate.state === 'opening') {
+        const dx = activeCrate.x - player.x;
+        const dy = activeCrate.y - player.y;
+        if (dx * dx + dy * dy > 3 * 3) {
+            activeCrate.state = 'closed';
+            activeCrate.searchStart = 0;
+            activeCrate = null;
+            showNotification('已远离物资箱，搜索取消');
+            if (prompt) prompt.classList.remove('active');
+            return;
+        }
+        const elapsed = now - activeCrate.searchStart;
+        activeCrate.progress = Math.min(1, elapsed / LOOT_CRATE_SEARCH_TIME);
+        if (fill) fill.style.width = (activeCrate.progress * 100) + '%';
+        if (prompt) prompt.classList.add('active');
+        if (activeCrate.progress >= 1) {
+            openLootCrate(activeCrate);
+            if (fill) fill.style.width = '0%';
+        }
+    }
+}
+
+function drawLootCrates() {
+    if (!player || lootCrates.length === 0) return;
+    const now = Date.now();
+    for (let i = 0; i < lootCrates.length; i++) {
+        const crate = lootCrates[i];
+        if (crate.state === 'opened') continue;
+        if (Math.abs(crate.x - player.x) > VIEW_RANGE_X + 2 || Math.abs(crate.y - player.y) > VIEW_RANGE_Y + 2) continue;
+        const screenX = canvas.width / 2 + (crate.x - player.x) * TILE_SIZE;
+        const screenY = canvas.height / 2 + (crate.y - player.y) * TILE_SIZE;
+        const rarityInfo = LOOT_CRATE_RARITY[crate.rarity.toUpperCase()] || LOOT_CRATE_RARITY.COMMON;
+        const pulse = crate.rarity === 'legendary' ? (Math.sin(now / 250) + 1) * 0.5 :
+                      crate.rarity === 'rare' ? (Math.sin(now / 400) + 1) * 0.5 : 0;
+        const glowBlur = 10 + pulse * 12;
+
+        ctx.save();
+        ctx.fillStyle = rarityInfo.color;
+        ctx.shadowColor = rarityInfo.glow;
+        ctx.shadowBlur = glowBlur;
+        ctx.fillRect(screenX - 10, screenY - 10, 20, 20);
+        ctx.strokeStyle = rarityInfo.glow;
+        ctx.lineWidth = crate.rarity === 'legendary' ? 2 : 1;
+        ctx.strokeRect(screenX - 10, screenY - 10, 20, 20);
+        ctx.shadowBlur = 0;
+
+        // 传说箱子额外旋转星芒装饰
+        if (crate.rarity === 'legendary') {
+            ctx.strokeStyle = rarityInfo.glow;
+            ctx.lineWidth = 1.5;
+            const rot = now / 800;
+            for (let a = 0; a < 4; a++) {
+                const angle = rot + a * Math.PI / 2;
+                ctx.beginPath();
+                ctx.moveTo(screenX + Math.cos(angle) * 14, screenY + Math.sin(angle) * 14);
+                ctx.lineTo(screenX + Math.cos(angle) * 18, screenY + Math.sin(angle) * 18);
+                ctx.stroke();
+            }
+        }
+
+        ctx.font = '14px Arial';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(crate.icon, screenX, screenY);
+        ctx.restore();
+    }
+}
+
+// ============================================================
+// Round 3：地图事件与 AI 埋伏
+// ============================================================
+const MAP_EVENT_TYPES = [
+    { id: 'patrol', weight: 40 },
+    { id: 'ambush', weight: 35 },
+    { id: 'supply_drop', weight: 25 }
+];
+const MAP_EVENT_INTERVAL_MIN = 20000;
+const MAP_EVENT_INTERVAL_MAX = 45000;
+
+function initMapEvents() {
+    mapEvents = [];
+    nextMapEventAt = Date.now() + 15000 + Math.random() * 10000; // 开局 15-25s 触发第一个事件
+}
+
+function updateMapEvents(now) {
+    if (now < nextMapEventAt) return;
+    nextMapEventAt = now + MAP_EVENT_INTERVAL_MIN + Math.random() * (MAP_EVENT_INTERVAL_MAX - MAP_EVENT_INTERVAL_MIN);
+
+    const totalWeight = MAP_EVENT_TYPES.reduce((sum, t) => sum + t.weight, 0);
+    let roll = Math.random() * totalWeight;
+    let selected = MAP_EVENT_TYPES[0];
+    for (const t of MAP_EVENT_TYPES) {
+        roll -= t.weight;
+        if (roll <= 0) { selected = t; break; }
+    }
+    triggerMapEvent(selected.id, now);
+}
+
+function spawnEventEnemy(x, y, target) {
+    const enemyHealth = gameParams.ENEMY.health || 80;
+    const enemyFireRate = gameParams.ENEMY.fireRate || 2000;
+    const difficultyHealthMul = settings.difficulty === 'hard' ? 1.3 : (settings.difficulty === 'easy' ? 0.75 : 1);
+    const now = Date.now();
+    const e = {
+        x, y,
+        health: enemyHealth * difficultyHealthMul,
+        maxHealth: enemyHealth * difficultyHealthMul,
+        angle: Math.random() * Math.PI * 2,
+        lastShot: 0,
+        fireRate: enemyFireRate,
+        isBoss: false,
+        alive: true,
+        path: null,
+        pathIndex: 0,
+        lastPathUpdate: 0,
+        pathUpdateInterval: 500,
+        aiState: 'chase',
+        investigateTarget: target ? { x: target.x, y: target.y, until: now + 60000 } : null
+    };
+    enemies.push(e);
+    return e;
+}
+
+function pickRandomGroundPos(minDistFromPlayer, maxDistFromPlayer) {
+    const px = player.x;
+    const py = player.y;
+    for (let i = 0; i < 80; i++) {
+        const x = Math.floor(Math.random() * MAP_SIZE) + 0.5;
+        const y = Math.floor(Math.random() * MAP_SIZE) + 0.5;
+        const tile = getTile(Math.floor(x), Math.floor(y));
+        if (!tile || (tile.type !== 'ground' && tile.type !== 'cover')) continue;
+        const d = Math.sqrt((x - px) * (x - px) + (y - py) * (y - py));
+        if (d < minDistFromPlayer) continue;
+        if (maxDistFromPlayer > 0 && d > maxDistFromPlayer) continue;
+        return { x, y };
+    }
+    return null;
+}
+
+function triggerMapEvent(type, now) {
+    if (type === 'patrol') {
+        const count = 3 + Math.floor(Math.random() * 2); // 3-4
+        const side = Math.floor(Math.random() * 4);
+        for (let i = 0; i < count; i++) {
+            let x, y;
+            const offset = Math.random() * MAP_SIZE;
+            switch (side) {
+                case 0: x = 2 + Math.random() * 4; y = offset; break;
+                case 1: x = MAP_SIZE - 2 - Math.random() * 4; y = offset; break;
+                case 2: x = offset; y = 2 + Math.random() * 4; break;
+                default: x = offset; y = MAP_SIZE - 2 - Math.random() * 4; break;
+            }
+            if (isBlocked(x, y)) continue;
+            spawnEventEnemy(x, y, player);
+        }
+        showNotification('⚠️ 巡逻队接近！', 'warning');
+        mapEvents.push({ type: 'patrol', x: player.x, y: player.y, until: now + 5000 });
+    } else if (type === 'ambush') {
+        const count = 4 + Math.floor(Math.random() * 3); // 4-6
+        const baseAngle = Math.random() * Math.PI * 2;
+        for (let i = 0; i < count; i++) {
+            const angle = baseAngle + (i / count) * Math.PI * 2 + (Math.random() - 0.5) * 0.5;
+            const dist = 12 + Math.random() * 8;
+            let x = player.x + Math.cos(angle) * dist;
+            let y = player.y + Math.sin(angle) * dist;
+            x = Math.max(2, Math.min(MAP_SIZE - 2, x));
+            y = Math.max(2, Math.min(MAP_SIZE - 2, y));
+            if (isBlocked(x, y)) {
+                const alt = pickRandomGroundPos(8, 20);
+                if (alt) { x = alt.x; y = alt.y; }
+            }
+            spawnEventEnemy(x, y, player);
+        }
+        showNotification('🚨 遭遇埋伏！', 'error');
+        mapEvents.push({ type: 'ambush', x: player.x, y: player.y, until: now + 6000 });
+    } else if (type === 'supply_drop') {
+        const pos = pickRandomGroundPos(15, 60);
+        if (pos) {
+            lootCrates.push({
+                x: pos.x,
+                y: pos.y,
+                state: 'closed',
+                progress: 0,
+                searchStart: 0,
+                icon: '📦',
+                rarity: 'legendary',
+                isSupplyDrop: true
+            });
+            alertNearbyEnemies(pos.x, pos.y, 30);
+            showNotification('🪂 空投补给已降临！', 'success');
+            mapEvents.push({ type: 'supply_drop', x: pos.x, y: pos.y, until: now + 60000 });
+        }
+    }
+}
+
+function drawMapEvents() {
+    if (!player || mapEvents.length === 0) return;
+    const now = Date.now();
+    const cx = canvas.width / 2;
+    const cy = canvas.height / 2;
+    ctx.save();
+    for (let i = mapEvents.length - 1; i >= 0; i--) {
+        const ev = mapEvents[i];
+        if (now > ev.until) { mapEvents.splice(i, 1); continue; }
+
+        const sx = cx + (ev.x - player.x) * TILE_SIZE;
+        const sy = cy + (ev.y - player.y) * TILE_SIZE;
+        const t = (ev.until - now) / 6000;
+        const alpha = Math.max(0, Math.min(1, t));
+
+        ctx.globalAlpha = alpha;
+        ctx.beginPath();
+        ctx.arc(sx, sy, 18 + Math.sin(now / 200) * 3, 0, Math.PI * 2);
+        ctx.strokeStyle = ev.type === 'ambush' ? '#ff4444' : (ev.type === 'patrol' ? '#ffaa00' : '#44ff44');
+        ctx.lineWidth = 2;
+        ctx.stroke();
+
+        ctx.font = '16px Arial';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillStyle = '#ffffff';
+        const icon = ev.type === 'ambush' ? '🚨' : (ev.type === 'patrol' ? '⚠️' : '🪂');
+        ctx.fillText(icon, sx, sy);
+    }
+    ctx.restore();
+}
+
+// ============================================================
+// 搜打撤实验：AI 增强辅助
+// ============================================================
+function getNearestEnemyThreat(enemy) {
+    let best = player;
+    let bestDist = (player.x - enemy.x) * (player.x - enemy.x) + (player.y - enemy.y) * (player.y - enemy.y);
+    for (let i = 0; i < teammates.length; i++) {
+        const tm = teammates[i];
+        if (!tm || !tm.alive) continue;
+        const d2 = (tm.x - enemy.x) * (tm.x - enemy.x) + (tm.y - enemy.y) * (tm.y - enemy.y);
+        if (d2 < bestDist) {
+            bestDist = d2;
+            best = tm;
+        }
+    }
+    return best;
+}
+
+function alertNearbyEnemies(x, y, radius) {
+    if (!enemies || enemies.length === 0) return;
+    const r2 = radius * radius;
+    const now = Date.now();
+    for (let i = 0; i < enemies.length; i++) {
+        const e = enemies[i];
+        if (!e || !e.alive) continue;
+        const dx = e.x - x;
+        const dy = e.y - y;
+        if (dx * dx + dy * dy < r2) {
+            e.investigateTarget = { x, y, until: now + 4000 + Math.random() * 2000 };
+        }
+    }
+}
+
+function findNearestCover(x, y, fromX, fromY, radius) {
+    let best = null;
+    let bestScore = Infinity;
+    const r = Math.ceil(radius);
+    for (let dy = -r; dy <= r; dy++) {
+        for (let dx = -r; dx <= r; dx++) {
+            const tx = Math.floor(x + dx);
+            const ty = Math.floor(y + dy);
+            if (tx < 0 || tx >= MAP_SIZE || ty < 0 || ty >= MAP_SIZE) continue;
+            const tile = getTile(tx, ty);
+            if (tile.type !== 'obstacle' && tile.type !== 'building') continue;
+            // 需要该掩体能够遮挡来自 fromX,fromY 的视线
+            if (hasLineOfSight(fromX, fromY, tx + 0.5, ty + 0.5)) continue;
+            const d = Math.sqrt(dx * dx + dy * dy);
+            if (d < bestScore) {
+                bestScore = d;
+                best = { x: tx + 0.5, y: ty + 0.5 };
+            }
+        }
+    }
+    return best;
 }
 
 // ============================================================
@@ -9354,6 +11250,402 @@ function skipTutorial() {
     const highlight = document.getElementById('tutorialHighlight');
     if (highlight) highlight.style.display = 'none';
 }
+
+// ====================================================================
+// 剧情状态与分线系统
+// ====================================================================
+const STORY_STATE_KEY = 'deathTrench_story_state';
+
+let storyState = {
+    chapter: 1,
+    branch: 'neutral',
+    flags: {},
+    completedDialogues: [],
+    seenBriefings: []
+};
+
+function loadStoryState() {
+    try {
+        const raw = localStorage.getItem(STORY_STATE_KEY);
+        if (raw) Object.assign(storyState, JSON.parse(raw));
+    } catch (e) { console.warn('[Story] load failed', e); }
+}
+
+function saveStoryState() {
+    try {
+        localStorage.setItem(STORY_STATE_KEY, JSON.stringify(storyState));
+    } catch (e) {}
+}
+
+function setStoryFlag(key, value) {
+    storyState.flags[key] = value;
+    saveStoryState();
+}
+
+function hasStoryFlag(key) {
+    return !!storyState.flags[key];
+}
+
+function setStoryBranch(branch) {
+    storyState.branch = branch;
+    saveStoryState();
+}
+
+function advanceChapter() {
+    storyState.chapter++;
+    saveStoryState();
+}
+
+function markDialogueCompleted(dialogueId) {
+    if (!storyState.completedDialogues.includes(dialogueId)) {
+        storyState.completedDialogues.push(dialogueId);
+        saveStoryState();
+    }
+}
+
+function isDialogueCompleted(dialogueId) {
+    return storyState.completedDialogues.includes(dialogueId);
+}
+
+function markBriefingSeen(missionId) {
+    if (!storyState.seenBriefings.includes(missionId)) {
+        storyState.seenBriefings.push(missionId);
+        saveStoryState();
+    }
+}
+
+function resetStoryState() {
+    storyState = { chapter: 1, branch: 'neutral', flags: {}, completedDialogues: [], seenBriefings: [] };
+    saveStoryState();
+}
+
+// NPC 对话数据
+const DIALOGUES = {
+    'intro_price': {
+        speaker: '指挥官 · 普莱斯',
+        avatar: '🎖️',
+        tag: 'Death Trench 特遣队',
+        lines: [
+            { text: '欢迎来到死亡战壕，新兵。这里没有军衔，只有活人和死人。' },
+            { text: '黑潮军团占领了东部资源带，我们的任务很简单：打乱他们的节奏，然后把情报带回来。' },
+            { text: '第一课，我亲自教你。准备好了吗？', choices: [
+                { text: '准备好了，长官。服从命令。', action: () => { setStoryBranch('loyalty'); setStoryFlag('intro_ready'); advanceChapter(); } },
+                { text: '我想先知道黑潮到底在做什么。', action: () => { setStoryBranch('truth'); setStoryFlag('intro_ready'); advanceChapter(); } },
+                { text: '只要能少死人，让我做什么都行。', action: () => { setStoryBranch('mercy'); setStoryFlag('intro_ready'); advanceChapter(); } }
+            ]}
+        ]
+    },
+    'intro_ghost': {
+        speaker: '幽灵',
+        avatar: '👻',
+        tag: '战术支援',
+        lines: [
+            { text: '规则很简单：不要相信任何人，包括我。但你可以相信数据。' },
+            { text: '普通任务模式弹药无限，完成目标即可；搜打撤模式自带装备，活着撤离才能带走战利品。' },
+            { text: '去战备中心吧，普莱斯在等你。', choices: [
+                { text: '明白。', action: () => { setStoryFlag('intro_ready'); advanceChapter(); } }
+            ]}
+        ]
+    },
+    'city_choice': {
+        speaker: '指挥官 · 普莱斯',
+        avatar: '🎖️',
+        tag: 'Death Trench 特遣队',
+        lines: [
+            { text: '断壁城地下有一座黑潮军火库。上级想让我们直接炸平它。' },
+            { text: '但城里还有平民。你选：快速完成任务，还是优先搜救？', choices: [
+                { text: '炸掉军火库，任务第一。', action: () => { setStoryFlag('city_destroyed'); setStoryBranch('loyalty'); } },
+                { text: '先确认平民撤离。', action: () => { setStoryFlag('city_saved'); setStoryBranch('mercy'); } }
+            ]}
+        ]
+    },
+    'ghost_warning': {
+        speaker: '幽灵',
+        avatar: '👻',
+        tag: '战术支援',
+        lines: [
+            { text: '我截获了一段录音。普莱斯一年前和黑潮有过接触。' },
+            { text: '不要问他。先完成任务，证据越多，越能搞清楚他站在哪一边。', choices: [
+                { text: '我会自己查。', action: () => { setStoryFlag('ghost_trust'); setStoryBranch('truth'); } }
+            ]}
+        ]
+    }
+};
+
+let currentDialogueId = null;
+let currentDialogue = null;
+let currentDialogueLineIndex = 0;
+
+function showDialogue(dialogueId) {
+    const dialogue = DIALOGUES[dialogueId];
+    if (!dialogue) { console.warn('[Dialogue] not found:', dialogueId); return; }
+    currentDialogueId = dialogueId;
+    currentDialogue = dialogue;
+    currentDialogueLineIndex = 0;
+
+    const overlay = document.getElementById('dialogueOverlay');
+    console.log('[Dialogue] showDialogue', dialogueId, 'overlay found:', !!overlay);
+    if (overlay) {
+        overlay.style.display = 'flex';
+        overlay.classList.add('active');
+    }
+    renderDialogueLine();
+}
+
+function renderDialogueLine() {
+    if (!currentDialogue) return;
+    const line = currentDialogue.lines[currentDialogueLineIndex];
+    if (!line) { closeDialogue(); return; }
+
+    const speakerEl = document.getElementById('dialogueSpeaker');
+    const avatarEl = document.getElementById('dialogueAvatar');
+    const tagEl = document.getElementById('dialogueSpeakerTag');
+    const textEl = document.getElementById('dialogueText');
+    const choicesEl = document.getElementById('dialogueChoices');
+    const nextBtn = document.getElementById('dialogueNextBtn');
+
+    if (speakerEl) speakerEl.textContent = currentDialogue.speaker || '???';
+    if (avatarEl) avatarEl.textContent = currentDialogue.avatar || '👤';
+    if (tagEl) tagEl.textContent = currentDialogue.tag || '';
+    if (textEl) textEl.textContent = line.text || '';
+    if (choicesEl) choicesEl.innerHTML = '';
+
+    if (line.choices && line.choices.length > 0) {
+        if (nextBtn) nextBtn.style.display = 'none';
+        line.choices.forEach((choice, idx) => {
+            const btn = document.createElement('button');
+            btn.className = 'dialogue-choice-btn';
+            btn.textContent = choice.text;
+            btn.onclick = () => selectDialogueChoice(idx);
+            choicesEl.appendChild(btn);
+        });
+    } else {
+        if (nextBtn) {
+            nextBtn.style.display = 'inline-block';
+            nextBtn.textContent = currentDialogueLineIndex >= currentDialogue.lines.length - 1 ? '结束' : '继续';
+        }
+    }
+}
+
+function nextDialogueLine() {
+    if (!currentDialogue) return;
+    currentDialogueLineIndex++;
+    if (currentDialogueLineIndex >= currentDialogue.lines.length) {
+        closeDialogue();
+    } else {
+        renderDialogueLine();
+    }
+}
+
+function selectDialogueChoice(choiceIndex) {
+    if (!currentDialogue) return;
+    const line = currentDialogue.lines[currentDialogueLineIndex];
+    const choice = line.choices[choiceIndex];
+    if (!choice) return;
+
+    if (choice.action) {
+        try { choice.action(); } catch (e) { console.error('[Dialogue] choice action failed', e); }
+    }
+
+    if (choice.next && DIALOGUES[choice.next]) {
+        const nextId = choice.next;
+        closeDialogue();
+        setTimeout(() => showDialogue(nextId), 250);
+    } else {
+        closeDialogue();
+    }
+}
+
+function closeDialogue() {
+    if (currentDialogueId) markDialogueCompleted(currentDialogueId);
+    currentDialogueId = null;
+    currentDialogue = null;
+    currentDialogueLineIndex = 0;
+    const overlay = document.getElementById('dialogueOverlay');
+    if (overlay) {
+        overlay.style.display = 'none';
+        overlay.classList.remove('active');
+    }
+}
+
+function skipDialogue() {
+    closeDialogue();
+}
+
+window.showDialogue = showDialogue;
+window.nextDialogueLine = nextDialogueLine;
+window.selectDialogueChoice = selectDialogueChoice;
+window.skipDialogue = skipDialogue;
+window.resetStoryState = resetStoryState;
+
+// 任务简报与引导数据
+const MISSION_GUIDES = {
+    'task_kill1': {
+        title: '沙漠突袭：沙海前哨',
+        story: '黑潮在沙漠边缘建立了一座前哨站，用来监视我方补给线。\n\n普莱斯说："这不是杀鸡儆猴，这是剪指甲——让他们知道我们一直在。"',
+        objectives: [
+            '① 选择「沙漠」地图，普通任务模式。',
+            '② 消灭 15 名黑潮士兵。',
+            '③ 沙漠掩体较少，保持移动，优先占据高地。'
+        ]
+    },
+    'task_kill2': {
+        title: '城市清剿：断壁城',
+        story: '断壁城曾是自由贸易港，现在被黑潮改成军火中转站。\n\n情报显示地下有一座弹药库，清理敌人就是切断他们的补给线。',
+        objectives: [
+            '① 选择「城市」地图。',
+            '② 清理 20 名敌人。',
+            '③ 小心建筑物内的伏击，手雷在拐角处效果很好。'
+        ],
+        preDialogue: 'city_choice'
+    },
+    'task_kill3': {
+        title: '丛林猎杀：毒藤密林',
+        story: '黑潮在丛林深处设立了生物实验室，传闻他们在测试一种增强士兵体能的药剂。\n\n进去的人很少能完整出来。',
+        objectives: [
+            '① 选择「丛林」地图。',
+            '② 消灭 25 名敌人。',
+            '③ 视野受限，狙击枪和霰弹枪各有优势。'
+        ]
+    },
+    'task_boss1': {
+        title: 'Boss 猎手：斩首行动',
+        story: '黑潮的一名重甲指挥官「铁砧」出现在战场上。\n\n他从不单独行动，身边总有一群精锐护卫。',
+        objectives: [
+            '① 任意地图均可触发。',
+            '② 消灭 1 名 Boss 单位。',
+            '③ 穿甲弹和爆炸物对重甲目标更有效。'
+        ]
+    }
+};
+
+let currentBriefingMissionId = null;
+
+function hasMissionBriefing(missionId) {
+    return !!MISSION_GUIDES[missionId];
+}
+
+function showMissionBriefing() {
+    if (!currentMission) return;
+    const guide = MISSION_GUIDES[currentMission.id];
+    if (!guide) return;
+
+    currentBriefingMissionId = currentMission.id;
+
+    // 剧情对话优先触发
+    if (guide.preDialogue && !isDialogueCompleted(guide.preDialogue)) {
+        showDialogue(guide.preDialogue);
+        return;
+    }
+
+    const modal = document.getElementById('missionBriefingModal');
+    const titleEl = document.getElementById('briefingTitle');
+    const storyEl = document.getElementById('briefingStory');
+    const objEl = document.getElementById('briefingObjectives');
+
+    if (titleEl) titleEl.textContent = guide.title || currentMission.nameZh;
+    if (storyEl) storyEl.textContent = guide.story || '';
+    if (objEl) objEl.innerHTML = (guide.objectives || []).map(o => `<div class="briefing-objective">${o}</div>`).join('');
+
+    if (modal) modal.style.display = 'flex';
+}
+
+function closeMissionBriefing() {
+    if (currentBriefingMissionId) {
+        markBriefingSeen(currentBriefingMissionId);
+        currentBriefingMissionId = null;
+    }
+    const modal = document.getElementById('missionBriefingModal');
+    if (modal) modal.style.display = 'none';
+}
+
+function toggleMissionBriefingButton() {
+    const btn = document.getElementById('missionBriefingBtn');
+    if (!btn) return;
+    const mode = playerData.selectedMode || 'mission';
+    const visible = mode === 'mission' && currentMission && hasMissionBriefing(currentMission.id);
+    btn.style.display = visible ? 'block' : 'none';
+}
+
+window.showMissionBriefing = showMissionBriefing;
+window.closeMissionBriefing = closeMissionBriefing;
+
+// 分线剧情任务扩展
+function getStoryMissions() {
+    const missions = [];
+    if (storyState.branch === 'truth' && hasStoryFlag('city_saved') && storyState.chapter >= 2) {
+        missions.push({
+            id: 'task_truth_lab',
+            type: 'kill',
+            nameZh: '真相：实验室渗透',
+            nameEn: 'Truth: Lab Infiltration',
+            descZh: '潜入黑潮实验室，销毁纳米控制原型机',
+            descEn: 'Infiltrate Black Tide lab and destroy the nano-control prototype',
+            target: 30,
+            reward: 1200,
+            map: 'ruins'
+        });
+    }
+    if (storyState.branch === 'loyalty' && hasStoryFlag('city_destroyed') && storyState.chapter >= 2) {
+        missions.push({
+            id: 'task_loyalty_convoy',
+            type: 'kill',
+            nameZh: '忠诚：截击补给线',
+            nameEn: 'Loyalty: Supply Intercept',
+            descZh: '摧毁黑潮补给车队，削弱其前线兵力',
+            descEn: 'Destroy Black Tide supply convoys to weaken frontline forces',
+            target: 35,
+            reward: 1200,
+            map: 'wasteland'
+        });
+    }
+    if (storyState.branch === 'mercy' && hasStoryFlag('city_saved') && storyState.chapter >= 2) {
+        missions.push({
+            id: 'task_mercy_rescue',
+            type: 'extract',
+            nameZh: '仁慈：撤离难民',
+            nameEn: 'Mercy: Civilian Extraction',
+            descZh: '保护平民撤离点直至撤离完成',
+            descEn: 'Protect the civilian extraction point until extraction is complete',
+            target: 1,
+            reward: 1200,
+            map: 'forest'
+        });
+    }
+    return missions;
+}
+
+window.getStoryMissions = getStoryMissions;
+
+// 分线剧情邮件
+function sendStoryMail(mailId) {
+    const storyMails = {
+        'ghost_warning_mail': {
+            id: 'ghost_warning_mail',
+            sender: '幽灵',
+            subject: '关于普莱斯',
+            body: '我截获了一段录音。普莱斯一年前和黑潮有过接触。\n\n不要问他。先完成任务，证据越多，越能搞清楚他站在哪一边。\n\n我会再联系你。',
+            date: '2026-06-22 03:14',
+            unread: true
+        },
+        'price_after_city': {
+            id: 'price_after_city',
+            sender: '指挥官 · 普莱斯',
+            subject: '断壁城之后',
+            body: '你今天的选择，总部会记住。\n\n在死亡战壕，没有绝对的对错，只有你能不能活到下一个黎明。\n\n活着回来。',
+            date: '2026-06-22 08:00',
+            unread: true
+        }
+    };
+    const mail = storyMails[mailId];
+    if (!mail) return;
+    if (!_mailListCache) _mailListCache = getDefaultMails();
+    if (_mailListCache.some(m => m.id === mailId)) return;
+    _mailListCache.unshift(mail);
+    saveMailsToStorage();
+}
+
+window.sendStoryMail = sendStoryMail;
 
 // ====================================================================
 // 受击反馈

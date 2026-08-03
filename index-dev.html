@@ -16,6 +16,24 @@
     <div id="gameContainer">
         <canvas id="gameCanvas" tabindex="0"></canvas>
 
+        <!-- 受击红色闪烁层 -->
+        <div id="damageFlash" style="position:absolute;inset:0;z-index:50;pointer-events:none;
+            background:radial-gradient(ellipse at center, transparent 40%, rgba(204,51,51,0.3) 100%);
+            opacity:0; transition:opacity 0.1s;"></div>
+
+        <!-- 持久红色暗角（随血量变化） -->
+        <div id="damageVignette" style="position:absolute;inset:0;z-index:49;pointer-events:none;
+            background:radial-gradient(ellipse at center, transparent 30%, rgba(204,51,51,0.15) 100%);
+            opacity:0;"></div>
+
+        <!-- 小地图 -->
+        <div id="minimap" style="position:absolute;top:20px;left:20px;z-index:100;
+            width:180px;height:180px;background:rgba(0,0,0,0.75);
+            border:1px solid rgba(74,93,35,0.5);border-radius:8px;overflow:hidden;display:block;">
+            <div style="position:absolute;top:4px;left:6px;font-size:10px;color:rgba(255,255,255,0.3);z-index:2;">地图</div>
+            <canvas id="minimapCanvas" width="180" height="180" style="width:100%;height:100%;"></canvas>
+        </div>
+
         <div class="mission-panel" id="missionPanel">
             <div class="mission-header">
                 <span class="mission-icon">📋</span>
@@ -79,6 +97,33 @@
             </div>
         </div>
 
+        <!-- 搜打撤局内弹药补充入口 -->
+        <button id="raidAmmoToggle" class="raid-ammo-toggle" onclick="toggleRaidAmmoPanel()" style="display:none;">🛒 补充弹药</button>
+
+        <!-- 搜打撤局内弹药补充面板 -->
+        <div id="raidAmmoPanel" class="raid-ammo-panel" style="display:none;">
+            <div class="raid-ammo-title">🛒 补充弹药</div>
+            <div class="raid-ammo-row">
+                <label>弹药类型</label>
+                <select id="raidAmmoType" onchange="updateRaidAmmoCost()">
+                    <option value="normal">普通弹 🔵</option>
+                    <option value="ap">穿甲弹 🔴</option>
+                    <option value="exp">爆破弹 🟠</option>
+                    <option value="fire">燃烧弹 🔥</option>
+                </select>
+            </div>
+            <div class="raid-ammo-row">
+                <span>数量</span>
+                <div class="raid-ammo-counter">
+                    <button class="raid-ammo-btn" onclick="adjustRaidAmmo(-10)">-</button>
+                    <span id="raidAmmoCount">30</span>
+                    <button class="raid-ammo-btn" onclick="adjustRaidAmmo(10)">+</button>
+                </div>
+            </div>
+            <div class="raid-ammo-cost">花费: <span id="raidAmmoCost">0</span> 🪙</div>
+            <button id="raidAmmoBuyBtn" class="raid-ammo-buy" onclick="buyRaidAmmo()">购买并补充</button>
+        </div>
+
         <!-- 游戏内设置按钮（右上角） -->
         <button id="gameSettingsBtn" class="game-settings-btn" onclick="showSettings()">
             <span class="settings-icon">⚙️</span>
@@ -121,16 +166,23 @@
             </div>
             <div class="weapon-hint">按住 Shift + W/A/S/D 使用物资</div>
         </div>
+
+        <!-- 摸金箱子交互提示 -->
+        <div id="lootPrompt">
+            <div class="loot-prompt-text">靠近按 <span class="loot-prompt-key">E</span> 搜索物资箱</div>
+            <div class="loot-progress-wrap"><div class="loot-progress-fill" id="lootProgressFill"></div></div>
+        </div>
     </div>
 
     <!-- 操作说明面板（游戏中显示，CSS 中以 #controls 定义样式） -->
     <div id="controls" style="display:none;">
         <div class="control-row"><span>WASD / 方向键</span><span>移动</span></div>
-        <div class="control-row"><span>鼠标右键</span><span>射击</span></div>
-        <div class="control-row"><span>空格</span><span>连发开关</span></div>
-        <div class="control-row"><span>1 / 2 / 3</span><span>切换武器</span></div>
+        <div class="control-row"><span>鼠标右键</span><span>单发射击</span></div>
+        <div class="control-row"><span>空格</span><span>自动射击开关</span></div>
+        <div class="control-row"><span>1 / 2 / 3 / 4</span><span>切换武器</span></div>
         <div class="control-row"><span>R</span><span>换弹</span></div>
         <div class="control-row"><span>G</span><span>投掷手雷</span></div>
+        <div class="control-row"><span>E</span><span>搜索物资箱</span></div>
         <div class="control-row"><span>Shift + WASD</span><span>使用物资</span></div>
         <div class="control-row"><span>ESC</span><span>结束游戏</span></div>
     </div>
@@ -306,6 +358,10 @@
                     <i data-lucide="dices" style="width:24px;height:24px;color:var(--brand-accent);"></i>
                     <span>抽奖</span>
                 </button>
+                <button class="lobby-func-btn" onclick="showRedeemCodePanel()">
+                    <i data-lucide="gift" style="width:24px;height:24px;color:var(--brand-accent);"></i>
+                    <span>兑换码</span>
+                </button>
                 <button class="lobby-func-btn" onclick="showAmmoPanel()">
                     <i data-lucide="box" style="width:24px;height:24px;color:var(--brand-accent);"></i>
                     <span>弹药库</span>
@@ -332,6 +388,16 @@
                 <div class="ready-header">
                     <h2>🎮 战备中心</h2>
                     <button class="menu-btn tertiary" onclick="exitReadyRoom()">返回大厅</button>
+                </div>
+                <div class="mode-select-row" id="modeSelectRow">
+                    <button class="mode-btn active" data-mode="mission" onclick="setGameMode('mission')">
+                        <span class="mode-icon">📋</span>
+                        <span class="mode-name">普通任务</span>
+                    </button>
+                    <button class="mode-btn" data-mode="raid" onclick="setGameMode('raid')">
+                        <span class="mode-icon">🎒</span>
+                        <span class="mode-name">搜打撤</span>
+                    </button>
                 </div>
                 <div class="ready-layout">
                     <div class="ready-left">
@@ -382,6 +448,9 @@
                                 <div class="mission-reward" id="readyRoomMissionReward">-</div>
                             </div>
                         </div>
+                        <button class="menu-btn secondary" id="missionBriefingBtn" onclick="showMissionBriefing()" style="width:100%;margin-top:8px;display:none;">
+                            📜 查看任务简报与剧情引导
+                        </button>
 
                         <div class="section-title">选择难度</div>
                         <div class="diff-buttons compact">
@@ -392,9 +461,13 @@
 
                         <div class="section-title">装备</div>
                         <div class="equip-slots compact">
-                            <div class="equip-slot">
-                                <span class="slot-icon">🔫</span>
-                                <span class="slot-name">突击步枪</span>
+                            <div class="equip-slot" id="readyPrimarySlot" onclick="openLoadoutWeaponSelector('primary')" style="cursor:pointer;" title="点击切换主武器">
+                                <span class="slot-icon" id="readyPrimaryIcon">🔫</span>
+                                <span class="slot-name" id="readyPrimaryName">主武器</span>
+                            </div>
+                            <div class="equip-slot" id="readySecondarySlot" onclick="openLoadoutWeaponSelector('secondary')" style="cursor:pointer;" title="点击切换副武器">
+                                <span class="slot-icon" id="readySecondaryIcon">🔫</span>
+                                <span class="slot-name" id="readySecondaryName">副武器</span>
                             </div>
                             <div class="equip-slot">
                                 <span class="slot-icon">🛡️</span>
@@ -414,6 +487,43 @@
                             <div class="supply-item"><span class="supply-icon">🔋</span><span class="supply-name">弹药</span><span class="supply-count" id="supplyAmmo">∞</span></div>
                             <div class="supply-item"><span class="supply-icon">💣</span><span class="supply-name">手雷</span><span class="supply-count" id="supplyGrenade">0</span></div>
                             <div class="supply-item"><span class="supply-icon">⭐</span><span class="supply-name">幸运星</span><span class="supply-count" id="supplyStar">0</span></div>
+                        </div>
+
+                        <div class="section-title" id="raidConsumablesTitle" style="display:none;">出战补给（搜打撤）</div>
+                        <div class="supply-list raid-consumables" id="raidConsumablesPanel" style="display:none;">
+                            <div class="supply-item">
+                                <span class="supply-icon">💊</span><span class="supply-name">医疗包</span>
+                                <button class="raid-btn" onclick="adjustRaidConsumable('medkits',-1)">-</button>
+                                <span class="supply-count" id="raidMedkits">0</span>
+                                <button class="raid-btn" onclick="adjustRaidConsumable('medkits',1)">+</button>
+                                <span class="raid-owned">拥有 <span id="ownedMedkits">0</span></span>
+                            </div>
+                            <div class="supply-item">
+                                <span class="supply-icon">💣</span><span class="supply-name">手雷</span>
+                                <button class="raid-btn" onclick="adjustRaidConsumable('grenades',-1)">-</button>
+                                <span class="supply-count" id="raidGrenades">0</span>
+                                <button class="raid-btn" onclick="adjustRaidConsumable('grenades',1)">+</button>
+                                <span class="raid-owned">拥有 <span id="ownedGrenades">0</span></span>
+                            </div>
+                            <div class="supply-item">
+                                <span class="supply-icon">⚡</span><span class="supply-name">加速针剂</span>
+                                <button class="raid-btn" onclick="adjustRaidConsumable('speedBoost',-1)">-</button>
+                                <span class="supply-count" id="raidSpeedBoost">0</span>
+                                <button class="raid-btn" onclick="adjustRaidConsumable('speedBoost',1)">+</button>
+                                <span class="raid-owned">拥有 <span id="ownedSpeedBoost">0</span></span>
+                            </div>
+                        </div>
+
+                        <div class="section-title">队伍配置</div>
+                        <div class="teammate-config compact" id="teammateConfig">
+                            <div class="teammate-label">补齐队友 <span id="teammateCountLabel">单人作战</span></div>
+                            <div class="teammate-count-btns">
+                                <button class="teammate-count-btn" data-count="0" onclick="setTeammateCount(0)">0</button>
+                                <button class="teammate-count-btn" data-count="1" onclick="setTeammateCount(1)">1</button>
+                                <button class="teammate-count-btn" data-count="2" onclick="setTeammateCount(2)">2</button>
+                            </div>
+                            <div class="teammate-hint">一队最多 3 人（含玩家），队友装备随机</div>
+                            <div class="teammate-preview" id="teammateLoadoutPreview"></div>
                         </div>
 
                         <div class="start-area">
@@ -1415,6 +1525,113 @@
             <div class="popup-actions">
                 <button class="menu-btn tertiary" onclick="closeRedeemCodePanel()">取消</button>
                 <button class="menu-btn primary" onclick="submitRedeemCode()">兑换</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 战备中心武器选择弹窗 -->
+    <div id="loadoutWeaponModal" class="popup-overlay" style="display:none;">
+        <div class="popup-box popup-loadout-weapon">
+            <div class="popup-title">选择 <span id="loadoutWeaponSlotLabel">主武器</span></div>
+            <div class="popup-message" style="margin-bottom:12px;">点击已拥有的武器直接装备；未拥有的武器可先购买</div>
+            <div id="loadoutWeaponGrid" class="market-grid loadout-weapon-grid" style="max-height:320px;overflow-y:auto;"></div>
+            <div class="popup-actions">
+                <button class="menu-btn tertiary" onclick="closeLoadoutWeaponSelector()">取消</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 通用弹窗系统 -->
+    <div id="confirmModal" class="popup-overlay" style="display:none;">
+        <div class="popup-box popup-confirm">
+            <div class="popup-title" id="confirmTitle">确认</div>
+            <div class="popup-message" id="confirmMessage">确定要执行此操作吗？</div>
+            <div class="popup-actions">
+                <button class="menu-btn secondary" onclick="closeConfirm(false)">取消</button>
+                <button class="menu-btn primary" onclick="closeConfirm(true)">确认</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="warmTipModal" class="popup-overlay" style="display:none;">
+        <div class="popup-box popup-tip">
+            <div class="popup-title">💡 温馨提示</div>
+            <div class="popup-message" id="warmTipMessage"></div>
+            <div class="popup-actions">
+                <button class="menu-btn primary" onclick="closeWarmTip()">知道了</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 更新公告弹窗 -->
+    <div id="announcementModal" class="popup-overlay" style="display:none;">
+        <div class="popup-box popup-announcement">
+            <div class="popup-title">📢 更新公告 <span class="announcement-version" id="announcementVersion"></span></div>
+            <div class="announcement-date" id="announcementDate"></div>
+            <div class="announcement-content" id="announcementContent"></div>
+            <div class="announcement-actions">
+                <label class="announcement-dont-show">
+                    <input type="checkbox" id="announcementDontShow"> 不再提示此版本
+                </label>
+                <button class="menu-btn primary" onclick="closeAnnouncement()">知道了</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="toastContainer" style="position:fixed;top:20px;left:50%;transform:translateX(-50%);z-index:9999;display:flex;flex-direction:column;gap:8px;pointer-events:none;"></div>
+
+    <!-- 新手教程覆盖层 -->
+    <div id="tutorialOverlay" class="tutorial-overlay" style="display:none;">
+        <div class="tutorial-backdrop"></div>
+        <div class="tutorial-highlight" id="tutorialHighlight"></div>
+        <div class="tutorial-tooltip" id="tutorialTooltip">
+            <div class="tutorial-step-indicator" id="tutorialStepIndicator"></div>
+            <div class="tutorial-content">
+                <div class="tutorial-title" id="tutorialTitle"></div>
+                <div class="tutorial-desc" id="tutorialDesc"></div>
+            </div>
+            <div class="tutorial-nav">
+                <button class="menu-btn tertiary" style="padding:6px 14px;font-size:12px;" onclick="skipTutorial()">跳过</button>
+                <button class="menu-btn tertiary" style="padding:6px 14px;font-size:12px;" id="tutorialPrev" onclick="prevTutorialStep()">上一步</button>
+                <button class="menu-btn primary" style="padding:6px 14px;font-size:12px;" id="tutorialNext" onclick="nextTutorialStep()">下一步</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- NPC 对话覆盖层 -->
+    <div id="dialogueOverlay" class="dialogue-overlay" style="display:none;">
+        <div class="dialogue-backdrop"></div>
+        <div class="dialogue-box" id="dialogueBox">
+            <div class="dialogue-speaker-row">
+                <div class="dialogue-avatar" id="dialogueAvatar">🎖️</div>
+                <div class="dialogue-speaker-info">
+                    <div class="dialogue-speaker-name" id="dialogueSpeaker">指挥官</div>
+                    <div class="dialogue-speaker-tag" id="dialogueSpeakerTag">Death Trench 特遣队</div>
+                </div>
+            </div>
+            <div class="dialogue-text" id="dialogueText"></div>
+            <div class="dialogue-choices" id="dialogueChoices"></div>
+            <div class="dialogue-nav">
+                <button class="menu-btn tertiary" onclick="skipDialogue()">跳过</button>
+                <button class="menu-btn primary" id="dialogueNextBtn" onclick="nextDialogueLine()">继续</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 任务简报弹窗 -->
+    <div id="missionBriefingModal" class="popup-overlay" style="display:none;">
+        <div class="popup-content briefing-content">
+            <div class="briefing-header">
+                <h2 id="briefingTitle">任务简报</h2>
+            </div>
+            <div class="briefing-body">
+                <div id="briefingStory" class="briefing-story"></div>
+                <div class="briefing-section-title">行动目标</div>
+                <div id="briefingObjectives" class="briefing-objectives"></div>
+            </div>
+            <div class="briefing-actions">
+                <button class="menu-btn tertiary" onclick="closeMissionBriefing()">关闭</button>
+                <button class="menu-btn primary" onclick="closeMissionBriefing(); startGame();">开始行动</button>
             </div>
         </div>
     </div>
