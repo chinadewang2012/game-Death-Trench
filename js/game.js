@@ -9245,6 +9245,23 @@ function completeMission() {
     if (finishedId === 'task_kill3' && storyState.branch === 'truth' && storyState.chapter < 3) {
         advanceChapter();
     }
+    // 第四章：分支任务完成后触发对应剧情
+    if (finishedId === 'task_truth_lab' && !isDialogueCompleted('ch4_truth_confront')) {
+        sendStoryMail('ch4_truth_meeting');
+        setTimeout(() => showDialogue('ch4_truth_confront'), 800);
+    }
+    if (finishedId === 'task_loyalty_convoy' && !isDialogueCompleted('ch4_loyalty_order')) {
+        sendStoryMail('ch4_loyalty_directive');
+        setTimeout(() => showDialogue('ch4_loyalty_order'), 800);
+    }
+    if (finishedId === 'task_mercy_rescue' && !isDialogueCompleted('ch4_mercy_civilian')) {
+        sendStoryMail('ch4_mercy_eileen');
+        setTimeout(() => showDialogue('ch4_mercy_civilian'), 800);
+    }
+    // 第五章：Boss 击杀后触发最终抉择
+    if (finishedId === 'task_boss1' && !isDialogueCompleted('ch5_final_choice')) {
+        setTimeout(() => showDialogue('ch5_final_choice'), 1000);
+    }
 
     const missions = loadMissions();
     const currentIdx = missions.findIndex(m => m.id === currentMission.id);
@@ -11369,6 +11386,90 @@ const DIALOGUES = {
                 { text: '我会自己查。', action: () => { setStoryFlag('ghost_trust'); setStoryBranch('truth'); } }
             ]}
         ]
+    },
+    'ch4_truth_confront': {
+        speaker: '指挥官 · 普莱斯',
+        avatar: '🎖️',
+        tag: 'Death Trench 特遣队',
+        lines: [
+            { text: '幽灵给你看了那段录音？……我没打算一直瞒你。' },
+            { text: '一年前我确实和黑潮接触过——为了换回三个人质。这笔交易我从不后悔。' },
+            { text: '但最近他们的信号变了，有人在黑潮内部用我的旧频道发指令。', choices: [
+                { text: '我信你，长官。', action: () => { setStoryFlag('price_trusted'); advanceChapter(); } },
+                { text: '录音里还有谁？', action: () => { setStoryFlag('price_pressed'); advanceChapter(); } }
+            ]}
+        ]
+    },
+    'ch4_loyalty_order': {
+        speaker: '指挥官 · 普莱斯',
+        avatar: '🎖️',
+        tag: 'Death Trench 特遣队',
+        lines: [
+            { text: '总部嘉奖了你在断壁城的决断。但任务还没结束。' },
+            { text: '黑潮的补给线必须切断。这是命令，不是商量。', choices: [
+                { text: '收到，执行。', action: () => { setStoryFlag('convoy_ordered'); advanceChapter(); } }
+            ]}
+        ]
+    },
+    'ch4_mercy_civilian': {
+        speaker: '医疗兵 · 艾琳',
+        avatar: '💊',
+        tag: '战地医疗',
+        lines: [
+            { text: '断壁城的平民大多撤离了，但有个孩子还没找到。' },
+            { text: '如果你能在森林撤离点拖住敌人，我就能带她出来。', choices: [
+                { text: '我掩护你们。', action: () => { setStoryFlag('civilian_promise'); advanceChapter(); } }
+            ]}
+        ]
+    },
+    'ch5_final_choice': {
+        speaker: '指挥官 · 普莱斯',
+        avatar: '🎖️',
+        tag: 'Death Trench 特遣队',
+        lines: [
+            { text: '最后一步。黑潮的核心节点就在前面。' },
+            { text: '炸掉它，战争结束；但那里面……可能有我们的人。', choices: [
+                { text: '任务第一，炸掉。', action: () => { setStoryBranch('loyalty'); setStoryFlag('ending_sacrifice'); advanceChapter(); setTimeout(() => showDialogue('ending_loyalty'), 500); } },
+                { text: '先救人再炸。', action: () => { setStoryBranch('mercy'); setStoryFlag('ending_rescue'); advanceChapter(); setTimeout(() => showDialogue('ending_mercy'), 500); } },
+                { text: '我要进去看真相。', action: () => { setStoryBranch('truth'); setStoryFlag('ending_truth'); advanceChapter(); setTimeout(() => showDialogue('ending_truth'), 500); } }
+            ]}
+        ]
+    },
+    'ending_loyalty': {
+        speaker: '指挥官 · 普莱斯',
+        avatar: '🎖️',
+        tag: 'Death Trench 特遣队',
+        lines: [
+            { text: '节点已摧毁。黑潮的指挥链断了。' },
+            { text: '我们在废墟里找到了三具友军尸体。他们被关在里面，没来得及出来。' },
+            { text: '总部说这是「可接受的损失」。……也许吧。', choices: [
+                { text: '结束了吗？', action: () => { setStoryFlag('game_completed'); sendStoryMail('ch5_ending_mail'); } }
+            ]}
+        ]
+    },
+    'ending_mercy': {
+        speaker: '医疗兵 · 艾琳',
+        avatar: '💊',
+        tag: '战地医疗',
+        lines: [
+            { text: '阿雅出来了。她抱着一个布娃娃，浑身是灰，但还活着。' },
+            { text: '节点最后还是炸了。普莱斯说「迟到的胜利也是胜利」。' },
+            { text: '……至少今天，有一个人因为你的选择活了下来。', choices: [
+                { text: '这就够了。', action: () => { setStoryFlag('game_completed'); sendStoryMail('ch5_ending_mail'); } }
+            ]}
+        ]
+    },
+    'ending_truth': {
+        speaker: '幽灵',
+        avatar: '👻',
+        tag: '战术支援',
+        lines: [
+            { text: '你进去了。核心节点里没有武器，只有一排冷冻仓。' },
+            { text: '仓里的人穿着黑潮军服，但脸……是我们的失踪人员。普莱斯的旧频道一直被用来控制他们。' },
+            { text: '真相已经上传到总部。普莱斯被停职调查。战争还没结束，但谎言到此为止。', choices: [
+                { text: '我做了对的事。', action: () => { setStoryFlag('game_completed'); sendStoryMail('ch5_ending_mail'); } }
+            ]}
+        ]
     }
 };
 
@@ -11516,6 +11617,21 @@ const MISSION_GUIDES = {
             '② 消灭 1 名 Boss 单位。',
             '③ 穿甲弹和爆炸物对重甲目标更有效。'
         ]
+    },
+    'task_truth_lab': {
+        title: '真相：实验室渗透',
+        story: '幽灵锁定了黑潮的生物实验室。里面有一台纳米控制原型机。\n\n她说：「销毁它，就知道普莱斯到底干了什么。」',
+        objectives: ['① 选择「废墟」地图。', '② 消灭 30 名敌人。', '③ 优先使用消音武器避免触发警报。']
+    },
+    'task_loyalty_convoy': {
+        title: '忠诚：截击补给线',
+        story: '黑潮的补给车队将在荒漠中行进。总部命令：全部摧毁。\n\n普莱斯说：「没有补给，他们撑不过三天。」',
+        objectives: ['① 选择「荒漠」地图。', '② 消灭 35 名敌人。', '③ 车队护卫密集，准备爆炸物。']
+    },
+    'task_mercy_rescue': {
+        title: '仁慈：撤离难民',
+        story: '森林深处有一个平民撤离点。黑潮正在逼近。\n\n艾琳说：「只要你能拖住他们三分钟，我就能把人带出来。」',
+        objectives: ['① 选择「森林」地图。', '② 保护撤离点直至撤离完成。', '③ 不要恋战，以拖延为目标。']
     }
 };
 
@@ -11634,6 +11750,38 @@ function sendStoryMail(mailId) {
             subject: '断壁城之后',
             body: '你今天的选择，总部会记住。\n\n在死亡战壕，没有绝对的对错，只有你能不能活到下一个黎明。\n\n活着回来。',
             date: '2026-06-22 08:00',
+            unread: true
+        },
+        'ch4_truth_meeting': {
+            id: 'ch4_truth_meeting',
+            sender: '幽灵',
+            subject: '该摊牌了',
+            body: '普莱斯已经知道你看了录音。\n\n他约你在实验室废墟见面。我会在外围监控。\n\n如果他说的是真话，那黑潮内部有人冒用他的身份。\n\n小心。',
+            date: '2026-06-24 01:33',
+            unread: true
+        },
+        'ch4_loyalty_directive': {
+            id: 'ch4_loyalty_directive',
+            sender: '总部 · 参谋部',
+            subject: '补给线截击令',
+            body: '经确认，黑潮将通过荒漠转移三批补给。\n\n授权使用一切必要手段摧毁车队。\n\n普莱斯已知情，配合执行。',
+            date: '2026-06-24 06:00',
+            unread: true
+        },
+        'ch4_mercy_eileen': {
+            id: 'ch4_mercy_eileen',
+            sender: '医疗兵 · 艾琳',
+            subject: '那个孩子',
+            body: '她叫阿雅，九岁。\n\n她妈妈在断壁城走散了，她一个人躲在森林撤离点的废屋。\n\n如果你能拖住敌人，我就能带她出来。\n\n求你。',
+            date: '2026-06-24 09:15',
+            unread: true
+        },
+        'ch5_ending_mail': {
+            id: 'ch5_ending_mail',
+            sender: '？？？',
+            subject: '你做了什么',
+            body: '无论你今天选了什么，死亡战壕都会记住。\n\n战争没有赢家。只有活下来的人，替死去的人记住这一切。\n\n——下一章，即将开始。',
+            date: '2026-06-26 00:00',
             unread: true
         }
     };
