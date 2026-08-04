@@ -800,6 +800,24 @@
                 </div>
             </div>
 
+            <!-- 更新提示弹窗 -->
+            <div id="updateNotesPanel" class="overlay-panel">
+                <div class="update-notes-modal">
+                    <button class="map-detail-close" onclick="closeUpdateNotes()">✕</button>
+                    <div class="un-head">
+                        <span class="un-icon">📢</span>
+                        <div>
+                            <div class="un-title" id="updateNotesTitle">更新日志</div>
+                            <div class="un-date" id="updateNotesDate"></div>
+                        </div>
+                    </div>
+                    <ul class="un-list" id="updateNotesList"></ul>
+                    <div class="un-actions">
+                        <button class="menu-btn primary" onclick="closeUpdateNotes()">知道了，开始游戏</button>
+                    </div>
+                </div>
+            </div>
+
             <div id="missionLinePanel" class="panel">
                 <div class="panel-title-bar">
                     <h2>📋 任务线</h2>

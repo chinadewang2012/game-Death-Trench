@@ -2051,6 +2051,63 @@ body {
     justify-content: flex-end;
 }
 
+/* 更新提示弹窗 */
+.update-notes-modal {
+    position: relative;
+    width: 480px;
+    max-width: 92vw;
+    max-height: 84vh;
+    overflow-y: auto;
+    background: rgba(10,14,12,0.98);
+    border: 2px solid #00cc66;
+    border-radius: 16px;
+    padding: 26px 28px;
+    box-shadow: 0 0 40px rgba(0,204,102,0.35);
+}
+.un-head {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding-bottom: 14px;
+    margin-bottom: 14px;
+    border-bottom: 1px solid rgba(0,204,102,0.25);
+}
+.un-icon { font-size: 30px; }
+.un-title {
+    color: #00ff88;
+    font-size: 22px;
+    font-weight: bold;
+}
+.un-date {
+    color: #8aa394;
+    font-size: 12px;
+    margin-top: 2px;
+}
+.un-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+.un-list li {
+    position: relative;
+    padding: 8px 0 8px 22px;
+    color: #d8e6dc;
+    font-size: 14px;
+    line-height: 1.6;
+    border-bottom: 1px dashed rgba(255,255,255,0.06);
+}
+.un-list li::before {
+    content: '▹';
+    position: absolute;
+    left: 2px;
+    color: #00cc66;
+}
+.un-actions {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: 18px;
+}
+
 /* 难度说明框 */
 .diff-detail {
     margin-top: 12px;
