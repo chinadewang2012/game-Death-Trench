@@ -4217,7 +4217,6 @@ body {
 
 @media (max-width: 600px) {
     .pi-title-row-header, .pi-title-row { grid-template-columns: 140px 1fr 50px; }
-}
     .pi-stats-grid { grid-template-columns: repeat(2, 1fr); }
     .pi-avatar-section { flex-direction: column; align-items: flex-start; }
 }

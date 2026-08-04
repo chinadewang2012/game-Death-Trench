@@ -8756,7 +8756,24 @@ function closeAllPanels() {
     hideOverlay('saveManagerPanel');
     hideOverlay('mailPanel');
     hideOverlay('feedbackPanel');
+    hideOverlay('updateNotesPanel');
+    hideOverlay('mapDetailPanel');
+    var un = document.getElementById('updateNotesPanel'); if (un) un.style.display = 'none';
+    var md = document.getElementById('mapDetailPanel'); if (md) md.style.display = 'none';
 }
+
+// ESC 关闭所有遮罩弹窗
+document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape') {
+        ['updateNotesPanel', 'mapDetailPanel'].forEach(function (id) {
+            var el = document.getElementById(id);
+            if (el && (el.classList.contains('active') || el.style.display === 'flex')) {
+                if (id === 'updateNotesPanel') closeUpdateNotes();
+                else if (id === 'mapDetailPanel') closeMapDetail();
+            }
+        });
+    }
+});
 
 // ===== 意见反馈（纯前端 Web3Forms，发往管理员邮箱）=====
 // 注意：Web3Forms 为免费第三方表单服务，需在 https://web3forms.com 注册获取 access_key 后替换下方常量。
@@ -10054,6 +10071,8 @@ function showUpdateNotes(info) {
 function closeUpdateNotes() {
     try { localStorage.setItem(UPDATE_NOTES_KEY, GAME_VERSION); } catch (e) {}
     hideOverlay('updateNotesPanel');
+    var el = document.getElementById('updateNotesPanel');
+    if (el) el.style.display = 'none';
 }
 
 function escapeHtml(s) {

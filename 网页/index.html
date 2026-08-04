@@ -801,7 +801,7 @@
             </div>
 
             <!-- 更新提示弹窗 -->
-            <div id="updateNotesPanel" class="overlay-panel">
+            <div id="updateNotesPanel" class="overlay-panel" onclick="if(event.target===this) closeUpdateNotes()">
                 <div class="update-notes-modal">
                     <button class="map-detail-close" onclick="closeUpdateNotes()">✕</button>
                     <div class="un-head">
