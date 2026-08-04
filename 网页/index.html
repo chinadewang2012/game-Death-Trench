@@ -294,6 +294,9 @@
                 <button class="lobby-icon-btn" onclick="openMailbox()" title="信箱">
                     <i data-lucide="mail" style="width:18px;height:18px;"></i>
                 </button>
+                <button class="lobby-icon-btn" onclick="openFeedback()" title="意见反馈">
+                    <i data-lucide="message-square-warning" style="width:18px;height:18px;"></i>
+                </button>
                 <button class="lobby-icon-btn" title="好友">
                     <i data-lucide="users" style="width:18px;height:18px;"></i>
                 </button>
@@ -1711,6 +1714,37 @@
             <div class="briefing-actions">
                 <button class="menu-btn danger" onclick="resetStoryState(); closeEndingScreen();">重置剧情</button>
                 <button class="menu-btn primary" onclick="closeEndingScreen()">继续</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 意见反馈面板 -->
+    <div id="feedbackPanel" class="panel-modal">
+        <div class="panel-modal-content" style="width: min(560px, 92%);">
+            <div class="panel-modal-header">
+                <h2>💬 意见反馈</h2>
+                <button class="close-btn" onclick="closeFeedback()">×</button>
+            </div>
+            <div style="padding: 18px 20px; display: flex; flex-direction: column; gap: 14px;">
+                <div style="font-size: 13px; color: #8aa; line-height: 1.6;">
+                    反馈将直接发送到管理员邮箱 <b>15901485498@139.com</b>。<br>
+                    为防止滥用，每位玩家 <b>每周最多发送 1 次</b>（基于本机记录）。
+                </div>
+                <div style="display: flex; flex-direction: column; gap: 6px;">
+                    <label style="font-size: 13px; color: #7fd;">联系方式（选填，方便回复）</label>
+                    <input id="feedbackContact" type="text" placeholder="邮箱 / QQ / 微信，留空则匿名"
+                        style="background:#0a1622; border:1px solid #1d3a4a; color:#cfe; border-radius:6px; padding:8px 10px; font-size:14px;">
+                </div>
+                <div style="display: flex; flex-direction: column; gap: 6px;">
+                    <label style="font-size: 13px; color: #7fd;">反馈内容 *</label>
+                    <textarea id="feedbackContent" rows="5" placeholder="请描述你遇到的问题或建议..."
+                        style="background:#0a1622; border:1px solid #1d3a4a; color:#cfe; border-radius:6px; padding:8px 10px; font-size:14px; resize:vertical;"></textarea>
+                </div>
+                <div id="feedbackMsg" style="font-size: 13px; min-height: 18px;"></div>
+                <div style="display: flex; gap: 10px; justify-content: flex-end;">
+                    <button class="menu-btn" onclick="closeFeedback()">取消</button>
+                    <button class="menu-btn primary" id="feedbackSubmitBtn" onclick="submitFeedback()">发送反馈</button>
+                </div>
             </div>
         </div>
     </div>

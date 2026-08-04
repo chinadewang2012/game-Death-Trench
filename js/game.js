@@ -8547,6 +8547,101 @@ function showOverlay(id) { const el = document.getElementById(id); if (el) el.cl
 function closeAllPanels() {
     hideOverlay('saveManagerPanel');
     hideOverlay('mailPanel');
+    hideOverlay('feedbackPanel');
+}
+
+// ===== 意见反馈（纯前端 Web3Forms，发往管理员邮箱）=====
+// 注意：Web3Forms 为免费第三方表单服务，需在 https://web3forms.com 注册获取 access_key 后替换下方常量。
+// 纯前端无法获取真实 IP，故「同 IP 超 10 次禁用」无法可靠实现；此处仅做「每周每玩家限 1 次」的弱限制。
+var WEB3FORMS_ACCESS_KEY = '0f995ca5-3ab0-4762-b2bf-010fe0d7b8f9';
+var FEEDBACK_TARGET_EMAIL = '15901485498@139.com';
+var FEEDBACK_STORAGE_KEY = 'deathTrench_feedback_last';
+var FEEDBACK_WEEK_MS = 7 * 24 * 60 * 60 * 1000;
+
+function openFeedback() {
+    closeAllPanels();
+    var msgEl = document.getElementById('feedbackMsg');
+    if (msgEl) msgEl.textContent = '';
+    var last = parseInt(localStorage.getItem(FEEDBACK_STORAGE_KEY) || '0', 10);
+    var remain = FEEDBACK_WEEK_MS - (Date.now() - last);
+    if (last && remain > 0) {
+        var days = Math.ceil(remain / (24 * 60 * 60 * 1000));
+        if (msgEl) {
+            msgEl.style.color = '#e9b94a';
+            msgEl.textContent = '本周已发送过反馈，请 ' + days + ' 天后再试。';
+        }
+        var btn = document.getElementById('feedbackSubmitBtn');
+        if (btn) btn.disabled = true;
+    } else {
+        var btn2 = document.getElementById('feedbackSubmitBtn');
+        if (btn2) btn2.disabled = false;
+    }
+    showOverlay('feedbackPanel');
+}
+
+function closeFeedback() {
+    hideOverlay('feedbackPanel');
+}
+
+function submitFeedback() {
+    var contentEl = document.getElementById('feedbackContent');
+    var contactEl = document.getElementById('feedbackContact');
+    var msgEl = document.getElementById('feedbackMsg');
+    var btn = document.getElementById('feedbackSubmitBtn');
+    var content = contentEl ? contentEl.value.trim() : '';
+    if (!content) {
+        if (msgEl) { msgEl.style.color = '#e98'; msgEl.textContent = '反馈内容不能为空。'; }
+        return;
+    }
+    if (WEB3FORMS_ACCESS_KEY === 'YOUR_WEB3FORMS_ACCESS_KEY') {
+        if (msgEl) {
+            msgEl.style.color = '#e98';
+            msgEl.textContent = '反馈功能未配置：请在 js/game.js 中填入 Web3Forms access_key。';
+        }
+        showNotification('反馈发送失败：access_key 未配置');
+        return;
+    }
+    var last = parseInt(localStorage.getItem(FEEDBACK_STORAGE_KEY) || '0', 10);
+    if (last && (FEEDBACK_WEEK_MS - (Date.now() - last)) > 0) {
+        if (msgEl) { msgEl.style.color = '#e9b94a'; msgEl.textContent = '本周已发送过反馈，请稍后再试。'; }
+        if (btn) btn.disabled = true;
+        return;
+    }
+    if (btn) { btn.disabled = true; btn.textContent = '发送中...'; }
+    if (msgEl) { msgEl.style.color = '#7fd'; msgEl.textContent = '正在发送...'; }
+
+    var contact = contactEl ? contactEl.value.trim() : '';
+    var payload = {
+        access_key: WEB3FORMS_ACCESS_KEY,
+        subject: '[DeathTrench 反馈] 来自玩家的意见',
+        from_name: 'DeathTrench 游戏反馈',
+        reply_to: contact || FEEDBACK_TARGET_EMAIL,
+        message: '联系方式：' + (contact || '匿名') + '\n\n反馈内容：\n' + content
+    };
+
+    fetch('https://api.web3forms.com/submit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+        body: JSON.stringify(payload)
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+        if (data.success) {
+            localStorage.setItem(FEEDBACK_STORAGE_KEY, String(Date.now()));
+            if (msgEl) { msgEl.style.color = '#6f6'; msgEl.textContent = '✅ 反馈已发送，感谢你的支持！'; }
+            showNotification('反馈已发送，感谢支持');
+            if (contentEl) contentEl.value = '';
+            if (contactEl) contactEl.value = '';
+            if (btn) { btn.textContent = '已发送'; }
+        } else {
+            throw new Error(data.message || '发送失败');
+        }
+    })
+    .catch(function(e) {
+        if (msgEl) { msgEl.style.color = '#e98'; msgEl.textContent = '发送失败：' + e.message; }
+        showNotification('反馈发送失败');
+        if (btn) { btn.disabled = false; btn.textContent = '发送反馈'; }
+    });
 }
 
 // ===== Save Slots (5 manual slots) =====
