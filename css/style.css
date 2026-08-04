@@ -3739,6 +3739,7 @@ body {
 /* ===== 个人信息面板 ===== */
 .personal-info-content {
     max-width: 860px;
+    margin: 0 auto;
     padding: 30px 40px 100px 40px;
     max-height: calc(80vh - 100px);
     overflow-y: auto;
@@ -3752,6 +3753,7 @@ body {
     margin-bottom: 20px;
 }
 .pi-avatar {
+    position: relative;
     width: 80px;
     height: 80px;
     background: rgba(0, 255, 136, 0.1);
@@ -3761,6 +3763,25 @@ body {
     align-items: center;
     justify-content: center;
     font-size: 36px;
+    flex-shrink: 0;
+    overflow: hidden;
+}
+.pi-avatar-edit-mask {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 26px;
+    color: #fff;
+    background: rgba(0, 0, 0, 0.55);
+    opacity: 0;
+    transition: opacity 0.18s;
+    border-radius: 50%;
+    pointer-events: none;
+}
+.pi-avatar-section:hover .pi-avatar-edit-mask {
+    opacity: 1;
 }
 .pi-title-badge {
     background: linear-gradient(135deg, #ffaa00, #ff6600);
@@ -3875,6 +3896,79 @@ body {
     padding: 12px 16px;
     margin-bottom: 10px;
     font-size: 14px;
+}
+
+.pi-medal-info {
+    background: rgba(0, 204, 102, 0.08);
+    border: 1px solid rgba(0, 204, 102, 0.25);
+    border-radius: 8px;
+    padding: 10px 16px;
+    margin-bottom: 12px;
+    font-size: 14px;
+}
+.pi-medal-info .pi-title-label { color: #8b949e; }
+.pi-medal-info .pi-title-value { color: #00cc66; font-weight: 600; margin-left: 6px; }
+
+.pi-medal-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+    gap: 12px;
+    padding: 18px;
+    background: rgba(15, 10, 32, 0.7);
+    border: 1px solid rgba(0, 204, 102, 0.3);
+    border-radius: 10px;
+    margin-bottom: 16px;
+    min-height: 100px;
+}
+.pi-medal {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 12px 8px;
+    border-radius: 10px;
+    border: 2px solid #21262d;
+    background: rgba(15, 10, 32, 0.6);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    position: relative;
+    min-height: 96px;
+}
+.pi-medal:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 6px 20px rgba(0, 204, 102, 0.3);
+}
+.pi-medal-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 22px;
+    background: linear-gradient(135deg, #00cc66, #00aa55);
+    color: #fff;
+    box-shadow: 0 0 14px rgba(0, 204, 102, 0.5);
+}
+.pi-medal-name {
+    font-size: 12px;
+    color: #e6edf3;
+    text-align: center;
+    font-weight: 600;
+}
+.pi-medal.locked {
+    border-color: #30363d;
+    opacity: 0.55;
+}
+.pi-medal.locked .pi-medal-icon {
+    background: linear-gradient(135deg, #3a3a4a, #2a2a3a);
+    color: #4a4a5a;
+    box-shadow: none;
+    filter: grayscale(1);
+}
+.pi-medal.locked .pi-medal-name {
+    color: #6e7681;
 }
 .pi-title-label { color: #8b949e; }
 .pi-title-value { color: #ffaa00; font-weight: 600; margin-left: 6px; }
