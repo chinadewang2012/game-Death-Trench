@@ -3,6 +3,7 @@ const fs = require('fs');
 const path = require('path');
 
 let __rootDir = (typeof __dirname !== 'undefined') ? __dirname : process.cwd();
+// 网页目录同时包含普通版与开发版（带编辑器），作为唯一正式网页副本
 const DIST_DIR = path.resolve(__rootDir, '网页');
 const DIST_DIR_NORM = path.normalize(DIST_DIR + path.sep);
 

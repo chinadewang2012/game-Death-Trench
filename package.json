@@ -2,11 +2,9 @@
   "name": "death-trench-2d",
   "version": "1.0.0",
   "description": "Death Trench 2D - 2D俯视角射击游戏",
-  "main": "开发/main.js",
+  "main": "server.js",
   "scripts": {
-    "start": "electron 开发/main.js",
-    "start:dev": "electron 开发/main-dev.js",
-    "build": "node 开发/build.js",
+    "start": "node server.js",
     "web": "node server.js"
   },
   "keywords": ["game", "shooter", "2d"],

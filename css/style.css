@@ -242,9 +242,9 @@ body {
 /* ====== 左上角面板：得分 + 击杀 + 金币 ====== */
 #topLeftPanel {
     position: absolute;
-    top: 20px;
+    top: 215px;
     left: 20px;
-    z-index: 100;
+    z-index: 400;
     display: flex;
     flex-direction: column;
     gap: 6px;
