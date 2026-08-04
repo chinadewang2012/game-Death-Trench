@@ -8983,8 +8983,11 @@ function switchMailTab(tab) {
     });
     const inbox = document.getElementById('mailInboxPanel');
     const compose = document.getElementById('mailComposePanel');
+    const replies = document.getElementById('mailRepliesPanel');
     if (inbox) inbox.style.display = (tab === 'inbox' ? 'block' : 'none');
     if (compose) compose.style.display = (tab === 'compose' ? 'block' : 'none');
+    if (replies) replies.style.display = (tab === 'replies' ? 'block' : 'none');
+    if (tab === 'replies') loadReplies(false);
 }
 function clearComposeMail() {
     const s = document.getElementById('composeSender');
@@ -9032,6 +9035,79 @@ function exportMailsAsJSON() {
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
     showNotification('邮件已导出为 JSON 文件');
+}
+
+// ===== 官方回复（来自 GitHub 仓库 replies/ 目录下的 txt）=====
+// 你在仓库根目录 replies/ 中放置 txt 文件，并在 replies/manifest.json 登记，
+// 游戏会从 Pages 站点拉取并展示在信箱「📢 官方回复」分区。
+// manifest 格式: [{ "file": "xxx.txt", "title": "标题", "date": "2026-08-04" }, ...]
+var _replyCache = null;
+function loadReplies(forceRefresh) {
+    const container = document.getElementById('replyListContainer');
+    if (!container) return;
+    if (forceRefresh) _replyCache = null;
+    if (_replyCache) { renderReplyList(); return; }
+    container.innerHTML = '<div class="mail-empty" style="padding:30px 12px;">⏳ 加载中...</div>';
+    fetch('replies/manifest.json', { cache: 'no-store' })
+        .then(function(r) {
+            if (!r.ok) throw new Error('未找到 manifest（请先创建 replies/manifest.json）');
+            return r.json();
+        })
+        .then(function(list) {
+            _replyCache = Array.isArray(list) ? list : [];
+            renderReplyList();
+        })
+        .catch(function(e) {
+            container.innerHTML = '<div class="mail-empty" style="padding:30px 12px;">' +
+                '<div style="font-size:28px;margin-bottom:8px;">📂</div>' +
+                '<div>暂无官方回复</div>' +
+                '<div style="font-size:11px;color:#8b949e;margin-top:8px;">' + e.message + '</div></div>';
+        });
+}
+function renderReplyList() {
+    const container = document.getElementById('replyListContainer');
+    if (!container) return;
+    if (!_replyCache || _replyCache.length === 0) {
+        container.innerHTML = '<div class="mail-empty" style="padding:30px 12px;">📭 暂无官方回复</div>';
+        return;
+    }
+    container.innerHTML = _replyCache.map(function(m, idx) {
+        const safeTitle = (m.title || m.file || '（无标题）').toString();
+        const safeDate = (m.date || '').toString();
+        return '<div class="mail-list-item" onclick="openReply(' + idx + ')">' +
+                    '<div class="mail-sender">📢 官方</div>' +
+                    '<div class="mail-subject">' + safeTitle + '</div>' +
+                    '<div class="mail-date">' + safeDate + '</div>' +
+                '</div>';
+    }).join('');
+}
+function openReply(idx) {
+    if (!_replyCache || !_replyCache[idx]) return;
+    const m = _replyCache[idx];
+    const reader = document.getElementById('replyReader');
+    fetch('replies/' + encodeURIComponent(m.file), { cache: 'no-store' })
+        .then(function(r) {
+            if (!r.ok) throw new Error('文件读取失败: ' + m.file);
+            return r.text();
+        })
+        .then(function(text) {
+            if (reader) {
+                const safeTitle = (m.title || m.file || '（无标题）').toString();
+                const safeDate = (m.date || '').toString();
+                const safeBody = (text || '').toString();
+                reader.innerHTML =
+                    '<div class="mail-reader-sender">📢 官方回复</div>' +
+                    '<div class="mail-reader-subject">' + safeTitle + '</div>' +
+                    '<div class="mail-reader-date">' + safeDate + '</div>' +
+                    '<div class="mail-reader-divider"></div>' +
+                    '<div class="mail-reader-body">' + safeBody + '</div>';
+            }
+        })
+        .catch(function(e) {
+            if (reader) {
+                reader.innerHTML = '<div class="mail-empty"><div style="font-size:36px;margin-bottom:10px;">⚠️</div><div>' + e.message + '</div></div>';
+            }
+        });
 }
 
 // ===== Announcement System =====

@@ -1521,6 +1521,7 @@
             <div class="mail-tab-bar">
                 <div class="mail-tab active" data-tab="inbox" onclick="switchMailTab('inbox')">📥 收件箱</div>
                 <div class="mail-tab" data-tab="compose" onclick="switchMailTab('compose')">✍️ 管理员编写</div>
+                <div class="mail-tab" data-tab="replies" onclick="switchMailTab('replies')">📢 官方回复</div>
             </div>
 
             <div id="mailInboxPanel" class="mail-panel-body">
@@ -1548,6 +1549,24 @@
                 <div style="display: flex; gap: 10px; justify-content: flex-end;">
                     <button class="menu-btn secondary" onclick="clearComposeMail()">清空</button>
                     <button class="menu-btn primary" onclick="saveComposedMail()">保存到邮件列表</button>
+                </div>
+            </div>
+
+            <div id="mailRepliesPanel" class="mail-panel-body" style="display:none; padding: 16px 18px;">
+                <div style="display: grid; grid-template-columns: 260px 1fr; gap: 0; min-height: 480px;">
+                    <div class="mail-list">
+                        <div class="mail-list-header">
+                            <span>官方回复</span>
+                            <button class="mini-btn" style="flex: 0 0 auto;" onclick="loadReplies(true)">刷新</button>
+                        </div>
+                        <div id="replyListContainer"></div>
+                    </div>
+                    <div class="mail-reader" id="replyReader">
+                        <div class="mail-empty">
+                            <div style="font-size: 56px; margin-bottom: 14px;">📢</div>
+                            <div>请选择左侧回复阅读</div>
+                        </div>
+                    </div>
                 </div>
             </div>
 
