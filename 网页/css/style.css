@@ -242,9 +242,9 @@ body {
 /* ====== 左上角面板：得分 + 击杀 + 金币 ====== */
 #topLeftPanel {
     position: absolute;
-    top: 20px;
+    top: 215px;
     left: 20px;
-    z-index: 100;
+    z-index: 400;
     display: flex;
     flex-direction: column;
     gap: 6px;
@@ -1961,6 +1961,137 @@ body {
     font-size: 13px;
 }
 
+/* 地图卡片详情提示 */
+.map-detail-hint {
+    position: absolute;
+    bottom: 6px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 11px;
+    color: #00ff88;
+    background: rgba(0,0,0,0.6);
+    padding: 2px 8px;
+    border-radius: 10px;
+    opacity: 0;
+    transition: opacity 0.2s;
+    pointer-events: none;
+}
+.map-card:hover .map-detail-hint {
+    opacity: 1;
+}
+
+/* 地图详情弹窗 */
+.overlay-panel {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.75);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 1500;
+}
+.overlay-panel.active {
+    display: flex;
+}
+.map-detail-modal {
+    position: relative;
+    width: 520px;
+    max-width: 92vw;
+    max-height: 86vh;
+    overflow-y: auto;
+    background: rgba(10,14,12,0.98);
+    border: 2px solid #00cc66;
+    border-radius: 16px;
+    padding: 28px 30px;
+    box-shadow: 0 0 40px rgba(0,204,102,0.35);
+}
+.map-detail-close {
+    position: absolute;
+    top: 12px;
+    right: 14px;
+    background: transparent;
+    border: none;
+    color: #aaa;
+    font-size: 20px;
+    cursor: pointer;
+}
+.map-detail-close:hover { color: #fff; }
+.md-head {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 16px;
+    padding-bottom: 14px;
+    border-bottom: 1px solid rgba(0,204,102,0.25);
+}
+.md-emoji { font-size: 30px; }
+.md-title { color: #00ff88; font-size: 22px; font-weight: bold; }
+.md-row {
+    display: grid;
+    grid-template-columns: 70px 1fr;
+    gap: 10px;
+    margin-bottom: 12px;
+    align-items: start;
+}
+.md-label {
+    color: #00cc66;
+    font-size: 13px;
+    font-weight: bold;
+    padding-top: 1px;
+}
+.md-val {
+    color: #d8e6dc;
+    font-size: 13px;
+    line-height: 1.6;
+}
+.map-detail-actions {
+    display: flex;
+    gap: 12px;
+    margin-top: 18px;
+    justify-content: flex-end;
+}
+
+/* 难度说明框 */
+.diff-detail {
+    margin-top: 12px;
+    padding: 14px 16px;
+    background: rgba(0,0,0,0.5);
+    border: 1px solid rgba(0,204,102,0.3);
+    border-radius: 10px;
+}
+.diff-detail-name {
+    color: #ffcc33;
+    font-size: 16px;
+    font-weight: bold;
+    margin-bottom: 6px;
+}
+.diff-detail-desc {
+    color: #cfd8d0;
+    font-size: 13px;
+    line-height: 1.6;
+    margin-bottom: 10px;
+}
+.diff-detail-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px 14px;
+}
+.diff-detail-grid > div {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+.dd-k {
+    color: #00cc66;
+    font-size: 11px;
+    font-weight: bold;
+}
+.dd-v {
+    color: #d8e6dc;
+    font-size: 12px;
+    line-height: 1.5;
+}
+
 #settingsPanel {
     position: fixed;
     top: 50%;
@@ -3543,101 +3674,6 @@ body {
 .select-mission-btn:hover {
     background: linear-gradient(135deg, #79b8ff, #58a6ff);
     box-shadow: 0 0 12px rgba(88, 166, 255, 0.4);
-}
-
-/* ==================== 任务树状图 ==================== */
-.mission-tree-container {
-    padding: 8px 0;
-}
-.mission-tree-branch-info {
-    background: rgba(0,204,102,0.08);
-    border: 1px solid rgba(0,204,102,0.25);
-    border-radius: 8px;
-    padding: 10px 16px;
-    margin-bottom: 16px;
-    font-size: 14px;
-    color: #bbb;
-}
-.mission-tree-node {
-    margin-bottom: 6px;
-    padding: 10px 14px;
-    border-radius: 8px;
-    border-left: 3px solid #333;
-    background: rgba(33,38,45,0.6);
-    transition: all 0.2s;
-}
-.mission-tree-node.tree-completed {
-    border-left-color: #00cc66;
-    opacity: 0.7;
-}
-.mission-tree-node.tree-active {
-    border-left-color: #ffaa00;
-    background: rgba(255,170,0,0.08);
-    box-shadow: 0 0 12px rgba(255,170,0,0.15);
-}
-.mission-tree-node.tree-locked {
-    border-left-color: #444;
-    opacity: 0.5;
-}
-.tree-node-header {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    flex-wrap: wrap;
-}
-.tree-node-icon { font-size: 18px; flex-shrink: 0; }
-.tree-node-name { font-size: 14px; color: #e6edf3; font-weight: 600; }
-.tree-node-desc { font-size: 12px; color: #6e7681; margin-left: 4px; }
-.tree-node-status { margin-left: auto; font-size: 14px; }
-.tree-children { margin-top: 6px; }
-.mission-tree-node.tree-completed .tree-node-name { text-decoration: line-through; color: #8b949e; }
-.mission-tree-node.tree-active .tree-node-name { color: #ffaa00; }
-
-/* ==================== 好友列表 ==================== */
-.friends-list {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-    max-width: 600px;
-}
-.friend-card {
-    display: flex;
-    align-items: center;
-    gap: 14px;
-    padding: 14px 18px;
-    background: rgba(33,38,45,0.8);
-    border: 1px solid #30363d;
-    border-radius: 10px;
-    transition: all 0.2s;
-}
-.friend-card.online { border-color: rgba(0,204,102,0.3); }
-.friend-card.offline { opacity: 0.6; }
-.friend-avatar {
-    font-size: 32px;
-    width: 48px; height: 48px;
-    display: flex; align-items: center; justify-content: center;
-    background: rgba(0,0,0,0.3);
-    border-radius: 50%;
-    flex-shrink: 0;
-}
-.friend-info { flex: 1; }
-.friend-name { font-size: 15px; color: #e6edf3; font-weight: 600; }
-.friend-relation { font-size: 11px; color: #6e7681; margin-left: 6px; }
-.friend-tag { font-size: 12px; color: #8b949e; margin-top: 2px; }
-.friend-status { font-size: 12px; color: #6e7681; }
-.friend-talk-btn {
-    background: rgba(0,204,102,0.15);
-    color: #00cc66;
-    border: 1px solid rgba(0,204,102,0.3);
-    padding: 6px 14px;
-    border-radius: 6px;
-    font-size: 12px;
-    cursor: pointer;
-    transition: all 0.15s;
-}
-.friend-talk-btn:hover {
-    background: rgba(0,204,102,0.25);
-    box-shadow: 0 0 8px rgba(0,204,102,0.2);
 }
 .select-mission-btn:active {
     transform: scale(0.97);

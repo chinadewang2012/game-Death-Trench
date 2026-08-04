@@ -471,10 +471,12 @@
 
                         <div class="section-title">选择难度</div>
                         <div class="diff-buttons compact">
-                            <button class="diff-btn easy" onclick="setDifficulty('easy')">🌱 简单</button>
-                            <button class="diff-btn normal active" onclick="setDifficulty('normal')">🔥 普通</button>
-                            <button class="diff-btn hard" onclick="setDifficulty('hard')">💀 困难</button>
+                            <button class="diff-btn easy" data-diff="standard" onclick="setDifficulty('standard')">★ 标准</button>
+                            <button class="diff-btn normal active" data-diff="advanced" onclick="setDifficulty('advanced')">★★ 进阶</button>
+                            <button class="diff-btn hard" data-diff="confidential" onclick="setDifficulty('confidential')">★★★ 机密</button>
+                            <button class="diff-btn hard" data-diff="topsecret" onclick="setDifficulty('topsecret')">★★★★ 绝密</button>
                         </div>
+                        <div class="diff-detail" id="diffDetailBox"></div>
 
                         <div class="section-title">装备</div>
                         <div class="equip-slots compact">
@@ -740,43 +742,64 @@
                 <h2>🗺️ 地图选择</h2>
                 <div class="map-content">
                     <div class="map-grid" id="presetMapGrid">
-                        <div class="map-card selected" data-map="desert" onclick="selectMap('desert')">
+                        <div class="map-card selected" data-map="desert" onclick="openMapDetail('desert')">
                             <canvas class="map-preview-canvas" width="160" height="100"></canvas>
                             <div class="map-name-overlay">🏜️ 沙漠战场</div>
+                            <div class="map-detail-hint">点击查看详情</div>
                         </div>
-                        <div class="map-card" data-map="city" onclick="selectMap('city')">
+                        <div class="map-card" data-map="city" onclick="openMapDetail('city')">
                             <canvas class="map-preview-canvas" width="160" height="100"></canvas>
                             <div class="map-name-overlay">🏙️ 城市巷战</div>
+                            <div class="map-detail-hint">点击查看详情</div>
                         </div>
-                        <div class="map-card" data-map="factory" onclick="selectMap('factory')">
+                        <div class="map-card" data-map="factory" onclick="openMapDetail('factory')">
                             <canvas class="map-preview-canvas" width="160" height="100"></canvas>
                             <div class="map-name-overlay">🏭 废弃工厂</div>
+                            <div class="map-detail-hint">点击查看详情</div>
                         </div>
-                        <div class="map-card" data-map="jungle" onclick="selectMap('jungle')">
+                        <div class="map-card" data-map="jungle" onclick="openMapDetail('jungle')">
                             <canvas class="map-preview-canvas" width="160" height="100"></canvas>
                             <div class="map-name-overlay">🌴 丛林突袭</div>
+                            <div class="map-detail-hint">点击查看详情</div>
                         </div>
-                        <div class="map-card" data-map="snow" onclick="selectMap('snow')">
+                        <div class="map-card" data-map="snow" onclick="openMapDetail('snow')">
                             <canvas class="map-preview-canvas" width="160" height="100"></canvas>
                             <div class="map-name-overlay">❄️ 雪山阵地</div>
+                            <div class="map-detail-hint">点击查看详情</div>
                         </div>
-                        <div class="map-card" data-map="volcano" onclick="selectMap('volcano')">
+                        <div class="map-card" data-map="volcano" onclick="openMapDetail('volcano')">
                             <canvas class="map-preview-canvas" width="160" height="100"></canvas>
                             <div class="map-name-overlay">🌋 火山熔岩</div>
+                            <div class="map-detail-hint">点击查看详情</div>
                         </div>
-                        <div class="map-card" data-map="ruins" onclick="selectMap('ruins')">
+                        <div class="map-card" data-map="ruins" onclick="openMapDetail('ruins')">
                             <canvas class="map-preview-canvas" width="160" height="100"></canvas>
                             <div class="map-name-overlay">🏛️ 古代遗迹</div>
+                            <div class="map-detail-hint">点击查看详情</div>
                         </div>
-                        <div class="map-card" data-map="base" onclick="selectMap('base')">
+                        <div class="map-card" data-map="base" onclick="openMapDetail('base')">
                             <canvas class="map-preview-canvas" width="160" height="100"></canvas>
                             <div class="map-name-overlay">🏰 军事基地</div>
+                            <div class="map-detail-hint">点击查看详情</div>
                         </div>
                     </div>
                     <div class="map-grid" id="customMapGrid" style="margin-top: 16px;">
                     </div>
                 </div>
             </div>
+
+            <!-- 地图详情弹窗 -->
+            <div id="mapDetailPanel" class="overlay-panel">
+                <div class="map-detail-modal">
+                    <button class="map-detail-close" onclick="closeMapDetail()">✕</button>
+                    <div id="mapDetailBody"></div>
+                    <div class="map-detail-actions">
+                        <button class="menu-btn primary" onclick="selectMapFromDetail()">✅ 选择这张地图</button>
+                        <button class="menu-btn tertiary" onclick="closeMapDetail()">关闭</button>
+                    </div>
+                </div>
+            </div>
+
             <div id="missionLinePanel" class="panel">
                 <div class="panel-title-bar">
                     <h2>📋 任务线</h2>
@@ -1065,10 +1088,11 @@
             <div id="sidebar-settings" class="sidebar-panel active">
                 <div class="setting-group">
                     <label class="setting-label">游戏难度</label>
-                    <select id="sidebarDifficultySelect" onchange="settings.difficulty = this.value">
-                        <option value="easy">简单</option>
-                        <option value="normal" selected>普通</option>
-                        <option value="hard">困难</option>
+                    <select id="sidebarDifficultySelect" onchange="setDifficulty(this.value)">
+                        <option value="standard">★ 标准</option>
+                        <option value="advanced" selected>★★ 进阶</option>
+                        <option value="confidential">★★★ 机密</option>
+                        <option value="topsecret">★★★★ 绝密</option>
                     </select>
                 </div>
                 <div class="setting-group">
@@ -1148,10 +1172,11 @@
         <h2>⚙️ 设置</h2>
         <div class="setting-group">
             <label class="setting-label">游戏难度</label>
-            <select id="difficultySelect" onchange="settings.difficulty = this.value; saveSettings()">
-                <option value="easy">简单</option>
-                <option value="normal" selected>普通</option>
-                <option value="hard">困难</option>
+            <select id="difficultySelect" onchange="settings.difficulty = this.value; saveSettings(); renderDifficultyDetail(settings.difficulty)">
+                <option value="standard">★ 标准</option>
+                <option value="advanced" selected>★★ 进阶</option>
+                <option value="confidential">★★★ 机密</option>
+                <option value="topsecret">★★★★ 绝密</option>
             </select>
         </div>
         <div class="setting-group">
@@ -1521,6 +1546,7 @@
             <div class="mail-tab-bar">
                 <div class="mail-tab active" data-tab="inbox" onclick="switchMailTab('inbox')">📥 收件箱</div>
                 <div class="mail-tab" data-tab="compose" onclick="switchMailTab('compose')">✍️ 管理员编写</div>
+                <div class="mail-tab" data-tab="replies" onclick="switchMailTab('replies')">📢 官方回复</div>
             </div>
 
             <div id="mailInboxPanel" class="mail-panel-body">
@@ -1548,6 +1574,24 @@
                 <div style="display: flex; gap: 10px; justify-content: flex-end;">
                     <button class="menu-btn secondary" onclick="clearComposeMail()">清空</button>
                     <button class="menu-btn primary" onclick="saveComposedMail()">保存到邮件列表</button>
+                </div>
+            </div>
+
+            <div id="mailRepliesPanel" class="mail-panel-body" style="display:none; padding: 16px 18px;">
+                <div style="display: grid; grid-template-columns: 260px 1fr; gap: 0; min-height: 480px;">
+                    <div class="mail-list">
+                        <div class="mail-list-header">
+                            <span>官方回复</span>
+                            <button class="mini-btn" style="flex: 0 0 auto;" onclick="loadReplies(true)">刷新</button>
+                        </div>
+                        <div id="replyListContainer"></div>
+                    </div>
+                    <div class="mail-reader" id="replyReader">
+                        <div class="mail-empty">
+                            <div style="font-size: 56px; margin-bottom: 14px;">📢</div>
+                            <div>请选择左侧回复阅读</div>
+                        </div>
+                    </div>
                 </div>
             </div>
 

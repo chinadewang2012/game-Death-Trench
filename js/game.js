@@ -827,7 +827,7 @@ let extractStartTime = 0;
 let extractProgress = 0;
 
 let settings = {
-    difficulty: 'normal',
+    difficulty: 'advanced',
     playerSpeed: 100, // 百分比，100为默认速度
     fireRate: 100 // 射速调整，100为默认，数值越小射速越快
 };
@@ -3635,7 +3635,7 @@ function actuallyStartGame() {
 
     // 摸金箱子与地图事件仅在搜打撤模式生成
     if (gameMode === 'raid') {
-        const difficultyCrateBonus = settings.difficulty === 'hard' ? 4 : (settings.difficulty === 'easy' ? -2 : 0);
+        const difficultyCrateBonus = settings.difficulty === 'topsecret' ? 6 : (settings.difficulty === 'confidential' ? 4 : (settings.difficulty === 'advanced' ? 0 : -2));
         const crateCount = Math.max(6, 10 + Math.floor(Math.random() * 5) + difficultyCrateBonus);
         generateLootCrates(crateCount);
     }
@@ -4107,7 +4107,7 @@ function update() {
     }
 
     // 生成敌人：根据难度和队友数量调整上限与间隔
-    const difficultyMul = settings.difficulty === 'hard' ? 1.8 : settings.difficulty === 'easy' ? 0.6 : 1;
+    const difficultyMul = settings.difficulty === 'topsecret' ? 2.4 : (settings.difficulty === 'confidential' ? 1.8 : (settings.difficulty === 'advanced' ? 1.2 : 0.8));
     const teammateMul = 1 + (teammates ? teammates.length : 0) * 0.35;
     const enemyCount = Math.floor((gameParams.ENEMY.count || 5) * difficultyMul * teammateMul);
     const spawnInterval = Math.floor((gameParams.ENEMY.spawnInterval || 3500) / (difficultyMul * teammateMul));
@@ -5666,7 +5666,7 @@ function spawnEnemy() {
     const enemyHealth = gameParams.ENEMY.health || 80;
     const enemyFireRate = gameParams.ENEMY.fireRate || 2000;
 
-    const difficultyHealthMul = settings.difficulty === 'hard' ? 1.3 : (settings.difficulty === 'easy' ? 0.75 : 1);
+    const difficultyHealthMul = settings.difficulty === 'topsecret' ? 1.6 : (settings.difficulty === 'confidential' ? 1.3 : (settings.difficulty === 'advanced' ? 1.0 : 0.8));
     enemies.push({
         x, y,
         health: isBoss ? enemyHealth * 3 * difficultyHealthMul : enemyHealth * difficultyHealthMul,
@@ -6915,8 +6915,24 @@ window.submitRedeemCode = submitRedeemCode;
 function setDifficulty(diff) {
     settings.difficulty = diff;
     document.querySelectorAll('.diff-btn').forEach(b => b.classList.remove('active'));
-    const btn = document.querySelector(`.diff-btn.${diff}`);
+    const btn = document.querySelector(`.diff-btn[data-diff="${diff}"]`);
     if (btn) btn.classList.add('active');
+    renderDifficultyDetail(diff);
+}
+
+function renderDifficultyDetail(diff) {
+    var p = getDifficultyPreset(diff);
+    var box = document.getElementById('diffDetailBox');
+    if (!box || !p) return;
+    box.innerHTML =
+        '<div class="diff-detail-name">' + p.tag + ' ' + p.name + '</div>' +
+        '<div class="diff-detail-desc">' + p.desc + '</div>' +
+        '<div class="diff-detail-grid">' +
+            '<div><span class="dd-k">敌情</span><span class="dd-v">' + p.enemy + '</span></div>' +
+            '<div><span class="dd-k">资源</span><span class="dd-v">' + p.loot + '</span></div>' +
+            '<div><span class="dd-k">撤离</span><span class="dd-v">' + p.extract + '</span></div>' +
+            '<div><span class="dd-k">风险</span><span class="dd-v">' + p.risk + '</span></div>' +
+        '</div>';
 }
 
 function setGameMode(mode) {
@@ -6934,6 +6950,195 @@ function updateGameModeUI() {
     document.querySelectorAll('#modeSelectRow .mode-btn').forEach(b => {
         b.classList.toggle('active', b.dataset.mode === mode);
     });
+}
+
+// ============================================================
+// 地图档案库（模仿三角洲行动：每张地图含背景、规模、地形、资源、敌情、撤离点、推荐装备）
+// ============================================================
+var MAP_DETAILS = {
+    desert: {
+        name: '沙漠战场', emoji: '🏜️',
+        bg: '曾经的绿洲贸易站，如今被风沙吞没。一支运输车队在撤离途中失联，敌方的游骑兵小队占据制高点，试图封锁唯一的水源补给点。',
+        scale: '中型 · 约 1.2km²',
+        terrain: '开阔沙丘、岩石掩体、零星废墟，视野极佳但缺乏遮蔽。',
+        intel: '敌方以精确射手与巡逻兵为主，夜间会收缩至营地。建议抢占高地建立狙击位。',
+        loot: '高概率刷新弹药箱、医疗包；废墟中藏有军械箱。',
+        extract: '东侧沙丘撤离点、西南废弃哨塔（需清除守军）。',
+        loadout: '推荐：中远距离步枪 + 倍镜；携带 2 个医疗包、1 个烟雾弹。'
+    },
+    city: {
+        name: '城市巷战', emoji: '🏙️',
+        bg: '沦陷的边境城市，街区被改造成迷宫般的火力网。情报显示敌方指挥官藏身于中央写字楼，携带高价值情报芯片。',
+        scale: '大型 · 约 1.8km²',
+        terrain: '密集楼宇、断壁残垣、地下车库，近距离交火频繁。',
+        intel: '敌方步兵密度高，配备破门与火力小组；楼道转角伏击风险大。',
+        loot: '写字楼保险柜刷新电子元件；便利店有概率出急救物资。',
+        extract: '地铁站出口、天台直升机坪（需清除楼顶警戒）。',
+        loadout: '推荐：冲锋枪/霰弹枪 + 防弹衣；多带手雷与破片弹清角。'
+    },
+    factory: {
+        name: '废弃工厂', emoji: '🏭',
+        bg: '停摆的重工业厂区，传送带与反应罐间游荡着走私武装。传闻三号车间封存了一批未登记的装备。',
+        scale: '中型 · 约 1.0km²',
+        terrain: '钢结构厂房、集装箱堆场、传送带夹层，垂直空间复杂。',
+        intel: '敌方以轻机枪火力点与游动哨为主，机械噪音掩盖脚步。',
+        loot: '车间工具箱刷新零件；集装箱内有概率出武器配件。',
+        extract: '厂区北门、货运站台（需避开巡逻车队）。',
+        loadout: '推荐：均衡型步枪 + 听觉强化；携带 1 个闪光弹。'
+    },
+    jungle: {
+        name: '丛林突袭', emoji: '🌴',
+        bg: '热带雨林深处的秘密补给线，植被茂密难以侦察。一支侦察连在此失踪，搜索队只找到残破的通讯设备。',
+        scale: '大型 · 约 1.6km²',
+        terrain: '密林、沼泽浅滩、藤蔓遮蔽，能见度极低。',
+        intel: '敌方擅长伏击与陷阱，狙击手藏身树冠；移动缓慢但致命。',
+        loot: '营地箱刷新野外补给；瀑布后洞穴藏有稀有物资。',
+        extract: '河边木筏点、高地观测台。',
+        loadout: '推荐：消音武器 + 近距离利器；多带医疗包与解毒剂。'
+    },
+    snow: {
+        name: '雪山阵地', emoji: '❄️',
+        bg: '极地前哨基地因暴风雪与外界失联，守军士气崩溃，部分人员倒戈成为掠夺者。雷达站仍有重要数据。',
+        scale: '中型 · 约 1.1km²',
+        terrain: '雪原、冰裂缝、岩石隘口，移动受限且易留足迹。',
+        intel: '敌方穿戴白色伪装，远距离点射精准；低温会加速体力流失。',
+        loot: '哨所柜子刷新保暖装备；坠机点有概率出高级护甲。',
+        extract: '缆车站、冰湖冻结出口。',
+        loadout: '推荐：高稳定步枪 + 防冻护甲；携带 2 个医疗包。'
+    },
+    volcano: {
+        name: '火山熔岩', emoji: '🌋',
+        bg: '活火山脚下的采矿平台，熔岩通道随时可能改道。非法开采集团在此构筑了重火力防线。',
+        scale: '中型 · 约 1.0km²',
+        terrain: '熔岩裂隙、矿道、钢架平台，环境伤害（灼烧）持续。',
+        intel: '敌方据守火力塔，压制性强；熔岩区会持续削减生命。',
+        loot: '矿洞刷新稀有矿石；控制室保险箱出强化模块。',
+        extract: '升降机平台、外侧矿车轨道（需快速通过熔岩区）。',
+        loadout: '推荐：防爆护甲 + 持续回复；携带抗灼药剂。'
+    },
+    ruins: {
+        name: '古代遗迹', emoji: '🏛️',
+        bg: '被黄沙半掩的文明遗迹，考古队触发了未知的防御机制。敌方雇佣兵已先一步进入，争夺地下的远古遗物。',
+        scale: '中型 · 约 1.1km²',
+        terrain: '石柱回廊、陷阱密室、坍塌神殿，机关与伏击并存。',
+        intel: '敌方配备无人机侦察；遗迹机关会对双方造成无差别伤害。',
+        loot: '祭坛宝箱刷新遗物碎片；密室有概率出传说级物品。',
+        extract: '神殿正门、地下暗道出口。',
+        loadout: '推荐：全能武器 + 陷阱感知；携带 1 个闪光弹与医疗包。'
+    },
+    base: {
+        name: '军事基地', emoji: '🏰',
+        bg: '戒备森严的敌方主力基地，囤积着本次冲突的核心物资。攻入核心区即可瓦解其补给链，但防御体系极为完善。',
+        scale: '大型 · 约 2.0km²',
+        terrain: '围墙、哨塔、机库与指挥中枢，多层防御工事。',
+        intel: '敌方重装兵与装甲单位协同，警报触发后增援快速抵达。',
+        loot: '军械库刷新顶级武器；指挥室保险箱出战略物资。',
+        extract: '基地侧门、直升机停机坪（需压制防空火力）。',
+        loadout: '推荐：重型武器 + 重甲；满配消耗品，组队更佳。'
+    },
+    forest: {
+        name: '密林猎场', emoji: '🌲',
+        bg: '北境针叶林，猎人与猎物界限模糊。一支走私队利用林海转运违禁品，巡逻队装备精良。',
+        scale: '中型 · 约 1.2km²',
+        terrain: '针叶密林、木屋据点、溪流浅滩，遮蔽良好。',
+        intel: '敌方狩猎小队机动灵活，擅长包抄；听觉侦察强。',
+        loot: '木屋储物箱刷新补给；树洞藏有走私物资。',
+        extract: '林间小径、溪流出河口。',
+        loadout: '推荐：消音步枪 + 轻甲；携带 1 个烟雾弹。'
+    },
+    wasteland: {
+        name: '废土荒野', emoji: '🪨',
+        bg: '核战后的荒芜之地，残存势力在废铁堆中争夺最后资源。辐射区与掠夺者同样致命。',
+        scale: '大型 · 约 1.7km²',
+        terrain: '废铁残骸、塌陷公路、辐射坑，开阔且危险。',
+        intel: '敌方掠夺者集团游荡，载具火力凶猛；辐射区持续掉血。',
+        loot: '废车残骸刷新零件；地堡有概率出末日装备。',
+        extract: '公路加油站、地下避难所入口。',
+        loadout: '推荐：抗辐射护甲 + 持续火力；多带回复道具。'
+    },
+    swamp: {
+        name: '沼泽迷踪', emoji: '🌿',
+        bg: '终年潮湿的沼泽地带，瘴气与淤泥让一切行动迟缓。失落的科研站仍亮着微弱的灯光。',
+        scale: '中型 · 约 1.1km²',
+        terrain: '泥沼、朽木栈道、浅水滩，移动受阻且视野受阻。',
+        intel: '敌方沼泽游击队神出鬼没，水下伏击常见。',
+        loot: '科研站柜子刷新试剂；沉船有概率出实验装备。',
+        extract: '木栈道尽头、高地瞭望塔。',
+        loadout: '推荐：轻量武器 + 防毒面具；携带抗毒药剂。'
+    }
+};
+
+// 当前查看详情的地图
+var _detailMapName = null;
+
+function openMapDetail(mapName) {
+    var d = MAP_DETAILS[mapName];
+    if (!d) { selectMap(mapName); return; }
+    _detailMapName = mapName;
+    var el = document.getElementById('mapDetailBody');
+    if (el) {
+        el.innerHTML =
+            '<div class="md-head"><span class="md-emoji">' + d.emoji + '</span><span class="md-title">' + d.name + '</span></div>' +
+            '<div class="md-row"><span class="md-label">📖 背景</span><span class="md-val">' + d.bg + '</span></div>' +
+            '<div class="md-row"><span class="md-label">📐 规模</span><span class="md-val">' + d.scale + '</span></div>' +
+            '<div class="md-row"><span class="md-label">⛰️ 地形</span><span class="md-val">' + d.terrain + '</span></div>' +
+            '<div class="md-row"><span class="md-label">🎯 敌情</span><span class="md-val">' + d.intel + '</span></div>' +
+            '<div class="md-row"><span class="md-label">💎 资源</span><span class="md-val">' + d.loot + '</span></div>' +
+            '<div class="md-row"><span class="md-label">🚁 撤离</span><span class="md-val">' + d.extract + '</span></div>' +
+            '<div class="md-row"><span class="md-label">🎒 推荐</span><span class="md-val">' + d.loadout + '</span></div>';
+    }
+    showOverlay('mapDetailPanel');
+}
+
+function closeMapDetail() {
+    hideOverlay('mapDetailPanel');
+}
+
+function selectMapFromDetail() {
+    if (_detailMapName) selectMap(_detailMapName);
+    hideOverlay('mapDetailPanel');
+}
+
+// ============================================================
+// 难度档位（模仿三角洲行动：标准 / 进阶 / 机密 / 绝密）
+// ============================================================
+var DIFFICULTY_PRESETS = {
+    standard: {
+        name: '标准', tag: '★',
+        desc: '敌方巡逻稀疏、火力温和，资源充裕，适合熟悉地图与练枪。',
+        enemy: 'AI 反应慢、命中低，增援少',
+        loot: '资源刷新率 +20%',
+        extract: '撤离点开放、无额外守军',
+        risk: '失败惩罚低'
+    },
+    advanced: {
+        name: '进阶', tag: '★★',
+        desc: '敌方开始协同作战，火力点增多，推荐有一定经验的干员进入。',
+        enemy: 'AI 反应正常、会包抄',
+        loot: '资源刷新率 标准',
+        extract: '部分撤离点需清场',
+        risk: '失败损失部分装备'
+    },
+    confidential: {
+        name: '机密', tag: '★★★',
+        desc: '高强度对抗，敌方重装与狙击手就位，高价值物资伴随高风险。',
+        enemy: 'AI 精准、增援快、有装甲',
+        loot: '稀有物资概率 +30%',
+        extract: '撤离点常驻守军',
+        risk: '失败损失全部带入装备'
+    },
+    topsecret: {
+        name: '绝密', tag: '★★★★',
+        desc: '极限压迫：敌方如老兵般致命，环境威胁叠加，只为最强者准备的修罗场。',
+        enemy: 'AI 极致精准、压制强、载具支援',
+        loot: '传说级掉落率显著提升',
+        extract: '仅 1 个隐秘撤离点、时限严苛',
+        risk: '失败重创：装备与等级收益双扣'
+    }
+};
+
+function getDifficultyPreset(key) {
+    return DIFFICULTY_PRESETS[key] || DIFFICULTY_PRESETS.standard;
 }
 
 function selectMap(mapName) {
@@ -7029,7 +7234,7 @@ function renderCustomMapCards() {
     let html = '';
     savedMaps.forEach((mapDef, idx) => {
         if (!mapDef || !mapDef.name || !Array.isArray(mapDef.data)) return;
-        html += `<div class="map-card" data-map="${mapDef.name}" onclick="selectMap('${mapDef.name}')">
+        html += `<div class="map-card" data-map="${mapDef.name}" onclick="openMapDetail('${mapDef.name}')">
             <canvas class="map-preview-canvas" id="customMapPreview_${idx}" width="160" height="100"></canvas>
             <div class="map-name-overlay">🎨 ${mapDef.name}</div>
         </div>`;
@@ -7041,7 +7246,7 @@ function renderCustomMapCards() {
     let readyHtml = '';
     savedMaps.forEach((mapDef, idx) => {
         if (!mapDef || !mapDef.name || !Array.isArray(mapDef.data)) return;
-        readyHtml += `<div class="map-card small" data-map="${mapDef.name}" onclick="selectMap('${mapDef.name}')">
+        readyHtml += `<div class="map-card small" data-map="${mapDef.name}" onclick="openMapDetail('${mapDef.name}')">
             <canvas class="map-preview-canvas" id="readyCustomMapPreview_${idx}" width="140" height="90"></canvas>
             <div class="map-name-overlay">🎨 ${mapDef.name}</div>
         </div>`;
@@ -7377,6 +7582,8 @@ function showReadyRoom() {
     updateSupplyUI();
     // 更新模式选择按钮
     updateGameModeUI();
+    // 渲染难度档位说明
+    renderDifficultyDetail(settings.difficulty || 'standard');
     // 更新任务信息
     updateReadyRoomMission();
     // 更新战备中心武器装备显示
@@ -9559,11 +9766,11 @@ function updateMissionDisplay() {
     if (progressEl) progressEl.style.width = progressPercent + '%';
     if (progressTextEl) progressTextEl.textContent = currentMissionProgress + '/' + safeTarget;
     
-    const difficulty = settings.difficulty || 'normal';
+    const difficulty = settings.difficulty || 'advanced';
     
     if (panel) {
         panel.style.display = 'block';
-        panel.classList.remove('easy', 'normal', 'hard');
+        panel.classList.remove('standard', 'advanced', 'confidential', 'topsecret');
         panel.classList.add(difficulty);
     }
 }
@@ -10235,7 +10442,7 @@ function init() {
 function syncSettingsUI() {
     try {
         const diffSelect = document.getElementById('difficultySelect');
-        if (diffSelect) diffSelect.value = settings.difficulty || 'normal';
+        if (diffSelect) diffSelect.value = settings.difficulty || 'advanced';
 
         const speedSlider = document.getElementById('speedSlider');
         const speedValue = document.getElementById('speedValue');
@@ -11078,7 +11285,7 @@ function updateMapEvents(now) {
 function spawnEventEnemy(x, y, target) {
     const enemyHealth = gameParams.ENEMY.health || 80;
     const enemyFireRate = gameParams.ENEMY.fireRate || 2000;
-    const difficultyHealthMul = settings.difficulty === 'hard' ? 1.3 : (settings.difficulty === 'easy' ? 0.75 : 1);
+    const difficultyHealthMul = settings.difficulty === 'topsecret' ? 1.6 : (settings.difficulty === 'confidential' ? 1.3 : (settings.difficulty === 'advanced' ? 1.0 : 0.8));
     const now = Date.now();
     const e = {
         x, y,

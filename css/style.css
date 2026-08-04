@@ -1961,6 +1961,137 @@ body {
     font-size: 13px;
 }
 
+/* 地图卡片详情提示 */
+.map-detail-hint {
+    position: absolute;
+    bottom: 6px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 11px;
+    color: #00ff88;
+    background: rgba(0,0,0,0.6);
+    padding: 2px 8px;
+    border-radius: 10px;
+    opacity: 0;
+    transition: opacity 0.2s;
+    pointer-events: none;
+}
+.map-card:hover .map-detail-hint {
+    opacity: 1;
+}
+
+/* 地图详情弹窗 */
+.overlay-panel {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.75);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 1500;
+}
+.overlay-panel.active {
+    display: flex;
+}
+.map-detail-modal {
+    position: relative;
+    width: 520px;
+    max-width: 92vw;
+    max-height: 86vh;
+    overflow-y: auto;
+    background: rgba(10,14,12,0.98);
+    border: 2px solid #00cc66;
+    border-radius: 16px;
+    padding: 28px 30px;
+    box-shadow: 0 0 40px rgba(0,204,102,0.35);
+}
+.map-detail-close {
+    position: absolute;
+    top: 12px;
+    right: 14px;
+    background: transparent;
+    border: none;
+    color: #aaa;
+    font-size: 20px;
+    cursor: pointer;
+}
+.map-detail-close:hover { color: #fff; }
+.md-head {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 16px;
+    padding-bottom: 14px;
+    border-bottom: 1px solid rgba(0,204,102,0.25);
+}
+.md-emoji { font-size: 30px; }
+.md-title { color: #00ff88; font-size: 22px; font-weight: bold; }
+.md-row {
+    display: grid;
+    grid-template-columns: 70px 1fr;
+    gap: 10px;
+    margin-bottom: 12px;
+    align-items: start;
+}
+.md-label {
+    color: #00cc66;
+    font-size: 13px;
+    font-weight: bold;
+    padding-top: 1px;
+}
+.md-val {
+    color: #d8e6dc;
+    font-size: 13px;
+    line-height: 1.6;
+}
+.map-detail-actions {
+    display: flex;
+    gap: 12px;
+    margin-top: 18px;
+    justify-content: flex-end;
+}
+
+/* 难度说明框 */
+.diff-detail {
+    margin-top: 12px;
+    padding: 14px 16px;
+    background: rgba(0,0,0,0.5);
+    border: 1px solid rgba(0,204,102,0.3);
+    border-radius: 10px;
+}
+.diff-detail-name {
+    color: #ffcc33;
+    font-size: 16px;
+    font-weight: bold;
+    margin-bottom: 6px;
+}
+.diff-detail-desc {
+    color: #cfd8d0;
+    font-size: 13px;
+    line-height: 1.6;
+    margin-bottom: 10px;
+}
+.diff-detail-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px 14px;
+}
+.diff-detail-grid > div {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+.dd-k {
+    color: #00cc66;
+    font-size: 11px;
+    font-weight: bold;
+}
+.dd-v {
+    color: #d8e6dc;
+    font-size: 12px;
+    line-height: 1.5;
+}
+
 #settingsPanel {
     position: fixed;
     top: 50%;
