@@ -3713,6 +3713,11 @@ let gameStartTime = 0;
 function cleanupGameState() {
     // 清理定时器
     stopAutoBackup();
+    // 清理未触发的剧情对话定时器，防止跨局误弹
+    if (typeof _pendingStoryTimers !== 'undefined' && _pendingStoryTimers.length) {
+        _pendingStoryTimers.forEach(function (t) { clearTimeout(t); });
+        _pendingStoryTimers = [];
+    }
     
     // 清理动画帧
     if (animationId) {
@@ -3723,6 +3728,8 @@ function cleanupGameState() {
     // 重置游戏状态标志
     gameRunning = false;
     autoFire = false;
+    // 隐藏游戏内任务追踪 HUD
+    try { updateMissionTracker(); } catch (e) {}
     shiftHeld = false;
     isExtracting = false;
     extractProgress = 0;
@@ -9434,6 +9441,8 @@ let missionLanguage = 'zh';
 let completedMissionIds = [];
 // 关键：防止任务完成过程中被 updateMissionProgress 重复调用造成链式死循环
 let _missionCompleting = false;
+// 记录剧情对话定时器，游戏结束时清理，避免跨局误弹
+let _pendingStoryTimers = [];
 
 function loadCompletedMissions() {
     try {
@@ -9442,7 +9451,40 @@ function loadCompletedMissions() {
     } catch (e) { completedMissionIds = []; }
 }
 function saveCompletedMissions() {
-    try { localStorage.setItem('deathTrench_completed_missions', JSON.stringify(completedMissionIds)); } catch (e) {}
+    try { localStorage.setItem('deathTrench_completed_missions', JSON.stringify(completedMissionIds)); }
+    catch (e) { console.warn('[MISSION] 保存已完成任务失败:', e.message); }
+}
+
+// 持久化当前进行中的任务与进度，避免刷新/重开丢失
+function saveActiveMission() {
+    try {
+        if (currentMission) {
+            localStorage.setItem('deathTrench_active_mission', JSON.stringify({
+                id: currentMission.id,
+                progress: currentMissionProgress
+            }));
+        } else {
+            localStorage.removeItem('deathTrench_active_mission');
+        }
+    } catch (e) { console.warn('[MISSION] 保存当前任务失败:', e.message); }
+}
+
+function loadActiveMission() {
+    try {
+        const raw = localStorage.getItem('deathTrench_active_mission');
+        if (!raw) return;
+        const data = JSON.parse(raw);
+        const missions = loadMissions();
+        const m = missions.find(x => x.id === data.id);
+        if (m && !completedMissionIds.includes(m.id) && hasMissionPrereqs(m, missions)) {
+            currentMission = m;
+            currentMissionProgress = typeof data.progress === 'number' ? data.progress : 0;
+            updateMissionDisplay();
+            updateReadyRoomMission();
+        } else {
+            localStorage.removeItem('deathTrench_active_mission');
+        }
+    } catch (e) { console.warn('[MISSION] 读取当前任务失败:', e.message); }
 }
 
 function getDefaultMissions() {
@@ -9456,7 +9498,11 @@ function getDefaultMissions() {
     ];
 }
 
+// 内存缓存：任务列表不常变，避免每次调用都读 localStorage + 重新合并分线任务
+let _missionsCache = null;
+
 function loadMissions() {
+    if (_missionsCache) return _missionsCache;
     let missions = [];
     try {
         const stored = localStorage.getItem('deathTrench_missions');
@@ -9481,7 +9527,13 @@ function loadMissions() {
             existingIds.add(sm.id);
         }
     }
+    _missionsCache = missions;
     return missions;
+}
+
+// 任务数据变更后调用以刷新缓存
+function invalidateMissionsCache() {
+    _missionsCache = null;
 }
 
 function loadMissionSettings() {
@@ -9537,6 +9589,7 @@ function updateMissionProgress(taskType, value) {
     }
 
     updateMissionDisplay();
+    saveActiveMission();
 
     // 关键死循环/链式调用防护：
     // 当一个任务完成时，completeMission 会切换到下一个任务；
@@ -9549,86 +9602,76 @@ function updateMissionProgress(taskType, value) {
     if (_missionCompleting || !currentMission) return;
     const currentTarget = currentMission.target;
     if (typeof currentTarget === 'number' && currentTarget > 0 && currentMissionProgress >= currentTarget) {
-        const finishing = currentMission;
-        currentMission = null;
-        _missionCompleting = true;
-        try {
-            // 先把 finishing 作为当前任务推入 completed 集合并保存进度，
-            // 但不再调用 updateMissionDisplay/completeMission 的循环路径
-            if (!completedMissionIds.includes(finishing.id)) {
-                completedMissionIds.push(finishing.id);
-                saveCompletedMissions();
-            }
-            playerData.coins += finishing.reward;
-            showNotification('🎖️ 任务完成！获得 ' + finishing.reward + ' 金币');
-            // 推进到下一任务（链式完成不会再触发，因为 _missionCompleting 标志）
-            const missions = loadMissions();
-            const currentIdx = missions.findIndex(m => m.id === finishing.id);
-            if (currentIdx >= 0 && currentIdx < missions.length - 1) {
-                currentMission = missions[currentIdx + 1];
-                currentMissionProgress = 0;
-                updateMissionDisplay();
-                updateReadyRoomMission();
-            } else {
-                hideMissionPanel();
-            }
-        } finally {
-            _missionCompleting = false;
-        }
+        // 统一走 finishCurrentMission，避免与 completeMission 的完成逻辑重复
+        finishCurrentMission();
     }
 }
 
 function completeMission() {
     if (!currentMission) return;
+    // 统一完成逻辑（含剧情触发、推进、面板收尾），并记录定时器以便清理
+    finishCurrentMission();
+}
 
-    const finishedId = currentMission.id;
-
-    if (!completedMissionIds.includes(currentMission.id)) {
-        completedMissionIds.push(currentMission.id);
-        saveCompletedMissions();
-    }
-    playerData.coins += currentMission.reward;
-    showNotification('🎖️ 任务完成！获得 ' + currentMission.reward + ' 金币');
-
-    // 分线剧情触发
-    if (finishedId === 'task_kill2') {
-        sendStoryMail('price_after_city');
-        if (storyState.branch === 'truth' || storyState.branch === 'mercy') {
-            sendStoryMail('ghost_warning_mail');
+// 统一的任务完成处理：标记完成、发奖、触发分线剧情、推进到下一任务、收尾面板
+function finishCurrentMission() {
+    if (_missionCompleting || !currentMission) return;
+    const finishing = currentMission;
+    const finishedId = finishing.id;
+    _missionCompleting = true;
+    try {
+        if (!completedMissionIds.includes(finishedId)) {
+            completedMissionIds.push(finishedId);
+            saveCompletedMissions();
         }
-        advanceChapter();
-    }
-    if (finishedId === 'task_kill3' && storyState.branch === 'truth' && storyState.chapter < 3) {
-        advanceChapter();
-    }
-    // 第四章：分支任务完成后触发对应剧情
-    if (finishedId === 'task_truth_lab' && !isDialogueCompleted('ch4_truth_confront')) {
-        sendStoryMail('ch4_truth_meeting');
-        setTimeout(() => showDialogue('ch4_truth_confront'), 800);
-    }
-    if (finishedId === 'task_loyalty_convoy' && !isDialogueCompleted('ch4_loyalty_order')) {
-        sendStoryMail('ch4_loyalty_directive');
-        setTimeout(() => showDialogue('ch4_loyalty_order'), 800);
-    }
-    if (finishedId === 'task_mercy_rescue' && !isDialogueCompleted('ch4_mercy_civilian')) {
-        sendStoryMail('ch4_mercy_eileen');
-        setTimeout(() => showDialogue('ch4_mercy_civilian'), 800);
-    }
-    // 第五章：Boss 击杀后触发最终抉择
-    if (finishedId === 'task_boss1' && !isDialogueCompleted('ch5_final_choice')) {
-        setTimeout(() => showDialogue('ch5_final_choice'), 1000);
-    }
+        // 难度影响奖励：机密 +25%、绝密 +60%、进阶 +10%、标准 -20%（最低 1）
+        const diffRewardMul = { standard: 0.8, advanced: 1.0, confidential: 1.25, topsecret: 1.6 };
+        const mul = diffRewardMul[settings.difficulty] || 1.0;
+        const gained = Math.max(1, Math.round(finishing.reward * mul));
+        playerData.coins += gained;
+        const diffLabel = { standard: '标准', advanced: '进阶', confidential: '机密', topsecret: '绝密' };
+        showNotification('🎖️ 任务完成！获得 ' + gained + ' 金币（' + (diffLabel[settings.difficulty] || '进阶') + '难度加成）');
 
-    const missions = loadMissions();
-    const currentIdx = missions.findIndex(m => m.id === currentMission.id);
-    if (currentIdx < missions.length - 1) {
-        currentMission = missions[currentIdx + 1];
-        currentMissionProgress = 0;
-        updateMissionDisplay();
-        updateReadyRoomMission();
-    } else {
-        currentMission = null;
-        hideMissionPanel();
+        // 分线剧情触发（定时器记录到集合，便于游戏结束时清理，避免跨局弹窗）
+        const storyTimers = [];
+        function scheduleStory(dialogueId, mailId, delay) {
+            if (mailId) sendStoryMail(mailId);
+            if (dialogueId && !isDialogueCompleted(dialogueId)) {
+                storyTimers.push(setTimeout(() => showDialogue(dialogueId), delay));
+            }
+        }
+        if (finishedId === 'task_kill2') {
+            sendStoryMail('price_after_city');
+            if (storyState.branch === 'truth' || storyState.branch === 'mercy') {
+                sendStoryMail('ghost_warning_mail');
+            }
+            advanceChapter();
+        }
+        if (finishedId === 'task_kill3' && storyState.branch === 'truth' && storyState.chapter < 3) {
+            advanceChapter();
+        }
+        if (finishedId === 'task_truth_lab') scheduleStory('ch4_truth_confront', 'ch4_truth_meeting', 800);
+        if (finishedId === 'task_loyalty_convoy') scheduleStory('ch4_loyalty_order', 'ch4_loyalty_directive', 800);
+        if (finishedId === 'task_mercy_rescue') scheduleStory('ch4_mercy_civilian', 'ch4_mercy_eileen', 800);
+        if (finishedId === 'task_boss1') scheduleStory('ch5_final_choice', null, 1000);
+        // 记录定时器以便清理
+        if (storyTimers.length) _pendingStoryTimers.push(...storyTimers);
+
+        // 推进到下一任务
+        const missions = loadMissions();
+        const currentIdx = missions.findIndex(m => m.id === finishedId);
+        if (currentIdx >= 0 && currentIdx < missions.length - 1) {
+            currentMission = missions[currentIdx + 1];
+            currentMissionProgress = 0;
+            updateMissionDisplay();
+            updateReadyRoomMission();
+        } else {
+            currentMission = null;
+            hideMissionPanel();
+        }
+        saveActiveMission();
+    } finally {
+        _missionCompleting = false;
     }
 }
 
@@ -9660,12 +9703,33 @@ function updateMissionDisplay() {
     if (progressTextEl) progressTextEl.textContent = currentMissionProgress + '/' + safeTarget;
     
     const difficulty = settings.difficulty || 'advanced';
-    
+
     if (panel) {
         panel.style.display = 'block';
         panel.classList.remove('standard', 'advanced', 'confidential', 'topsecret');
         panel.classList.add(difficulty);
     }
+
+    updateMissionTracker();
+}
+
+// 游戏内任务追踪 HUD：实时显示当前任务名称与进度
+function updateMissionTracker() {
+    const tracker = document.getElementById('missionTracker');
+    if (!tracker) return;
+    if (!currentMission || !gameRunning) {
+        tracker.classList.add('hidden');
+        return;
+    }
+    tracker.classList.remove('hidden');
+    const nameEl = document.getElementById('mtName');
+    const fillEl = document.getElementById('mtFill');
+    const progEl = document.getElementById('mtProgress');
+    const safeTarget = (typeof currentMission.target === 'number' && currentMission.target > 0) ? currentMission.target : 1;
+    const pct = Math.min(100, (currentMissionProgress / safeTarget) * 100);
+    if (nameEl) nameEl.textContent = (currentMission.nameZh || '') + ' · 🪙' + Math.max(1, Math.round(currentMission.reward * ({ standard: 0.8, advanced: 1.0, confidential: 1.25, topsecret: 1.6 }[settings.difficulty] || 1.0)));
+    if (fillEl) fillEl.style.width = pct + '%';
+    if (progEl) progEl.textContent = currentMissionProgress + '/' + safeTarget;
 }
 
 function hideMissionPanel() {
@@ -9739,8 +9803,12 @@ function selectMissionById(missionId) {
     updateMissionDisplay();
     updateReadyRoomMission();
     renderMissionLineList();
+    saveActiveMission();
     showNotification('📌 已选择任务: ' + m.nameZh);
 }
+
+// 任务线列表的地图筛选状态（'any' 表示全部）
+let _missionLineFilter = 'any';
 
 function renderMissionLineList() {
     const listEl = document.getElementById('missionLineList');
@@ -9778,8 +9846,9 @@ function renderMissionLineList() {
 
     function getProgressDisplay(m) {
         if (m.id === currentId && currentMissionProgress > 0) {
-            const percent = Math.min(100, (currentMissionProgress / m.target) * 100);
-            return '<div class="mission-line-progress"><div class="mission-line-progress-fill" style="width:' + percent + '%"></div></div><div style="font-size:11px;color:#58a6ff;margin-top:4px;">进度: ' + currentMissionProgress + '/' + m.target + '</div>';
+            const safeTarget = (typeof m.target === 'number' && m.target > 0) ? m.target : 1;
+            const percent = Math.min(100, (currentMissionProgress / safeTarget) * 100);
+            return '<div class="mission-line-progress"><div class="mission-line-progress-fill" style="width:' + percent + '%"></div></div><div style="font-size:11px;color:#58a6ff;margin-top:4px;">进度: ' + currentMissionProgress + '/' + safeTarget + '</div>';
         }
         return '';
     }
@@ -9796,7 +9865,7 @@ function renderMissionLineList() {
         return hasMissionPrereqs(m, missions);
     }
 
-    listEl.innerHTML = missions.map(function(m, idx) {
+    function buildCard(m) {
         const isCompleted = completedMissionIds.includes(m.id);
         const isCurrent = m.id === currentId;
         const available = isMissionAvailable(m);
@@ -9824,10 +9893,10 @@ function renderMissionLineList() {
             statusText = '📌 待解锁';
         }
 
-        const cardClass = selectable ? ' mission-line-card selectable' : ' mission-line-card ' + statusClass;
+        const cardClass = selectable ? 'mission-line-card selectable' : 'mission-line-card ' + statusClass;
         const clickAttr = selectable ? ' onclick="selectMissionById(\'' + m.id + '\')" style="cursor:pointer;" ' : '';
 
-        return '<div class="' + ('mission-line-card ' + statusClass) + '"' + clickAttr + '>' +
+        return '<div class="' + cardClass + '"' + clickAttr + '>' +
                     '<div class="mission-line-icon">' + getMissionIcon(m) + '</div>' +
                     '<div class="mission-line-body">' +
                         '<div class="mission-line-name">' + m.nameZh +
@@ -9843,7 +9912,69 @@ function renderMissionLineList() {
                     '</div>' +
                     '<div class="mission-line-status">' + statusText + '</div>' +
                 '</div>';
-    }).join('');
+    }
+
+    // 地图筛选 chips
+    const mapChips = [
+        { id: 'any', label: '🌍 全部' },
+        { id: 'desert', label: '🏜️ 沙漠' },
+        { id: 'city', label: '🏙️ 城市' },
+        { id: 'factory', label: '🏭 工厂' },
+        { id: 'jungle', label: '🌴 丛林' },
+        { id: 'snow', label: '❄️ 雪山' },
+        { id: 'volcano', label: '🌋 火山' },
+        { id: 'ruins', label: '🏛️ 遗迹' },
+        { id: 'base', label: '🏰 基地' }
+    ];
+    const chipHtml = '<div class="mission-filter-chips">' + mapChips.map(function(c) {
+        const active = (c.id === _missionLineFilter) ? ' active' : '';
+        return '<button class="filter-chip' + active + '" onclick="setMissionLineFilter(\'' + c.id + '\')">' + c.label + '</button>';
+    }).join('') + '</div>';
+
+    // 总体进度摘要
+    const totalCount = missions.length;
+    const doneCount = missions.filter(function(m) { return completedMissionIds.includes(m.id); }).length;
+    const overallPercent = totalCount ? Math.round((doneCount / totalCount) * 100) : 0;
+    const summaryHtml =
+        '<div class="mission-summary">' +
+            '<div class="mission-summary-text">任务线进度 <b>' + doneCount + '/' + totalCount + '</b></div>' +
+            '<div class="mission-summary-bar"><div class="mission-summary-fill" style="width:' + overallPercent + '%"></div></div>' +
+        '</div>';
+
+    // 按 chapter 分组（缺失 chapter 的归为「主线任务」）
+    const groups = {};
+    missions.forEach(function(m) {
+        const key = (m.chapter != null ? ('第' + m.chapter + '章') : '主线任务');
+        if (!groups[key]) groups[key] = [];
+        groups[key].push(m);
+    });
+    const groupOrder = Object.keys(groups).sort(function(a, b) {
+        const na = parseInt(a.replace('第', '').replace('章', ''), 10);
+        const nb = parseInt(b.replace('第', '').replace('章', ''), 10);
+        if (!isNaN(na) && !isNaN(nb)) return na - nb;
+        return 0;
+    });
+
+    let cardsHtml = '';
+    groupOrder.forEach(function(g) {
+        const filtered = g === '主线任务'
+            ? groups[g]
+            : groups[g].filter(function(m) { return _missionLineFilter === 'any' || m.map === _missionLineFilter || m.map === 'any'; });
+        if (filtered.length === 0) return;
+        cardsHtml += '<div class="mission-group-title">' + g + '</div>';
+        cardsHtml += filtered.map(buildCard).join('');
+    });
+
+    if (!cardsHtml) {
+        cardsHtml = '<div style="padding:20px;text-align:center;color:#8b949e;">当前筛选下没有可显示的任务</div>';
+    }
+
+    listEl.innerHTML = summaryHtml + chipHtml + cardsHtml;
+}
+
+function setMissionLineFilter(mapId) {
+    _missionLineFilter = mapId;
+    renderMissionLineList();
 }
 
 function showMissionPanel() {
@@ -10358,6 +10489,7 @@ function init() {
     loadMedals();
     loadCompletedMissions();
     loadMissionSettings();
+    loadActiveMission();
     loadStoryState();
     syncSettingsUI();
     setupMissionPanelDrag();
@@ -11419,7 +11551,8 @@ function mountAllUIfunctions() {
         'startTutorial', 'skipTutorial', 'prevTutorialStep', 'nextTutorialStep',
         'closeConfirm', 'closeWarmTip', 'selectModNode', 'renderWeaponLibrary',
         'renderMissionLineList', 'disableAllMods', 'saveSettings', 'loadSettings', 'syncSettingsUI',
-        'showRedeemCodePanel', 'closeRedeemCodePanel', 'submitRedeemCode', 'redeemCode'
+        'showRedeemCodePanel', 'closeRedeemCodePanel', 'submitRedeemCode', 'redeemCode',
+        'selectMissionById', 'completeMission', 'updateMissionProgress', 'finishCurrentMission', 'loadMissions', 'updateReadyRoomMission'
     ];
     let mounted = 0;
     let missing = [];

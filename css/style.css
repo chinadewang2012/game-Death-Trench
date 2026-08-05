@@ -222,6 +222,50 @@ body {
     pointer-events: none;
 }
 
+/* 游戏内任务追踪 HUD */
+.mission-tracker {
+    position: absolute;
+    top: 64px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 280px;
+    background: rgba(13, 17, 23, 0.82);
+    border: 1px solid #30363d;
+    border-left: 3px solid #58a6ff;
+    border-radius: 8px;
+    padding: 8px 12px;
+    z-index: 100;
+    pointer-events: none;
+    backdrop-filter: blur(4px);
+}
+.mission-tracker.hidden { display: none; }
+.mission-tracker .mt-name {
+    font-size: 12px;
+    color: #c9d1d9;
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.mission-tracker .mt-bar {
+    height: 6px;
+    background: #161b22;
+    border-radius: 3px;
+    overflow: hidden;
+    margin: 6px 0 4px;
+}
+.mission-tracker .mt-fill {
+    height: 100%;
+    width: 0;
+    background: linear-gradient(90deg, #58a6ff, #00ff88);
+    transition: width 0.3s ease;
+}
+.mission-tracker .mt-progress {
+    font-size: 11px;
+    color: #8b949e;
+    text-align: right;
+}
+
 #hud .health-bar {
     width: 340px;
     height: 14px;
@@ -3734,6 +3778,69 @@ body {
 }
 .select-mission-btn:active {
     transform: scale(0.97);
+}
+
+/* 任务线：进度摘要 + 地图筛选 + 章节分组 */
+.mission-summary {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    background: rgba(13, 17, 23, 0.6);
+    border: 1px solid #21262d;
+    border-radius: 10px;
+    padding: 12px 16px;
+    margin-bottom: 14px;
+}
+.mission-summary-text {
+    font-size: 14px;
+    color: #c9d1d9;
+    white-space: nowrap;
+}
+.mission-summary-text b { color: #00ff88; }
+.mission-summary-bar {
+    flex: 1;
+    height: 8px;
+    background: #161b22;
+    border-radius: 4px;
+    overflow: hidden;
+}
+.mission-summary-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #00ff88, #58a6ff);
+    transition: width 0.4s ease;
+}
+
+.mission-filter-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 18px;
+}
+.filter-chip {
+    background: #161b22;
+    border: 1px solid #30363d;
+    color: #8b949e;
+    padding: 6px 12px;
+    border-radius: 20px;
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.15s;
+}
+.filter-chip:hover { border-color: #58a6ff; color: #c9d1d9; }
+.filter-chip.active {
+    background: linear-gradient(135deg, #58a6ff, #3b82f6);
+    border-color: #58a6ff;
+    color: #fff;
+}
+
+.mission-group-title {
+    font-size: 13px;
+    font-weight: 700;
+    color: #58a6ff;
+    letter-spacing: 1px;
+    margin: 18px 0 10px;
+    padding-left: 10px;
+    border-left: 3px solid #58a6ff;
 }
 
 /* ===== 个人信息面板 ===== */
