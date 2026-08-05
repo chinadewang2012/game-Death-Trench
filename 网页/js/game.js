@@ -1104,6 +1104,13 @@ function loadGameParams() {
                 };
             });
         }
+        // 恢复已购买武器的解锁状态，避免被 game_params 默认值覆盖
+        if (playerData && Array.isArray(playerData.ownedWeapons)) {
+            playerData.ownedWeapons.forEach(function(id) {
+                const w = WEAPONS.find(function(x) { return x.id === id; });
+                if (w) w.unlocked = true;
+            });
+        }
         if (params.ENEMY) {
             gameParams.ENEMY = Object.assign({}, gameParams.ENEMY, params.ENEMY);
         }
@@ -1281,7 +1288,8 @@ let playerData = {
         capacity: 36,
         items: []
     },
-    redeemedCodes: []
+    redeemedCodes: [],
+    ownedWeapons: []
 };
 
 function loadPlayerData() {
@@ -1325,6 +1333,13 @@ function loadPlayerData() {
             playerData.raidLoadout.consumables = { medkits: 0, grenades: 0, speedBoost: 0 };
         }
 
+        // 根据已拥有武器列表恢复 WEAPONS 的 unlocked 状态（merge，不清除默认解锁）
+        if (!Array.isArray(playerData.ownedWeapons)) playerData.ownedWeapons = [];
+        playerData.ownedWeapons.forEach(function(id) {
+            const w = WEAPONS.find(function(x) { return x.id === id; });
+            if (w) w.unlocked = true;
+        });
+
         savePlayerData();
         AntiCheat.recordPlayerSnapshot(playerData);
     } catch (e) { console.warn('[PLAYER] 状态保存失败:', e.message); }
@@ -1345,7 +1360,7 @@ function savePlayerData() {
 
         // 同步一份无签名的 legacy 数据到 deathTrench_playerData，供旧版面板兼容读取
         const legacy = JSON.parse(localStorage.getItem('deathTrench_playerData') || '{}');
-        const syncFields = ['playerName', 'coins', 'totalKills', 'totalDeaths', 'totalScore', 'playTimeSeconds', 'title', 'equippedArmor', 'selectedMap', 'teammateCount', 'avatar', 'inventory', 'backpack', 'equippedWeapons', 'ammo', 'ownedSkins', 'equippedSkin', 'weaponAmmoSlots'];
+        const syncFields = ['playerName', 'coins', 'totalKills', 'totalDeaths', 'totalScore', 'playTimeSeconds', 'title', 'equippedArmor', 'selectedMap', 'teammateCount', 'avatar', 'inventory', 'backpack', 'equippedWeapons', 'ammo', 'ownedSkins', 'equippedSkin', 'weaponAmmoSlots', 'ownedWeapons', 'redeemedCodes'];
         for (const key of syncFields) {
             if (playerData[key] !== undefined) legacy[key] = playerData[key];
         }
@@ -8353,6 +8368,10 @@ function buyWeapon(weaponId) {
     }
     playerData.coins -= weapon.price;
     weapon.unlocked = true;
+    if (!Array.isArray(playerData.ownedWeapons)) playerData.ownedWeapons = [];
+    if (playerData.ownedWeapons.indexOf(weaponId) === -1) {
+        playerData.ownedWeapons.push(weaponId);
+    }
     savePlayerData();
     updatePlayerStats();
     showNotification('解锁了 ' + weapon.name + '！');
@@ -10598,8 +10617,8 @@ function init() {
         canvas.height = window.innerHeight;
     });
 
-    loadGameParams();
     loadPlayerData();
+    loadGameParams();
     loadSettings();
     loadPlayerMods();
     loadCustomTitles();
