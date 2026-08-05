@@ -928,7 +928,8 @@ window.applyMobileModeClass = applyMobileModeClass;
 // 仅在 settings.mobileMode 开启、且战斗进行中（gameRunning）时绑定/生效。
 // 全部独立于键盘逻辑，不影响 PC 端主界面。
 // ====================================================================
-window.__mobileMove = { dx: 0, dy: 0 };
+window.__mobileMove = { dx: 0, dy: 0 };   // 实际施加到移动的方向（经平滑）
+window.__mobileMoveTarget = { dx: 0, dy: 0 }; // 摇杆原始目标方向
 
 function initMobileControls() {
     try {
@@ -961,16 +962,16 @@ function initMobileControls() {
             const max = joyRadius;
             if (dist > max) { cx = cx / dist * max; cy = cy / dist * max; }
             stick.style.transform = 'translate(' + cx + 'px,' + cy + 'px)';
-            window.__mobileMove.dx = cx / max;
-            window.__mobileMove.dy = cy / max;
+            window.__mobileMoveTarget.dx = cx / max;
+            window.__mobileMoveTarget.dy = cy / max;
             e.preventDefault();
         }
         function joyEnd(e) {
             if (!settings.mobileMode) return;
             joyId = null;
             stick.style.transform = 'translate(0px,0px)';
-            window.__mobileMove.dx = 0;
-            window.__mobileMove.dy = 0;
+            window.__mobileMoveTarget.dx = 0;
+            window.__mobileMoveTarget.dy = 0;
             e.preventDefault();
         }
         joystick.addEventListener('touchstart', joyStart, { passive: false });
@@ -4135,7 +4136,14 @@ function gameLoop(timestamp) {
         lastTickTime = timestamp;
     }
 
-    draw();
+    try {
+        draw();
+    } catch (e) {
+        if (!window.__drawErrLogged) {
+            console.error('[gameLoop] draw 异常已隔离:', e);
+            window.__drawErrLogged = true;
+        }
+    }
     animationId = requestAnimationFrame(gameLoop);
 }
 
@@ -4187,9 +4195,11 @@ function update() {
     if (keys.has('ArrowLeft') && keys.get('ArrowLeft')) dx -= speed;
     if (keys.has('ArrowRight') && keys.get('ArrowRight')) dx += speed;
 
-    // 移动端虚拟摇杆：仅在开启 mobileMode 时生效，独立于键盘逻辑，不影响主界面
+    // 移动端虚拟摇杆：平滑插值到目标方向，避免转身瞬间抖动；独立于键盘逻辑
     if (settings.mobileMode && window.__mobileMove) {
-        const mv = window.__mobileMove;
+        const mv = window.__mobileMove, tgt = window.__mobileMoveTarget;
+        mv.dx += (tgt.dx - mv.dx) * 0.25;
+        mv.dy += (tgt.dy - mv.dy) * 0.25;
         if (mv.dx || mv.dy) {
             dx += mv.dx * speed;
             dy += mv.dy * speed;
@@ -5226,21 +5236,19 @@ function draw() {
         ctx.translate(-cx, -cy);
     }
     
-    // 绘制网格背景（使用深色调避免干扰地图）
+    // 绘制网格背景（使用深色调避免干扰地图）— 合并为单次路径，减少 stroke 调用
     ctx.strokeStyle = 'rgba(0, 0, 0, 0.15)';
     ctx.lineWidth = 1;
+    ctx.beginPath();
     for (let x = 0; x < canvas.width; x += 40) {
-        ctx.beginPath();
         ctx.moveTo(x, 0);
         ctx.lineTo(x, canvas.height);
-        ctx.stroke();
     }
     for (let y = 0; y < canvas.height; y += 40) {
-        ctx.beginPath();
         ctx.moveTo(0, y);
         ctx.lineTo(canvas.width, y);
-        ctx.stroke();
     }
+    ctx.stroke();
     
     // 如果没有 player，显示提示
     if (!player) {
@@ -5648,9 +5656,28 @@ function lightenColor(color, percent) {
     ).toString(16).slice(1);
 }
 
+// 敌人立绘全局预加载缓存：启动时一次性加载，drawEnemy 直接引用，避免每帧 new Image
+const ENEMY_SPRITE_URLS = [
+    'assets/art/enemy-grunt.png', 'assets/art/enemy-grunt2.png',
+    'assets/art/enemy-sniper.png', 'assets/art/enemy-sniper2.png',
+    'assets/art/enemy-heavy.png', 'assets/art/enemy-heavy2.png'
+];
+const ENEMY_SPRITES = {};
+ENEMY_SPRITE_URLS.forEach(function (url) {
+    try {
+        const img = new Image();
+        img.src = url;
+        ENEMY_SPRITES[url] = img;
+    } catch (e) { /* 忽略加载失败 */ }
+});
+function getEnemySprite(url) {
+    return ENEMY_SPRITES[url] || null;
+}
+
 function drawEnemy(enemy) {
-    const screenX = worldToScreen(enemy.x, enemy.y).x;
-    const screenY = worldToScreen(enemy.x, enemy.y).y;
+    const _ws = worldToScreen(enemy.x, enemy.y);
+    const screenX = _ws.x;
+    const screenY = _ws.y;
 
     const sizeMul = enemy.isBoss ? 2.2 : 1.0;
     const r = ENEMY_SIZE * TILE_SIZE * sizeMul;
@@ -5711,28 +5738,21 @@ function drawEnemy(enemy) {
         return;
     }
 
-    // ---- 普通小怪：两态图片交替（动作感） ----
-    if (!enemy._imgEl) {
-        try {
-            const cur = (enemy._frame === 0) ? enemy.img : enemy.imgAlt;
-            enemy._imgEl = new Image();
-            enemy._imgEl.src = cur;
-            enemy._imgEl.onerror = function () { enemy._imgEl = null; };
-        } catch (e) { enemy._imgEl = null; }
-    }
-    // 帧计时：每 360ms 切换一次，并加载对应图片
+    // ---- 普通小怪：两态图片交替（动作感），直接取全局预加载缓存 ----
+    // 帧计时：每 360ms 切换一帧（仅切换索引，不重建 Image）
     enemy._frameT = (enemy._frameT || 0) + 16;
     if (enemy._frameT >= 360) {
         enemy._frameT = 0;
         enemy._frame = enemy._frame === 0 ? 1 : 0;
-        enemy._imgEl = null; // 触发下一帧重新加载对应图
     }
+    const curUrl = (enemy._frame === 0) ? enemy.img : enemy.imgAlt;
+    const curImg = getEnemySprite(curUrl);
 
     ctx.save();
     ctx.translate(screenX, screenY);
     ctx.rotate(enemy.angle);
 
-    if (enemy._imgEl && enemy._imgEl.complete && enemy._imgEl.naturalWidth > 0) {
+    if (curImg && curImg.complete && curImg.naturalWidth > 0) {
         ctx.save();
         ctx.rotate(-enemy.angle);
         ctx.translate(-r, -r);
