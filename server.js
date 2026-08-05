@@ -78,7 +78,9 @@ function serveFile(res, filePath) {
         res.writeHead(200, {
             'Content-Type': getContentType(filePath),
             'Content-Length': size,
-            'Cache-Control': 'no-cache',
+            'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0',
+            'Pragma': 'no-cache',
+            'Expires': '0',
             'Connection': 'close'
         });
         if (size === 0) {

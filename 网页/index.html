@@ -8,6 +8,26 @@
     <link rel="stylesheet" href="css/style-new-ui.css?v=3">
     <link rel="stylesheet" href="css/style-new-ui-panels.css?v=3">
     <script src="https://unpkg.com/lucide@1.8.0/dist/umd/lucide.min.js"></script>
+    <script>
+    // 版本守卫：确保浏览器始终加载最新资源，破除磁盘/代理缓存导致的旧版(?v=6)卡死
+    (function () {
+        var LATEST = '8'; // 与下方脚本引用 ?v= 保持一致
+        var s = location.search || '';
+        var m = s.match(/[?&]v=(\d+)/);
+        var cur = m ? m[1] : null;
+        if (cur !== LATEST) {
+            // 重写所有带 ?v=N 的脚本/链接为最新版，并强制重新加载
+            var newSearch = (s || '').replace(/([?&]v=)\d+/g, '$1' + LATEST);
+            if (cur === null) {
+                newSearch = (newSearch ? newSearch + '&' : '?') + 'v=' + LATEST;
+            }
+            // 仅当确实不是最新版时才跳，避免无限刷新
+            if (location.search.indexOf('v=' + LATEST) === -1) {
+                location.replace(location.pathname + newSearch + location.hash);
+            }
+        }
+    })();
+    </script>
 </head>
 <body>
     <div class="global-bg"></div>
@@ -1259,6 +1279,13 @@
             </label>
         </div>
         <div class="setting-group">
+            <label class="setting-label">
+                <input type="checkbox" id="mobileModeToggle" onchange="settings.mobileMode = this.checked; saveSettings(); applyMobileModeClass()">
+                移动端适配（实验性）
+            </label>
+            <div style="color:#666; font-size:11px; margin-top:4px;">开启后针对手机触屏优化界面布局，默认关闭。如体验异常请关闭本项。</div>
+        </div>
+        <div class="setting-group">
             <label class="setting-label">射速调整: <span id="fireRateValue">100%</span></label>
             <input type="range" id="fireRateSlider" min="50" max="200" value="100" oninput="settings.fireRate = this.value; document.getElementById('fireRateValue').textContent = this.value + '%'; saveSettings()">
         </div>
@@ -1488,11 +1515,11 @@
         </div>
     </div>
 
-    <script src="js/utils.js?v=6"></script>
-    <script src="js/anti-cheat.js?v=6"></script>
-    <script src="js/save.js?v=6"></script>
-    <script src="js/coord.js?v=6"></script>
-    <script src="js/game.js?v=6"></script>
+    <script src="js/utils.js?v=8"></script>
+    <script src="js/anti-cheat.js?v=8"></script>
+    <script src="js/save.js?v=8"></script>
+    <script src="js/coord.js?v=8"></script>
+    <script src="js/game.js?v=8"></script>
     <script>
         document.addEventListener('DOMContentLoaded', function() {
             if (window.lucide) lucide.createIcons();

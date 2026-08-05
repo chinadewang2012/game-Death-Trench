@@ -1,4 +1,4 @@
-// ================================================
+﻿// ================================================
 // 由billbill十三闲客-Alan使用Trae编写，未经许可请勿搬走
 // ================================================
 
@@ -527,34 +527,39 @@ const LOOT_CRATE_DROP_TABLE = {
 
 // 摸金变卖物：游戏中拾取，回到仓库后可出售换取金币（非即时消耗品）
 const SELLABLE_TYPES = {
-    goldbar:    { id: 'goldbar',    name: '金条',     icon: '🪙', baseValue: 120, rarity: 'rare' },
-    diamond:    { id: 'diamond',    name: '钻石',     icon: '💎', baseValue: 260, rarity: 'epic' },
-    watch:      { id: 'watch',      name: '名表',     icon: '⌚', baseValue: 180, rarity: 'epic' },
-    antique:    { id: 'antique',    name: '古董',     icon: '🏺', baseValue: 90,  rarity: 'uncommon' },
-    intel:      { id: 'intel',      name: '情报文件', icon: '📜', baseValue: 150, rarity: 'rare' },
-    painting:   { id: 'painting',   name: '名画',     icon: '🖼️', baseValue: 320, rarity: 'legendary' },
-    jewelry:    { id: 'jewelry',    name: '珠宝',     icon: '📿', baseValue: 200, rarity: 'epic' },
-    goldcoin:   { id: 'goldcoin',   name: '金币袋',   icon: '💰', baseValue: 75,  rarity: 'uncommon' },
-    wine:       { id: 'wine',       name: '名酒',     icon: '🍷', baseValue: 110, rarity: 'rare' },
-    harddrive:  { id: 'harddrive',  name: '加密硬盘', icon: '💽', baseValue: 230, rarity: 'epic' },
-    weaponpart: { id: 'weaponpart', name: '军械零件', icon: '🔧', baseValue: 140, rarity: 'rare' },
-    jewelry2:   { id: 'jewelry2',   name: '黄金首饰', icon: '💍', baseValue: 160, rarity: 'rare' },
-    artifact:   { id: 'artifact',   name: '古币',     icon: '🥇', baseValue: 100, rarity: 'uncommon' },
-    cigar:      { id: 'cigar',      name: '雪茄',     icon: '🚬', baseValue: 60,  rarity: 'common' },
-    statue:     { id: 'statue',     name: '雕像',     icon: '🗿', baseValue: 280, rarity: 'legendary' },
-    crown:      { id: 'crown',      name: '王冠',     icon: '👑', baseValue: 400, rarity: 'legendary' },
-    relic:      { id: 'relic',      name: '文明遗物', icon: '🛸', baseValue: 360, rarity: 'legendary' },
-    serum:      { id: 'serum',      name: '黑潮血清', icon: '🧪', baseValue: 300, rarity: 'epic' },
-    chip:       { id: 'chip',       name: '控制芯片', icon: '🔌', baseValue: 250, rarity: 'epic' },
-    pearl:      { id: 'pearl',      name: '黑珍珠',   icon: '⚪', baseValue: 190, rarity: 'rare' },
-    coin2:      { id: 'coin2',      name: '古银币',   icon: '🪙', baseValue: 85,  rarity: 'uncommon' },
-    stamp:      { id: 'stamp',      name: '绝版邮票', icon: '📮', baseValue: 130, rarity: 'rare' },
-    bone:       { id: 'bone',       name: '史前化石', icon: '🦴', baseValue: 210, rarity: 'epic' }
+    goldbar:    { id: 'goldbar',    name: '金条',     icon: '🪙', img: 'sell-goldbar',    baseValue: 120, rarity: 'rare' },
+    diamond:    { id: 'diamond',    name: '钻石',     icon: '💎', img: 'sell-diamond',    baseValue: 260, rarity: 'epic' },
+    watch:      { id: 'watch',      name: '名表',     icon: '⌚', img: 'sell-watch',      baseValue: 180, rarity: 'epic' },
+    antique:    { id: 'antique',    name: '古董',     icon: '🏺', img: 'sell-antique',    baseValue: 90,  rarity: 'uncommon' },
+    intel:      { id: 'intel',      name: '情报文件', icon: '📜', img: 'sell-intel',      baseValue: 150, rarity: 'rare' },
+    painting:   { id: 'painting',   name: '名画',     icon: '🖼️', img: 'sell-painting',   baseValue: 320, rarity: 'legendary' },
+    jewelry:    { id: 'jewelry',    name: '珠宝',     icon: '📿', img: 'sell-jewelry',    baseValue: 200, rarity: 'epic' },
+    goldcoin:   { id: 'goldcoin',   name: '金币袋',   icon: '💰', img: 'sell-goldcoin',   baseValue: 75,  rarity: 'uncommon' },
+    wine:       { id: 'wine',       name: '名酒',     icon: '🍷', img: 'sell-wine',       baseValue: 110, rarity: 'rare' },
+    harddrive:  { id: 'harddrive',  name: '加密硬盘', icon: '💽', img: 'sell-harddrive',  baseValue: 230, rarity: 'epic' },
+    weaponpart: { id: 'weaponpart', name: '军械零件', icon: '🔧', img: 'sell-weaponpart', baseValue: 140, rarity: 'rare' },
+    jewelry2:   { id: 'jewelry2',   name: '黄金首饰', icon: '💍', img: 'sell-jewelry2',   baseValue: 160, rarity: 'rare' },
+    artifact:   { id: 'artifact',   name: '古币',     icon: '🥇', img: 'sell-artifact',   baseValue: 100, rarity: 'uncommon' },
+    cigar:      { id: 'cigar',      name: '雪茄',     icon: '🚬', img: 'sell-cigar',      baseValue: 60,  rarity: 'common' },
+    statue:     { id: 'statue',     name: '雕像',     icon: '🗿', img: 'sell-statue',     baseValue: 280, rarity: 'legendary' },
+    crown:      { id: 'crown',      name: '王冠',     icon: '👑', img: 'sell-crown',      baseValue: 400, rarity: 'legendary' },
+    relic:      { id: 'relic',      name: '文明遗物', icon: '🛸', img: 'sell-relic',      baseValue: 360, rarity: 'legendary' },
+    serum:      { id: 'serum',      name: '黑潮血清', icon: '🧪', img: 'sell-serum',      baseValue: 300, rarity: 'epic' },
+    chip:       { id: 'chip',       name: '控制芯片', icon: '🔌', img: 'sell-chip',       baseValue: 250, rarity: 'epic' },
+    pearl:      { id: 'pearl',      name: '黑珍珠',   icon: '⚪', img: 'sell-pearl',      baseValue: 190, rarity: 'rare' },
+    coin2:      { id: 'coin2',      name: '古银币',   icon: '🪙', img: 'sell-coin2',      baseValue: 85,  rarity: 'uncommon' },
+    stamp:      { id: 'stamp',      name: '绝版邮票', icon: '📮', img: 'sell-stamp',      baseValue: 130, rarity: 'rare' },
+    bone:       { id: 'bone',       name: '史前化石', icon: '🦴', img: 'sell-bone',       baseValue: 210, rarity: 'epic' }
 };
-function getSellableDef(id) { return SELLABLE_TYPES[id] || { id, name: id, icon: '📦', baseValue: 50, rarity: 'common' }; }
+function getSellableDef(id) { return SELLABLE_TYPES[id] || { id, name: id, icon: '📦', img: null, baseValue: 50, rarity: 'common' }; }
+// 变卖物图标：优先使用真实精灵图，缺失时回退到 emoji
+function sellableIconHtml(def) {
+    if (def && def.img) return '<img class="px-icon sell-icon" src="assets/art/' + def.img + '.png" alt="' + (def.name || '变卖物') + '">';
+    return '<span class="px-icon-fallback">' + (def && def.icon ? def.icon : '📦') + '</span>';
+}
 
 // 游戏版本
-const GAME_VERSION = '2.2.0';
+const GAME_VERSION = '2.3.0';
 const UPDATE_CHECK_URL = 'https://gitee.com/wang-zirui-from-beijing/death-trench-ai-game/raw/main/version.json';
 
 // ==================== 武器系统 ====================
@@ -616,12 +621,12 @@ const MOD_ICON_MAP = {
 };
 function weaponIconHtml(w) {
     const key = w && WEAPON_ICON_MAP[w.id];
-    if (key) return '<img class="px-icon" src="assets/art/' + key + '.jpg" alt="' + (w.name || '武器') + '">';
+    if (key) return '<img class="px-icon" src="assets/art/' + key + '.png" alt="' + (w.name || '武器') + '">';
     return '<span class="px-icon-fallback">' + (w && w.icon ? w.icon : '🔫') + '</span>';
 }
 function modIconHtml(modId, m) {
     const key = MOD_ICON_MAP[modId];
-    if (key) return '<img class="px-icon" src="assets/art/' + key + '.jpg" alt="' + (m && m.name ? m.name : '配件') + '">';
+    if (key) return '<img class="px-icon" src="assets/art/' + key + '.png" alt="' + (m && m.name ? m.name : '配件') + '">';
     return '<span class="px-icon-fallback">' + (m && m.icon ? m.icon : '🔧') + '</span>';
 }
 
@@ -729,14 +734,14 @@ const SKINS = {
         { id: 'skin_ember', name: '余烬狙击', weaponId: null, color: '#b5532a', price: 1200, unlocked: false, pattern: 'inferno' }
     ],
     players: [
-        { id: 'player_default', name: '默认', color: '#00AA55', price: 0, unlocked: true },
-        { id: 'player_soldier', name: '士兵', color: '#556B2F', price: 200, unlocked: false },
-        { id: 'player_mercenary', name: '佣兵', color: '#8B4513', price: 500, unlocked: false },
-        { id: 'player_elite', name: '精英', color: '#2F4F4F', price: 800, unlocked: false },
-        { id: 'player_ghost', name: '幽灵', color: '#1a1a1a', price: 1200, unlocked: false },
-        { id: 'player_ronin', name: '浪人', color: '#3a2a4a', price: 1500, unlocked: false },
-        { id: 'player_warden', name: '狱长', color: '#5a3210', price: 1800, unlocked: false },
-        { id: 'player_spectre', name: '幽影特工', color: '#102030', price: 2200, unlocked: false }
+        { id: 'player_default', name: '默认', color: '#00AA55', price: 0, unlocked: true, portrait: 'npc-reyes' },
+        { id: 'player_soldier', name: '士兵', color: '#556B2F', price: 200, unlocked: false, portrait: 'npc-merchant' },
+        { id: 'player_mercenary', name: '佣兵', color: '#8B4513', price: 500, unlocked: false, portrait: 'npc-price' },
+        { id: 'player_elite', name: '精英', color: '#2F4F4F', price: 800, unlocked: false, portrait: 'npc-eileen' },
+        { id: 'player_ghost', name: '幽灵', color: '#1a1a1a', price: 1200, unlocked: false, portrait: 'npc-ghost' },
+        { id: 'player_ronin', name: '浪人', color: '#3a2a4a', price: 1500, unlocked: false, portrait: 'npc-reyes' },
+        { id: 'player_warden', name: '狱长', color: '#5a3210', price: 1800, unlocked: false, portrait: 'npc-merchant' },
+        { id: 'player_spectre', name: '幽影特工', color: '#102030', price: 2200, unlocked: false, portrait: 'npc-ghost' }
     ]
 };
 
@@ -903,9 +908,20 @@ let extractProgress = 0;
 let settings = {
     difficulty: 'advanced',
     playerSpeed: 100, // 百分比，100为默认速度
-    fireRate: 100 // 射速调整，100为默认，数值越小射速越快
+    fireRate: 100, // 射速调整，100为默认，数值越小射速越快
+    mobileMode: false // 移动端适配开关，默认关闭（实验性功能）
 };
 window.settings = settings;
+
+// 移动端适配：仅在设置中手动开启时挂载 .mobile-mode class。
+// 所有移动端样式均限定在 .mobile-mode 父级下，未开启时完全不影响主界面布局。
+function applyMobileModeClass() {
+    try {
+        if (settings.mobileMode) document.body.classList.add('mobile-mode');
+        else document.body.classList.remove('mobile-mode');
+    } catch (e) { /* 防御：body 不存在时静默 */ }
+}
+window.applyMobileModeClass = applyMobileModeClass;
 
 // 游戏模式：mission 普通任务 / raid 搜打撤
 let gameMode = 'mission';
@@ -1273,7 +1289,10 @@ function checkTitleCondition(t) {
 
 function updatePlayerTitle() {
     loadCustomTitles();
-    // 找到最后一个满足条件的称号（列表顺序即等级顺序）
+    // 若玩家当前佩戴的称号仍满足条件，则保留玩家手动选择，不被自动覆盖
+    const current = customTitles.find(function(t) { return t.name === playerData.title; });
+    if (current && checkTitleCondition(current)) return;
+    // 否则（当前称号不再满足条件，或从未手动选择）自动选取满足条件的最高称号
     let best = customTitles[0];
     for (let i = 0; i < customTitles.length; i++) {
         if (checkTitleCondition(customTitles[i])) best = customTitles[i];
@@ -1433,6 +1452,31 @@ function loadPlayerData() {
     } catch (e) { console.warn('[PLAYER] 状态保存失败:', e.message); }
 }
 
+function safeSetItem(key, value) {
+    try {
+        localStorage.setItem(key, value);
+        return true;
+    } catch (e) {
+        if (!(e && (e.name === 'QuotaExceededError' || e.code === 22 || e.code === 1014))) {
+            console.warn('[STORAGE] 写入失败 ' + key + ':', e.message);
+            return false;
+        }
+        // 配额不足：按从旧到新顺序清理自动备份与存档槽位，腾出空间后重试
+        const purgeKeys = [];
+        for (let i = 5; i >= 1; i--) purgeKeys.push('deathTrench_backup_' + i);
+        for (let i = 5; i >= 1; i--) purgeKeys.push('deathTrench_slot_' + i);
+        for (const k of purgeKeys) {
+            try { localStorage.removeItem(k); } catch (e2) {}
+            try { localStorage.setItem(key, value); return true; } catch (e3) {}
+        }
+        // 仍失败则尝试删除冗余 legacy 副本
+        try { localStorage.removeItem('deathTrench_playerData'); } catch (e2) {}
+        try { localStorage.setItem(key, value); return true; } catch (e3) {}
+        console.warn('[STORAGE] 配额不足，' + key + ' 写入失败');
+        return false;
+    }
+}
+
 function savePlayerData() {
     try {
         const snapshot = AntiCheat.getLastSnapshot();
@@ -1443,17 +1487,24 @@ function savePlayerData() {
         }
 
         const signed = AntiCheat.signPlayerDataSync(playerData);
-        localStorage.setItem('deathTrench_player', JSON.stringify(signed));
+        safeSetItem('deathTrench_player', JSON.stringify(signed));
         AntiCheat.recordPlayerSnapshot(playerData);
 
         // 同步一份无签名的 legacy 数据到 deathTrench_playerData，供旧版面板兼容读取
-        const legacy = JSON.parse(localStorage.getItem('deathTrench_playerData') || '{}');
-        const syncFields = ['playerName', 'coins', 'totalKills', 'totalDeaths', 'totalScore', 'playTimeSeconds', 'title', 'equippedArmor', 'selectedMap', 'teammateCount', 'avatar', 'inventory', 'backpack', 'equippedWeapons', 'ammo', 'ownedSkins', 'equippedSkin', 'weaponAmmoSlots', 'ownedWeapons', 'redeemedCodes'];
-        for (const key of syncFields) {
-            if (playerData[key] !== undefined) legacy[key] = playerData[key];
-        }
-        localStorage.setItem('deathTrench_playerData', JSON.stringify(legacy));
-    } catch (e) { console.warn('[PLAYER] legacy 保存失败:', e.message); }
+        syncLegacyPlayerData();
+    } catch (e) { console.warn('[PLAYER] 保存失败:', e.message); }
+}
+
+// 同步关键字段到 legacy 兼容副本；带变化检测，避免无变化时重复全量写入（减少 localStorage 配额压力）
+function syncLegacyPlayerData() {
+    const syncFields = ['playerName', 'coins', 'totalKills', 'totalDeaths', 'totalScore', 'playTimeSeconds', 'title', 'equippedArmor', 'selectedMap', 'teammateCount', 'avatar', 'inventory', 'backpack', 'equippedWeapons', 'ammo', 'ownedSkins', 'equippedSkin', 'weaponAmmoSlots', 'ownedWeapons', 'redeemedCodes'];
+    const legacy = {};
+    for (const key of syncFields) {
+        if (playerData[key] !== undefined) legacy[key] = playerData[key];
+    }
+    const json = JSON.stringify(legacy);
+    if (localStorage.getItem('deathTrench_playerData') === json) return; // 无变化则跳过写入
+    safeSetItem('deathTrench_playerData', json);
 }
 
 function loadSettings() {
@@ -1464,15 +1515,17 @@ function loadSettings() {
         if (saved.difficulty) settings.difficulty = saved.difficulty;
         if (typeof saved.playerSpeed === 'number') settings.playerSpeed = Math.max(50, Math.min(350, saved.playerSpeed));
         if (typeof saved.fireRate === 'number') settings.fireRate = Math.max(50, Math.min(200, saved.fireRate));
+        if (typeof saved.mobileMode === 'boolean') settings.mobileMode = saved.mobileMode;
     } catch (e) { console.warn('[SETTINGS] 读取失败:', e.message); }
 }
 
 function saveSettings() {
     try {
-        localStorage.setItem('deathTrench_settings', JSON.stringify({
+        safeSetItem('deathTrench_settings', JSON.stringify({
             difficulty: settings.difficulty,
             playerSpeed: settings.playerSpeed,
-            fireRate: settings.fireRate
+            fireRate: settings.fireRate,
+            mobileMode: settings.mobileMode
         }));
     } catch (e) { console.warn('[SETTINGS] 保存失败:', e.message); }
 }
@@ -1885,7 +1938,7 @@ function loadItemRegistry() {
 }
 
 function saveItemRegistry() {
-    try { localStorage.setItem('deathTrench_item_registry', JSON.stringify(itemRegistry)); }
+    try { safeSetItem('deathTrench_item_registry', JSON.stringify(itemRegistry)); }
     catch (e) { console.warn('[ITEM] 物品注册表保存失败:', e.message); }
 }
 
@@ -2233,7 +2286,7 @@ function toggleMod(weaponId, modId) {
     savePlayerMods();
 
     // 改装变更后失效武器属性缓存（updateHUD 每帧读取该缓存）
-    const w = player.weapons && player.weapons.find(x => x.id === weaponId);
+    const w = player && player.weapons && player.weapons.find(x => x.id === weaponId);
     if (w) w._modifiedCache = null;
 
     const mod = MODIFICATIONS[modId];
@@ -2243,11 +2296,11 @@ function toggleMod(weaponId, modId) {
 // 保存改装数据
 function savePlayerMods() {
     try {
-        localStorage.setItem('deathTrench_player_mods', JSON.stringify(playerMods));
-        localStorage.setItem('deathTrench_ammo_inventory', JSON.stringify(ammoInventory));
-        localStorage.setItem('deathTrench_lottery_data', JSON.stringify(lotteryData));
-        localStorage.setItem('deathTrench_lottery_weights', JSON.stringify(customLotteryWeights));
-        localStorage.setItem('deathTrench_skin_bonuses', JSON.stringify(customSkinBonuses));
+        safeSetItem('deathTrench_player_mods', JSON.stringify(playerMods));
+        safeSetItem('deathTrench_ammo_inventory', JSON.stringify(ammoInventory));
+        safeSetItem('deathTrench_lottery_data', JSON.stringify(lotteryData));
+        safeSetItem('deathTrench_lottery_weights', JSON.stringify(customLotteryWeights));
+        safeSetItem('deathTrench_skin_bonuses', JSON.stringify(customSkinBonuses));
     } catch (e) {}
 }
 
@@ -2637,19 +2690,18 @@ function updateSkinPreview(skinId, type) {
             </div>
         `;
     } else {
-        // 角色皮肤预览 - 显示角色图标
+        // 角色皮肤预览 - 显示角色立绘
+        const portrait = skin.portrait ? 'assets/art/' + skin.portrait + '.png' : '';
         previewContainer.innerHTML = `
             <div class="player-skin-preview" style="
-                width: 80px;
-                height: 80px;
                 background: ${skin.color || '#00AA55'};
-                border-radius: 50%;
+                border-radius: 12px;
                 display: flex;
                 align-items: center;
                 justify-content: center;
-                font-size: 40px;
+                padding: 8px;
                 box-shadow: 0 0 12px ${skin.color || '#00AA55'};
-            ">👤</div>
+            ">${portrait ? `<img src="${portrait}" alt="${skin.name}" style="max-width:160px;max-height:160px;object-fit:contain;">` : '👤'}</div>
         `;
     }
 
@@ -2836,10 +2888,7 @@ function syncAmmoUI() {
         playerData.ammo[AMMO_TYPES.EXP] = ammoInventory[AMMO_TYPES.EXP] || 0;
         playerData.ammo[AMMO_TYPES.FIRE] = ammoInventory[AMMO_TYPES.FIRE] || 0;
         savePlayerData();
-
-        const legacy = JSON.parse(localStorage.getItem('deathTrench_playerData') || '{}');
-        legacy.ammo = { ...playerData.ammo };
-        localStorage.setItem('deathTrench_playerData', JSON.stringify(legacy));
+        syncLegacyPlayerData();
 
         renderAmmoBackpack();
         updateAmmoBackpackDisplay();
@@ -3458,6 +3507,7 @@ function hasLineOfSight(x1, y1, x2, y2) {
 // 对象池工具：使用 alive 标记 + 顺序复用
 // ============================================================
 function poolPushBullet(obj) {
+    obj.hitEnemies = obj.hitEnemies || [];
     if (bullets.length >= POOL_BULLET_MAX) {
         // 超上限：找一个已死亡的槽位复用
         for (let i = 0; i < bullets.length; i++) {
@@ -3958,7 +4008,15 @@ function gameLoop(timestamp) {
         // 限制单次最大 update 次数，防止卡顿后“雪崩”式追赶
         let safety = 3;
         while (tickAccumulator >= TICK_INTERVAL && safety > 0) {
-            update();
+            try {
+                update();
+            } catch (e) {
+                // 单帧逻辑异常不应阻断主循环，避免整局卡死白屏
+                if (!window.__updateErrLogged) {
+                    console.error('[gameLoop] update 异常已隔离:', e);
+                    window.__updateErrLogged = true;
+                }
+            }
             tickAccumulator -= TICK_INTERVAL;
             safety--;
         }
@@ -5922,8 +5980,8 @@ function spawnEnemy() {
     }
     function pushOne(x, y, boss) {
         // 普通敌人按类型分配像素立绘；Boss 使用专属立绘
-        const typeImgs = ['assets/art/enemy-grunt.jpg', 'assets/art/enemy-sniper.jpg', 'assets/art/enemy-heavy.jpg'];
-        const img = boss ? 'assets/art/boss-anvil.jpg'
+        const typeImgs = ['assets/art/enemy-grunt.png', 'assets/art/enemy-sniper.png', 'assets/art/enemy-heavy.png'];
+        const img = boss ? 'assets/art/boss-anvil.png'
             : typeImgs[Math.floor(Math.random() * typeImgs.length)];
         enemies.push({
             x, y,
@@ -6518,9 +6576,8 @@ let selectedWeaponForMarket = 'rifle';
 let selectedLoadoutSlot = 'primary';
 
 function getAvailableWeapons() {
-    if (player && player.weapons && player.weapons.length > 0) {
-        return player.weapons;
-    }
+    // 改装面板属于大厅功能，应基于玩家已解锁的全部武器，
+    // 而非某次战斗携带的临时武器子集（player.weapons 最多 4 把且会随战局变化）
     return WEAPONS.filter(w => w.unlocked);
 }
 
@@ -6592,8 +6649,13 @@ function renderModShop() {
                 showNotification('库存不足，请前往黑市购买');
                 return;
             }
-            const result = toggleMod(selectedWeaponForMod, modId);
-            showNotification(result.message);
+            try {
+                const result = toggleMod(selectedWeaponForMod, modId);
+                showNotification(result.message);
+            } catch (err) {
+                console.error('[MOD] 装配失败:', err);
+                showNotification('装配失败：' + err.message);
+            }
             renderModShop();
             renderModEquipped();
         };
@@ -6702,7 +6764,6 @@ function showSkins() {
     if (panel) { panel.classList.add('active'); panel.style.display = 'block'; }
     document.querySelectorAll('.func-btn').forEach(b => b.classList.remove('active'));
     showSkinTab('weapon');
-    renderWeaponSkins();
     renderSkinGrid();
     updateSkinEquippedInfo();
     hideLobbyBottom();
@@ -6725,10 +6786,16 @@ function renderSkinGrid() {
         item.className = 'skin-item' + (equipped ? ' equipped' : (owned ? ' owned' : ''));
 
         const previewBg = skin.color || '#6366f1';
-        const thumbSrc = currentSkinTab === 'weapon' ? 'assets/art/weapon-rifle.jpg' : 'assets/art/npc-reyes.jpg';
+        const thumbSrc = currentSkinTab === 'weapon' ? 'assets/art/weapon-rifle.png' : 'assets/art/' + (skin.portrait || 'npc-reyes') + '.png';
+        const patternClass = skin.pattern ? ' skin-pattern-' + skin.pattern : '';
+        const previewStyle = currentSkinTab === 'weapon'
+            ? `background: ${previewBg};`
+            : `background: ${previewBg};`;
+        const thumbClass = currentSkinTab === 'player' ? 'skin-thumb skin-thumb-portrait' : 'skin-thumb';
+        const previewBoxClass = currentSkinTab === 'player' ? ' player-skin-preview-box' : '';
         item.innerHTML = `
-            <div class="skin-preview" style="background: ${previewBg}; ${skin.pattern === 'metallic' ? 'background: linear-gradient(135deg, ' + previewBg + ', #fff5);' : ''}">
-                <img class="skin-thumb" src="${thumbSrc}" alt="${skin.name}">
+            <div class="skin-preview${patternClass}${previewBoxClass}" style="${previewStyle}">
+                <img class="${thumbClass}" src="${thumbSrc}" alt="${skin.name}" style="${skin.pattern === 'metallic' ? 'filter: drop-shadow(0 0 4px #fff8) brightness(1.1);' : ''}">
             </div>
             <span class="skin-name">${skin.name}</span>
             ${equipped ? '<span class="skin-status">已装备 ✓</span>' : (owned ? '<span class="skin-status">已拥有</span>' : `<span class="skin-price">🪙 ${skin.price}</span>`)}
@@ -7056,6 +7123,7 @@ function equipTitle() {
     savePlayerData();
     closeTitleDetail();
     updatePersonalInfoDisplay();
+    updatePlayerStats();
     showNotification('已佩戴称号：' + currentDetailTitle.name);
 }
 
@@ -7073,6 +7141,7 @@ function handleBadgeDouble(t) {
     }
     savePlayerData();
     updatePersonalInfoDisplay();
+    updatePlayerStats();
     showNotification('称号已切换为：' + playerData.title);
 }
 
@@ -7978,9 +8047,9 @@ function updateReadyRoomLoadout() {
     const sIcon = document.getElementById('readySecondaryIcon');
     const sName = document.getElementById('readySecondaryName');
 
-    if (pIcon) pIcon.textContent = primary ? primary.icon : '🔫';
+    if (pIcon) pIcon.innerHTML = weaponIconHtml(primary);
     if (pName) pName.textContent = primary ? primary.name : '主武器';
-    if (sIcon) sIcon.textContent = secondary ? secondary.icon : '🔫';
+    if (sIcon) sIcon.innerHTML = weaponIconHtml(secondary);
     if (sName) sName.textContent = secondary ? secondary.name : '副武器';
 }
 
@@ -8272,6 +8341,8 @@ function updateInventoryWeaponInfo() {
         if (w) {
             const el = document.getElementById('invPrimaryName');
             if (el) el.textContent = w.name;
+            const iconEl = document.querySelector('#invPrimarySlot .slot-weapon-icon');
+            if (iconEl) iconEl.innerHTML = weaponIconHtml(w);
         }
     }
     
@@ -8282,81 +8353,14 @@ function updateInventoryWeaponInfo() {
         if (w) {
             const el = document.getElementById('invSecondaryName');
             if (el) el.textContent = w.name;
+            const iconEl = document.querySelector('#invSecondarySlot .slot-weapon-icon');
+            if (iconEl) iconEl.innerHTML = weaponIconHtml(w);
         }
     }
 }
 
 // 渲染皮肤卡片
-function renderWeaponSkins() {
-    const grid = document.getElementById('weaponSkinGrid');
-    if (!grid) return;
-    grid.innerHTML = '';
-    
-    const skins = [
-        { id: 'default', name: '默认', price: 0, skinClass: 'skin-default', owned: true, equipped: true },
-        { id: 'carbon', name: '碳纤维', price: 500, skinClass: 'skin-carbon', owned: true, equipped: false },
-        { id: 'gold', name: '黄金', price: 1000, skinClass: 'skin-gold', owned: false },
-        { id: 'camo', name: '迷彩', price: 800, skinClass: 'skin-camo', owned: false },
-        { id: 'neon', name: '霓虹', price: 1200, skinClass: 'skin-neon', owned: false },
-        { id: 'red', name: '赤红', price: 600, skinClass: 'skin-red', owned: false },
-        { id: 'blue', name: '深蓝', price: 600, skinClass: 'skin-blue', owned: false },
-        { id: 'purple', name: '紫晶', price: 1500, skinClass: 'skin-purple', owned: false }
-    ];
-    
-    const ownedSkins = playerData.ownedSkins || ['default', 'carbon'];
-    const equippedSkin = playerData.equippedSkin || 'default';
-    
-    skins.forEach(s => {
-        s.owned = ownedSkins.includes(s.id);
-        s.equipped = equippedSkin === s.id;
-        
-        const card = document.createElement('div');
-        card.className = `skin-card ${s.equipped ? 'equipped' : ''}`;
-        card.innerHTML = `
-            <div class="skin-preview">
-                <div class="weapon-silhouette ${s.skinClass}">
-                    <div class="ws-stock"></div>
-                    <div class="ws-body"></div>
-                    <div class="ws-barrel"></div>
-                    <div class="ws-magazine"></div>
-                    <div class="ws-grip"></div>
-                    <div class="ws-sight"></div>
-                </div>
-            </div>
-            <div style="padding:12px;">
-                <div style="font-size:14px;color:var(--color-text-primary);font-weight:bold;">${s.name}</div>
-                ${s.equipped ? '<div style="font-size:12px;color:var(--brand-accent);">使用中</div>' :
-                  s.owned ? `<button class="mod-buy-btn" onclick="equipSkin('${s.id}')">装备</button>` :
-                  `<div style="font-size:12px;color:var(--brand-secondary);">🪙 ${s.price}</div>
-                   <button class="mod-buy-btn" onclick="buySkin('${s.id}')">购买</button>`}
-            </div>
-        `;
-        card.onclick = () => previewSkin(s);
-        grid.appendChild(card);
-    });
-}
-
-// 预览皮肤
-function previewSkin(skin) {
-    const preview = document.getElementById('skinPreviewWeapon');
-    const name = document.getElementById('skinPreviewName');
-    if (preview) {
-        preview.innerHTML = `
-            <div class="weapon-silhouette ${skin.skinClass}">
-                <div class="ws-stock"></div>
-                <div class="ws-body"></div>
-                <div class="ws-barrel"></div>
-                <div class="ws-magazine"></div>
-                <div class="ws-grip"></div>
-                <div class="ws-sight"></div>
-            </div>
-        `;
-    }
-    if (name) name.textContent = skin.name;
-}
-
-// 购买皮肤
-// 皮肤预览和购买由原有的 buySkin/equipSkin 函数处理
+// 皮肤卡片由 renderSkinGrid() 统一渲染（基于 SKINS 真实数据），此处不再保留旧的硬编码列表。
 
 // 小地图绘制（搜打撤风格）
 let __minimapStaticCache = null;
@@ -8906,22 +8910,28 @@ function renderSellMarketGrid() {
         grid.appendChild(div);
     });
 
-    // 摸金变卖物：游戏中拾取，回到仓库出售换取金币
-    const sellables = playerData.sellItems || [];
-    if (sellables.length > 0) {
-        const sep = document.createElement('div');
-        sep.className = 'market-section-label';
-        sep.style.gridColumn = '1 / -1';
-        sep.textContent = `摸金变卖物（${sellables.length}）—— 搜打撤战利品`;
-        grid.appendChild(sep);
+    // 摸金变卖物：游戏中拾取，回到仓库出售换取金币（固定独立分区，始终显示）
+    const sep = document.createElement('div');
+    sep.className = 'market-section-label';
+    sep.style.gridColumn = '1 / -1';
+    sep.textContent = '摸金变卖物 —— 搜打撤战利品';
+    grid.appendChild(sep);
 
+    const sellables = playerData.sellItems || [];
+    if (sellables.length === 0) {
+        const empty = document.createElement('div');
+        empty.className = 'market-empty-hint';
+        empty.style.gridColumn = '1 / -1';
+        empty.textContent = '暂无可变卖的战利品，进入搜打撤行动拾取后即可在此出售。';
+        grid.appendChild(empty);
+    } else {
         sellables.forEach((entry, index) => {
             const def = getSellableDef(entry.id);
             const price = (entry.value || 1) * def.baseValue;
             const div = document.createElement('div');
             div.className = 'market-item r-' + def.rarity;
             div.innerHTML = `
-                <div class="item-icon">${def.icon}</div>
+                <div class="item-icon">${sellableIconHtml(def)}</div>
                 <div class="item-info">
                     <div class="item-name">${def.name}${entry.value > 1 ? ' ×' + entry.value : ''}</div>
                     <div class="item-desc">搜打撤战利品，可出售换取金币</div>
@@ -9435,18 +9445,35 @@ function toggleAutoBackup(enabled) {
 }
 function doManualBackup() {
     try {
-        // Shift existing backups: 4→5, 3→4, 2→3, 1→2
+        // Shift existing backups: 4→5, 3→4, 2→3, 1→2 (逐个容错，避免单槽溢出中断整轮)
         for (let i = 5; i >= 2; i--) {
-            const prev = localStorage.getItem('deathTrench_backup_' + (i - 1));
-            if (prev) localStorage.setItem('deathTrench_backup_' + i, prev);
-            else localStorage.removeItem('deathTrench_backup_' + i);
+            try {
+                const prev = localStorage.getItem('deathTrench_backup_' + (i - 1));
+                if (prev) localStorage.setItem('deathTrench_backup_' + i, prev);
+                else localStorage.removeItem('deathTrench_backup_' + i);
+            } catch (e) {
+                // 该槽位空间不足，直接丢弃旧备份以腾出空间
+                try { localStorage.removeItem('deathTrench_backup_' + i); } catch (e2) {}
+            }
         }
         const save = {
             playerData: JSON.parse(JSON.stringify(playerData)),
             settings: JSON.parse(JSON.stringify(settings || {})),
             timestamp: Date.now()
         };
-        localStorage.setItem('deathTrench_backup_1', JSON.stringify(save));
+        const payload = JSON.stringify(save);
+        try {
+            safeSetItem('deathTrench_backup_1', payload);
+        } catch (e) {
+            // 配额不足：逐级删除最旧备份后重试
+            for (let i = 5; i >= 2; i--) {
+                try { localStorage.removeItem('deathTrench_backup_' + i); } catch (e2) {}
+                try {
+                    safeSetItem('deathTrench_backup_1', payload);
+                    break;
+                } catch (e3) { /* 继续清理 */ }
+            }
+        }
         refreshBackupUI();
         if (autoBackupTimerId) updateBackupCountdownUI();
     } catch (e) { console.error('Backup failed', e); }
@@ -10493,11 +10520,38 @@ async function checkForUpdates() {
 var ANNOUNCE_VERSION_KEY = 'deathTrench_announcement_seen';
 var announcementTimer = null;
 
-function openAnnouncement(autoClose) {
+// 从 version.json 动态读取 changelog 填充公告面板（失败则保留 HTML 静态内容作为兜底）
+async function loadAnnouncementContent() {
+    try {
+        const res = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' });
+        if (!res.ok) return false;
+        const data = await res.json();
+        if (!data) return false;
+        const titleEl = document.querySelector('#announcementPanel .un-title');
+        const dateEl = document.querySelector('#announcementPanel .un-date');
+        const listEl = document.querySelector('#announcementPanel .un-list');
+        if (dateEl && data.version) {
+            dateEl.textContent = 'v' + data.version + (data.releaseDate ? ' · ' + data.releaseDate : '');
+        }
+        if (listEl && Array.isArray(data.changelog) && data.changelog.length) {
+            listEl.innerHTML = data.changelog.map(function (line) {
+                return '<li>' + escapeHtml(line) + '</li>';
+            }).join('');
+        }
+        return true;
+    } catch (e) {
+        console.warn('[ANNOUNCE] 动态加载公告失败，使用静态内容兜底：', e.message);
+        return false;
+    }
+}
+
+async function openAnnouncement(autoClose) {
     showOverlay('announcementPanel');
     // 首次自动弹出时记录已读，避免再次自动弹出
     try { localStorage.setItem(ANNOUNCE_VERSION_KEY, GAME_VERSION); } catch (e) {}
     if (announcementTimer) { clearTimeout(announcementTimer); announcementTimer = null; }
+    // 动态加载公告内容（version.json 的 changelog），失败则保留 HTML 静态内容
+    try { await loadAnnouncementContent(); } catch (e) {}
     if (autoClose) {
         announcementTimer = setTimeout(function () {
             closeAnnouncement();
@@ -10945,6 +10999,7 @@ function init() {
     loadPlayerData();
     loadGameParams();
     loadSettings();
+    applyMobileModeClass();
     loadPlayerMods();
     loadCustomTitles();
     loadMedals();
@@ -10972,6 +11027,9 @@ function syncSettingsUI() {
         const fireRateValue = document.getElementById('fireRateValue');
         if (fireRateSlider) fireRateSlider.value = settings.fireRate || 100;
         if (fireRateValue) fireRateValue.textContent = (settings.fireRate || 100) + '%';
+
+        const mobileToggle = document.getElementById('mobileModeToggle');
+        if (mobileToggle) mobileToggle.checked = !!settings.mobileMode;
     } catch (e) {}
 }
 
@@ -12186,6 +12244,32 @@ function findNearestCover(x, y, fromX, fromY, radius) {
 // ============================================================
 // 全局UI函数挂载到window（确保HTML onclick能访问）
 // ============================================================
+// 好友面板占位（UI 挂载列表引用，避免 “Missing functions: showFriends” 警告）
+// 当前版本未实装好友系统，点击时给出友好提示。
+function showFriends() {
+    try {
+        showToast('好友系统尚未开放');
+    } catch (e) {
+        alert('好友系统尚未开放');
+    }
+}
+window.showFriends = showFriends;
+
+// 全局错误兜底：任何未捕获异常仅记录，避免整页白屏卡死
+window.onerror = function(message, source, lineno, colno, error) {
+    if (!window.__globalErrLogged) {
+        console.error('[GLOBAL] 未捕获异常（已隔离，不影响游戏）:', message, 'at', source + ':' + lineno);
+        window.__globalErrLogged = true;
+    }
+    return true; // 阻止默认处理（避免白屏）
+};
+window.addEventListener('unhandledrejection', function(e) {
+    if (!window.__rejectErrLogged) {
+        console.error('[GLOBAL] 未处理的 Promise 拒绝（已隔离）:', e.reason);
+        window.__rejectErrLogged = true;
+    }
+});
+
 function mountAllUIfunctions() {
     const fns = [
         'showReadyRoom', 'showInventory', 'showBlackMarket', 'showModification',
@@ -12612,7 +12696,7 @@ const DIALOGUES = {
     'intro_price': {
         speaker: '指挥官 · 普莱斯',
         avatar: '🎖️',
-        avatarImg: 'assets/art/npc-price.jpg',
+        avatarImg: 'assets/art/npc-price.png',
         tag: 'Death Trench 特遣队',
         lines: [
             { text: '欢迎来到死亡战壕，新兵。这里没有军衔，只有活人和死人。' },
@@ -12627,7 +12711,7 @@ const DIALOGUES = {
     'intro_ghost': {
         speaker: '幽灵',
         avatar: '👻',
-        avatarImg: 'assets/art/npc-ghost.jpg',
+        avatarImg: 'assets/art/npc-ghost.png',
         tag: '战术支援',
         lines: [
             { text: '规则很简单：不要相信任何人，包括我。但你可以相信数据。' },
@@ -12640,7 +12724,7 @@ const DIALOGUES = {
     'city_choice': {
         speaker: '指挥官 · 普莱斯',
         avatar: '🎖️',
-        avatarImg: 'assets/art/npc-price.jpg',
+        avatarImg: 'assets/art/npc-price.png',
         tag: 'Death Trench 特遣队',
         lines: [
             { text: '断壁城地下有一座黑潮军火库。上级想让我们直接炸平它。' },
@@ -12653,7 +12737,7 @@ const DIALOGUES = {
     'ghost_warning': {
         speaker: '幽灵',
         avatar: '👻',
-        avatarImg: 'assets/art/npc-ghost.jpg',
+        avatarImg: 'assets/art/npc-ghost.png',
         tag: '战术支援',
         lines: [
             { text: '我截获了一段录音。普莱斯一年前和黑潮有过接触。' },
@@ -12665,7 +12749,7 @@ const DIALOGUES = {
     'ch4_truth_confront': {
         speaker: '指挥官 · 普莱斯',
         avatar: '🎖️',
-        avatarImg: 'assets/art/npc-price.jpg',
+        avatarImg: 'assets/art/npc-price.png',
         tag: 'Death Trench 特遣队',
         lines: [
             { text: '幽灵给你看了那段录音？……我没打算一直瞒你。' },
@@ -12679,7 +12763,7 @@ const DIALOGUES = {
     'ch4_loyalty_order': {
         speaker: '指挥官 · 普莱斯',
         avatar: '🎖️',
-        avatarImg: 'assets/art/npc-price.jpg',
+        avatarImg: 'assets/art/npc-price.png',
         tag: 'Death Trench 特遣队',
         lines: [
             { text: '总部嘉奖了你在断壁城的决断。但任务还没结束。' },
@@ -12691,7 +12775,7 @@ const DIALOGUES = {
     'ch4_mercy_civilian': {
         speaker: '医疗兵 · 艾琳',
         avatar: '💊',
-        avatarImg: 'assets/art/npc-eileen.jpg',
+        avatarImg: 'assets/art/npc-eileen.png',
         tag: '战地医疗',
         lines: [
             { text: '断壁城的平民大多撤离了，但有个孩子还没找到。' },
@@ -12703,7 +12787,7 @@ const DIALOGUES = {
     'ch5_final_choice': {
         speaker: '指挥官 · 普莱斯',
         avatar: '🎖️',
-        avatarImg: 'assets/art/npc-price.jpg',
+        avatarImg: 'assets/art/npc-price.png',
         tag: 'Death Trench 特遣队',
         lines: [
             { text: '最后一步。黑潮的核心节点就在前面。' },
@@ -12717,7 +12801,7 @@ const DIALOGUES = {
     'ending_loyalty': {
         speaker: '指挥官 · 普莱斯',
         avatar: '🎖️',
-        avatarImg: 'assets/art/npc-price.jpg',
+        avatarImg: 'assets/art/npc-price.png',
         tag: 'Death Trench 特遣队',
         lines: [
             { text: '节点已摧毁。黑潮的指挥链断了。' },
@@ -12730,7 +12814,7 @@ const DIALOGUES = {
     'ending_mercy': {
         speaker: '医疗兵 · 艾琳',
         avatar: '💊',
-        avatarImg: 'assets/art/npc-eileen.jpg',
+        avatarImg: 'assets/art/npc-eileen.png',
         tag: '战地医疗',
         lines: [
             { text: '阿雅出来了。她抱着一个布娃娃，浑身是灰，但还活着。' },
@@ -12743,7 +12827,7 @@ const DIALOGUES = {
     'ending_truth': {
         speaker: '幽灵',
         avatar: '👻',
-        avatarImg: 'assets/art/npc-ghost.jpg',
+        avatarImg: 'assets/art/npc-ghost.png',
         tag: '战术支援',
         lines: [
             { text: '你进去了。核心节点里没有武器，只有一排冷冻仓。' },
@@ -12756,7 +12840,7 @@ const DIALOGUES = {
     'merchant_intro': {
         speaker: '商人',
         avatar: '🧳',
-        avatarImg: 'assets/art/npc-merchant.jpg',
+        avatarImg: 'assets/art/npc-merchant.png',
         tag: '后勤补给',
         lines: [
             { text: '嘿，幸存者。看到你还活着，我的货又好卖了。' },
@@ -12770,7 +12854,7 @@ const DIALOGUES = {
     'eileen_lore': {
         speaker: '艾琳',
         avatar: '📚',
-        avatarImg: 'assets/art/npc-eileen.jpg',
+        avatarImg: 'assets/art/npc-eileen.png',
         tag: '战地医疗',
         lines: [
             { text: '我整理过黑潮的残骸，发现它们的装甲上刻着旧世界的工厂编号。' },
@@ -12783,7 +12867,7 @@ const DIALOGUES = {
     'raid_treasure_tip': {
         speaker: '商人',
         avatar: '🧳',
-        avatarImg: 'assets/art/npc-merchant.jpg',
+        avatarImg: 'assets/art/npc-merchant.png',
         tag: '后勤补给',
         lines: [
             { text: '搜打撤模式下，箱子随机出变卖物。越稀有的箱子，越可能出传奇货。' },

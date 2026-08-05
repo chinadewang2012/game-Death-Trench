@@ -364,7 +364,15 @@ const AntiCheat = (() => {
                     // 允许白名单内的写入，但记录操作
                     // 实际拦截会在更上层完成
                 }
-                return originalSetItem(key, value);
+                try {
+                    return originalSetItem(key, value);
+                } catch (e) {
+                    // 配额不足时静默失败，交由上层 safeSetItem 做清理重试
+                    if (e && (e.name === 'QuotaExceededError' || e.code === 22 || e.code === 1014)) {
+                        return;
+                    }
+                    throw e;
+                }
             };
 
             localStorage.removeItem = function(key) {

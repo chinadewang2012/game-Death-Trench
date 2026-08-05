@@ -4817,6 +4817,16 @@ body {
     image-rendering: pixelated;
     border-radius: 50%;
 }
+/* 玩家皮肤立绘：完整显示不被裁切，使用方形预览 */
+.skin-preview.player-skin-preview-box {
+    width: 64px;
+    height: 64px;
+    border-radius: 8px;
+}
+.skin-thumb-portrait {
+    object-fit: contain;
+    border-radius: 0;
+}
 
 .skin-name { font-size: 12px; color: #e6edf3; font-weight: 600; }
 .skin-price { font-size: 11px; color: #ffaa00; }
@@ -5684,26 +5694,31 @@ body {
 
 .market-tab-content .market-item {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
-    gap: 12px;
+    gap: 10px 12px;
     padding: 12px;
     background: var(--color-bg-card);
     border: 1px solid var(--color-border-subtle);
     border-radius: var(--radius-md);
     transition: all var(--transition-fast);
+    min-width: 0;
 }
+.market-tab-content .market-item .item-icon { flex-shrink: 0; }
+.market-tab-content .market-item .item-info { flex: 1 1 140px; min-width: 0; }
 
 .market-tab-content .market-item:hover { border-color: var(--color-border); }
 
 .market-item .item-icon { font-size: 28px; width: 40px; text-align: center; flex-shrink: 0; }
-.market-item .item-info { flex: 1; min-width: 0; }
-.market-item .item-name { font-size: 14px; color: var(--color-text-primary); font-weight: 600; font-family: var(--font-body); }
-.market-item .item-desc { font-size: 12px; color: var(--color-text-muted); margin-top: 2px; font-family: var(--font-body); }
-.market-item .item-price { font-size: 13px; color: var(--brand-secondary); font-weight: 600; flex-shrink: 0; font-family: var(--font-display); }
+.market-item .item-info { flex: 1 1 140px; min-width: 0; overflow: hidden; }
+.market-item .item-name { font-size: 14px; color: var(--color-text-primary); font-weight: 600; font-family: var(--font-body); word-break: keep-all; overflow-wrap: break-word; }
+.market-item .item-desc { font-size: 12px; color: var(--color-text-muted); margin-top: 2px; font-family: var(--font-body); word-break: keep-all; overflow-wrap: break-word; }
+.market-item .item-price { font-size: 13px; color: var(--brand-secondary); font-weight: 600; flex-shrink: 0; font-family: var(--font-display); white-space: nowrap; }
 
 .market-item.unlocked { border-color: var(--brand-accent); background: rgba(0, 255, 136, 0.06); }
 .market-item.unlocked .item-price { color: var(--brand-accent); }
 .market-item .buy-btn:disabled { opacity: 0.45; cursor: not-allowed; filter: grayscale(0.4); }
+.market-tab-content .market-item .buy-btn { flex-shrink: 0; }
 
 /* ========================================
    改装面板
@@ -5844,6 +5859,47 @@ body {
 .weapon-silhouette .ws-stock { background: var(--skin-stock-color, #555); }
 .weapon-silhouette .ws-grip { background: var(--skin-grip-color, #444); }
 .weapon-silhouette .ws-sight { background: var(--skin-sight-color, #777); }
+
+/* 皮肤图案：为不同皮肤提供可辨识的视觉差异 */
+.skin-pattern-carbon {
+    background:
+        repeating-linear-gradient(45deg, rgba(255,255,255,0.08) 0 2px, transparent 2px 4px),
+        repeating-linear-gradient(-45deg, rgba(0,0,0,0.35) 0 2px, transparent 2px 4px) !important;
+}
+.skin-pattern-camo {
+    background:
+        radial-gradient(circle at 20% 30%, #6b8e23 0 18%, transparent 19%),
+        radial-gradient(circle at 70% 60%, #556b2f 0 16%, transparent 17%),
+        radial-gradient(circle at 45% 80%, #8f9779 0 14%, transparent 15%),
+        #4a5d23 !important;
+}
+.skin-pattern-metallic {
+    background: linear-gradient(135deg, #ffd700, #fff7c0 40%, #b8860b 60%, #fff7c0) !important;
+}
+.skin-pattern-viper {
+    background:
+        repeating-linear-gradient(60deg, rgba(0,0,0,0.3) 0 6px, transparent 6px 12px),
+        #2d8c2d !important;
+}
+.skin-pattern-platinum {
+    background: linear-gradient(135deg, #f5f5f5, #d8d8d8 50%, #ffffff) !important;
+}
+.skin-pattern-arctic {
+    background:
+        radial-gradient(circle at 30% 20%, rgba(255,255,255,0.6) 0 30%, transparent 31%),
+        linear-gradient(160deg, #c8d8e4, #7fa8c9) !important;
+}
+.skin-pattern-crystal {
+    background:
+        linear-gradient(135deg, #2a0a3a, #6a1b9a 40%, #b388ff 70%, #1a0530) !important;
+    box-shadow: inset 0 0 12px rgba(179,136,255,0.5);
+}
+.skin-pattern-inferno {
+    background:
+        radial-gradient(circle at 50% 80%, #ff6a00 0 30%, transparent 31%),
+        linear-gradient(180deg, #b5532a, #7a1f0a) !important;
+}
+/* 默认/无图案：用纯色（由 inline style 提供） */
 
 .skin-preview-name {
     margin-top: 50px;
@@ -6304,6 +6360,9 @@ body {
     vertical-align: middle;
 }
 .px-icon-fallback { font-size: 24px; }
+.equip-slot .slot-icon img.px-icon { width: 36px; height: 36px; }
+.weapon-loadout-slot .slot-weapon-icon img.px-icon { width: 44px; height: 44px; margin: 4px auto; }
+#teammateLoadoutPreview img.px-icon { width: 28px; height: 28px; vertical-align: middle; }
 .dialogue-speaker-name {
     font-size: 17px; font-weight: 700; color: #e8e8e8;
     font-family: var(--font-display, 'Orbitron', monospace);
@@ -6460,4 +6519,45 @@ body {
 @keyframes epicGlow {
     0%, 100% { box-shadow: 0 0 8px rgba(168,85,247,0.4); }
     50% { box-shadow: 0 0 20px rgba(168,85,247,0.6); }
+}
+
+/* ====================================================================
+   移动端适配（实验性）— 仅在 body.mobile-mode 时生效，默认不挂载不影响主界面
+   ==================================================================== */
+body.mobile-mode {
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+}
+body.mobile-mode .menu-panel,
+body.mobile-mode .lobby-panels,
+body.mobile-mode #settingsPanel,
+body.mobile-mode .panel {
+    width: 100vw !important;
+    max-width: 100vw !important;
+    height: 100vh !important;
+    max-height: 100vh !important;
+    border-radius: 0 !important;
+    padding: 16px !important;
+    box-sizing: border-box;
+    overflow-y: auto;
+}
+body.mobile-mode .menu-btn {
+    min-height: 48px;
+    font-size: 16px;
+    padding: 12px 18px;
+}
+body.mobile-mode .setting-group {
+    margin-bottom: 18px;
+}
+body.mobile-mode .setting-label {
+    font-size: 15px;
+}
+body.mobile-mode #gameCanvas {
+    touch-action: none;
+}
+/* 触屏虚拟摇杆/按钮容器（如有需要可后续填充，默认隐藏以免干扰） */
+body.mobile-mode #mobileControls {
+    display: none;
 }
