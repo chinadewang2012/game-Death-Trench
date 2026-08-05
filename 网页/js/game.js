@@ -8942,27 +8942,6 @@ function closeAllPanels() {
     var md = document.getElementById('mapDetailPanel'); if (md) md.style.display = 'none';
 }
 
-// ESC 关闭所有遮罩弹窗
-document.addEventListener('keydown', function (e) {
-    if (e.key === 'Escape') {
-        ['announcementPanel', 'mapDetailPanel', 'raidAmmoPanel'].forEach(function (id) {
-            var el = document.getElementById(id);
-            if (!el) return;
-            if (id === 'announcementPanel' && (el.classList.contains('active') || el.style.display === 'flex')) {
-                closeAnnouncement();
-            } else if (id === 'mapDetailPanel' && (el.classList.contains('active') || el.style.display === 'flex')) {
-                closeMapDetail();
-            } else if (id === 'raidAmmoPanel' && el.style.display === 'block') {
-                closeRaidAmmoPanel();
-            } else if (id === 'containerPanel' && el.style.display === 'block') {
-                closeContainerPanel();
-            } else if (id === 'raidBackpackPanel' && el.style.display === 'block') {
-                toggleRaidBackpackPanel();
-            }
-        });
-    }
-});
-
 // 点击补充弹药面板外部时关闭（面板内部点击已 stopPropagation，不会触发）
 document.addEventListener('click', function (e) {
     if (!raidAmmoPanelOpen) return;
@@ -10591,8 +10570,39 @@ function init() {
         return false;
     }
 
-    // 使用 canvas 捕获按键
-    canvas.addEventListener('keydown', e => {
+    // 游戏按键统一监听 window（全局），避免 canvas 焦点陷阱导致 WASD 移动失效。
+    // canvas 元素默认无法获得键盘焦点，仅靠 click 聚焦不可靠，故游戏按键挂在 window 上。
+    window.addEventListener('keydown', e => {
+        // ESC 全局退出：先关模态，再回上级
+        if (e.code === 'Escape') {
+            // 1) 先关闭各类游戏内遮罩弹窗（优先于结束游戏）
+            const ap = document.getElementById('announcementPanel');
+            const mdp = document.getElementById('mapDetailPanel');
+            const rap = document.getElementById('raidAmmoPanel');
+            const cp = document.getElementById('containerPanel');
+            const rbp = document.getElementById('raidBackpackPanel');
+            const tdm = document.getElementById('titleDetailModal');
+            if (tdm && tdm.style.display === 'flex') { closeTitleDetail(); return; }
+            if (ap && (ap.classList.contains('active') || ap.style.display === 'flex')) { closeAnnouncement(); return; }
+            if (mdp && (mdp.classList.contains('active') || mdp.style.display === 'flex')) { closeMapDetail(); return; }
+            if (rap && rap.style.display === 'block') { closeRaidAmmoPanel(); return; }
+            if (cp && cp.style.display === 'block') { closeContainerPanel(); return; }
+            if (rbp && rbp.style.display === 'block') { toggleRaidBackpackPanel(); return; }
+            // 2) 如果正在游戏中，ESC 结束游戏
+            if (gameRunning) { endGame(); return; }
+            // 3) 如果当前显示的是 lobby 内的子 panel 而非 readyRoom，回退到 lobby
+            const activeSubPanel = document.querySelector('.panel.active');
+            if (activeSubPanel && activeSubPanel.id !== 'readyRoom') { showLobby(); return; }
+            // 4) 其他情况回主菜单
+            const lobby = document.getElementById('lobby');
+            if (lobby && lobby.style.display !== 'none') { backToMenu(); }
+            return;
+        }
+
+        // 在输入框/文本域中时不处理游戏按键，避免误触发
+        const tag = (e.target && e.target.tagName) || '';
+        if (tag === 'INPUT' || tag === 'TEXTAREA' || (e.target && e.target.isContentEditable)) return;
+
         // 冲刺(Ctrl)组合键拦截：阻止 Ctrl+W/R 等触发浏览器默认行为，
         // 确保 CTRL 加速只影响移动，不会误触刷新/关页等其它操作
         if ((e.ctrlKey || e.metaKey) && gameRunning) {
@@ -10635,7 +10645,7 @@ function init() {
         }
     });
 
-    canvas.addEventListener('keyup', e => {
+    window.addEventListener('keyup', e => {
         keys.set(e.code, false);
         if (e.code === 'ShiftLeft' || e.code === 'ShiftRight') {
             shiftHeld = false;
@@ -10644,46 +10654,6 @@ function init() {
         if (e.code === 'ControlLeft' || e.code === 'ControlRight') {
             ctrlHeld = false;
         }
-    });
-
-    // 关键修复：window 只负责 ESC / 全局 UI 操作，不再重复处理游戏按键。
-    // 之前 canvas 和 window 各自监听同一按键，会导致：
-    // 1) 自动射击 / 手雷 等冷却失效（被 window 再次触发）
-    // 2) 部分按键被处理两次（例如自动射击被切换开关两次 -> 变回原状但消耗性能）
-    // 3) 极端场景下（多按键并发 + 网络/定时器回调重叠）造成状态机错位类死锁。
-    window.addEventListener('keydown', e => {
-        // ESC 全局退出：先关模态，再回上级
-        if (e.code === 'Escape') {
-            // 1) 先尝试关闭称号详情弹窗
-            const titleModal = document.getElementById('titleDetailModal');
-            if (titleModal && titleModal.style.display === 'flex') {
-                closeTitleDetail();
-                return;
-            }
-            // 2) 如果正在游戏中，ESC 结束游戏
-            if (gameRunning) {
-                endGame();
-                return;
-            }
-            // 3) 如果当前显示的是 lobby 内的子 panel 而非 readyRoom，回退到 lobby
-            const activeSubPanel = document.querySelector('.panel.active');
-            if (activeSubPanel && activeSubPanel.id !== 'readyRoom') {
-                showLobby();
-                return;
-            }
-            // 4) 其他情况回主菜单
-            const lobby = document.getElementById('lobby');
-            if (lobby && lobby.style.display !== 'none') {
-                backToMenu();
-            }
-            return;
-        }
-
-        // 不再在 window 层重复处理游戏按键（交给 canvas）
-    });
-
-    window.addEventListener('keyup', e => {
-        // keyup 不做重复处理，保留为空。canvas 的 keyup 已经足够。
     });
 
     // 窗口失焦时清空所有按键状态，避免 keyup 丢失导致角色持续移动
