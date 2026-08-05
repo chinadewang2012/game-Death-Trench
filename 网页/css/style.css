@@ -6594,18 +6594,17 @@ body.mobile-mode .mobile-joystick-stick {
     border: 2px solid rgba(255,255,255,0.5);
     transform: translate(0,0);
 }
-/* 右侧操作区 */
+/* 右侧操作区（绝对定位，精确排布） */
 body.mobile-mode .mobile-right {
     position: absolute;
-    right: 22px;
-    bottom: 36px;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 18px;
+    inset: 0;
     pointer-events: none;
 }
+/* 开火键（右下角） */
 body.mobile-mode .mobile-fire-btn {
+    position: absolute;
+    right: 24px;
+    bottom: 36px;
     width: 92px;
     height: 92px;
     border-radius: 50%;
@@ -6617,11 +6616,47 @@ body.mobile-mode .mobile-fire-btn {
     touch-action: none;
     user-select: none;
 }
+/* 换弹键（开火键左下角） */
+body.mobile-mode .mobile-reload-btn {
+    position: absolute;
+    right: 118px;
+    bottom: 36px;
+    width: 72px;
+    height: 72px;
+    border-radius: 50%;
+    background: rgba(220,160,40,0.6);
+    border: 3px solid rgba(255,255,255,0.6);
+    color: #fff;
+    font-size: 30px;
+    pointer-events: auto;
+    touch-action: none;
+    user-select: none;
+}
+/* 物品按钮（开火键上方） */
 body.mobile-mode .mobile-item-btn {
+    position: absolute;
+    right: 24px;
+    bottom: 142px;
     width: 64px;
     height: 64px;
     border-radius: 50%;
     background: rgba(60,120,220,0.55);
+    border: 3px solid rgba(255,255,255,0.6);
+    color: #fff;
+    font-size: 28px;
+    pointer-events: auto;
+    touch-action: none;
+    user-select: none;
+}
+/* 背包按钮（物品按钮上方） */
+body.mobile-mode .mobile-pack-btn {
+    position: absolute;
+    right: 24px;
+    bottom: 218px;
+    width: 64px;
+    height: 64px;
+    border-radius: 50%;
+    background: rgba(120,80,200,0.55);
     border: 3px solid rgba(255,255,255,0.6);
     color: #fff;
     font-size: 28px;
@@ -6668,4 +6703,57 @@ body.mobile-mode #raidBackpackPanel.grid-panel {
 }
 body.mobile-mode #raidBackpackPanel .inv-grid {
     grid-template-columns: repeat(4, 1fr);
+}
+/* 移动端主背包概览面板 */
+.mobile-backpack-view {
+    display: none;
+}
+body.mobile-mode .mobile-backpack-view {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    width: 78vw;
+    max-width: 360px;
+    max-height: 70vh;
+    overflow-y: auto;
+    background: rgba(12,18,12,0.96);
+    border: 1px solid rgba(120,160,80,0.7);
+    border-radius: 12px;
+    padding: 16px;
+    pointer-events: auto;
+    z-index: 850;
+    color: #e8f0d8;
+    font-size: 14px;
+}
+body.mobile-mode .mobile-backpack-view .mbv-title {
+    font-size: 17px;
+    font-weight: bold;
+    color: #aadd88;
+    text-align: center;
+    margin-bottom: 12px;
+}
+body.mobile-mode .mobile-backpack-view .mbv-sec {
+    margin: 10px 0 4px;
+    color: #88aa66;
+    font-size: 13px;
+    border-bottom: 1px dashed rgba(120,160,80,0.4);
+    padding-bottom: 3px;
+}
+body.mobile-mode .mobile-backpack-view .mbv-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 4px 2px;
+}
+body.mobile-mode .mobile-backpack-view .mbv-row b {
+    color: #ffd866;
+}
+body.mobile-mode .mobile-backpack-view .mbv-close {
+    margin-top: 14px;
+    text-align: center;
+    padding: 10px;
+    background: rgba(220,60,60,0.4);
+    border: 1px solid rgba(220,60,60,0.7);
+    border-radius: 8px;
 }

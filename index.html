@@ -11,7 +11,7 @@
     <script>
     // 版本守卫：确保浏览器始终加载最新资源，破除磁盘/代理缓存导致的旧版(?v=6)卡死
     (function () {
-        var LATEST = '8'; // 与下方脚本引用 ?v= 保持一致
+        var LATEST = '9'; // 与下方脚本引用 ?v= 保持一致
         var s = location.search || '';
         var m = s.match(/[?&]v=(\d+)/);
         var cur = m ? m[1] : null;
@@ -167,21 +167,29 @@
             <div id="mobileJoystick" class="mobile-joystick">
                 <div id="mobileJoystickStick" class="mobile-joystick-stick"></div>
             </div>
-            <!-- 右侧操作区：物品按钮 + 射击键 -->
+            <!-- 右侧操作区：背包 + 物品 + 换弹(开火键左下) + 射击键 -->
             <div class="mobile-right">
-                <button id="mobileItemBtn" class="mobile-item-btn" type="button">🎒</button>
+                <button id="mobileBackpackBtn" class="mobile-pack-btn" type="button">🎒</button>
+                <button id="mobileItemBtn" class="mobile-item-btn" type="button">🧰</button>
+                <button id="mobileReloadBtn" class="mobile-reload-btn" type="button">🔄</button>
                 <button id="mobileFireBtn" class="mobile-fire-btn" type="button">🔫</button>
             </div>
             <!-- 战斗物品快捷面板 -->
             <div id="mobileItemPanel" class="mobile-item-panel" style="display:none;">
                 <div class="mobile-item-title">战斗物品</div>
                 <button class="mobile-item-opt" data-item="medkit" type="button">🩹 医疗包</button>
-                <button class="mobile-item-opt" data-item="speedBoost" type="button">⚡ 加速</button>
+                <button class="mobile-item-opt" data-item="adrenaline" type="button">💉 肾上腺素</button>
+                <button class="mobile-item-opt" data-item="speedBoost" type="button">⚡ 加速针</button>
+                <button class="mobile-item-opt" data-item="energy" type="button">🥤 能量饮</button>
+                <button class="mobile-item-opt" data-item="plate" type="button">🟦 插板</button>
                 <button class="mobile-item-opt" data-item="ammoBox" type="button">🔋 弹药箱</button>
                 <button class="mobile-item-opt" data-item="grenade" type="button">💣 手雷</button>
-                <button class="mobile-item-opt" data-action="reload" type="button">🔄 换弹</button>
-                <button class="mobile-item-opt" data-action="backpack" type="button">🎒 背包</button>
+                <button class="mobile-item-opt" data-item="smoke" type="button">🌫️ 烟雾弹</button>
+                <button class="mobile-item-opt" data-item="scanner" type="button">📡 探测器</button>
+                <button class="mobile-item-opt" data-item="repair" type="button">🔧 维修包</button>
             </div>
+            <!-- 移动端主背包概览面板 -->
+            <div id="mobileBackpackView" class="mobile-backpack-view" style="display:none;"></div>
         </div>
 
         <!-- 撤离进度条 -->
@@ -608,6 +616,48 @@
                                 <span class="supply-count" id="raidSpeedBoost">0</span>
                                 <button class="raid-btn" onclick="adjustRaidConsumable('speedBoost',1)">+</button>
                                 <span class="raid-owned">拥有 <span id="ownedSpeedBoost">0</span></span>
+                            </div>
+                            <div class="supply-item">
+                                <span class="supply-icon">💉</span><span class="supply-name">肾上腺素</span>
+                                <button class="raid-btn" onclick="adjustRaidConsumable('adrenaline',-1)">-</button>
+                                <span class="supply-count" id="raidAdrenaline">0</span>
+                                <button class="raid-btn" onclick="adjustRaidConsumable('adrenaline',1)">+</button>
+                                <span class="raid-owned">拥有 <span id="ownedAdrenaline">0</span></span>
+                            </div>
+                            <div class="supply-item">
+                                <span class="supply-icon">🌫️</span><span class="supply-name">烟雾弹</span>
+                                <button class="raid-btn" onclick="adjustRaidConsumable('smoke',-1)">-</button>
+                                <span class="supply-count" id="raidSmoke">0</span>
+                                <button class="raid-btn" onclick="adjustRaidConsumable('smoke',1)">+</button>
+                                <span class="raid-owned">拥有 <span id="ownedSmoke">0</span></span>
+                            </div>
+                            <div class="supply-item">
+                                <span class="supply-icon">🥤</span><span class="supply-name">能量饮料</span>
+                                <button class="raid-btn" onclick="adjustRaidConsumable('energy',-1)">-</button>
+                                <span class="supply-count" id="raidEnergy">0</span>
+                                <button class="raid-btn" onclick="adjustRaidConsumable('energy',1)">+</button>
+                                <span class="raid-owned">拥有 <span id="ownedEnergy">0</span></span>
+                            </div>
+                            <div class="supply-item">
+                                <span class="supply-icon">🟦</span><span class="supply-name">防弹插板</span>
+                                <button class="raid-btn" onclick="adjustRaidConsumable('plate',-1)">-</button>
+                                <span class="supply-count" id="raidPlate">0</span>
+                                <button class="raid-btn" onclick="adjustRaidConsumable('plate',1)">+</button>
+                                <span class="raid-owned">拥有 <span id="ownedPlate">0</span></span>
+                            </div>
+                            <div class="supply-item">
+                                <span class="supply-icon">📡</span><span class="supply-name">战术探测器</span>
+                                <button class="raid-btn" onclick="adjustRaidConsumable('scanner',-1)">-</button>
+                                <span class="supply-count" id="raidScanner">0</span>
+                                <button class="raid-btn" onclick="adjustRaidConsumable('scanner',1)">+</button>
+                                <span class="raid-owned">拥有 <span id="ownedScanner">0</span></span>
+                            </div>
+                            <div class="supply-item">
+                                <span class="supply-icon">🔧</span><span class="supply-name">维修包</span>
+                                <button class="raid-btn" onclick="adjustRaidConsumable('repair',-1)">-</button>
+                                <span class="supply-count" id="raidRepair">0</span>
+                                <button class="raid-btn" onclick="adjustRaidConsumable('repair',1)">+</button>
+                                <span class="raid-owned">拥有 <span id="ownedRepair">0</span></span>
                             </div>
                         </div>
 
@@ -1538,11 +1588,11 @@
         </div>
     </div>
 
-    <script src="js/utils.js?v=8"></script>
-    <script src="js/anti-cheat.js?v=8"></script>
-    <script src="js/save.js?v=8"></script>
-    <script src="js/coord.js?v=8"></script>
-    <script src="js/game.js?v=8"></script>
+    <script src="js/utils.js?v=9"></script>
+    <script src="js/anti-cheat.js?v=9"></script>
+    <script src="js/save.js?v=9"></script>
+    <script src="js/coord.js?v=9"></script>
+    <script src="js/game.js?v=9"></script>
     <script>
         document.addEventListener('DOMContentLoaded', function() {
             if (window.lucide) lucide.createIcons();

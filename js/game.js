@@ -499,29 +499,36 @@ const LOOT_CRATE_RARITY = {
 };
 const LOOT_CRATE_DROP_TABLE = {
     common: [
-        { type: 'coins',  weight: 34, min: 15, max: 35 },
-        { type: 'heal',   weight: 22, min: 20, max: 35 },
-        { type: 'item',   weight: 18, itemId: 'grenade',  value: 1 },
-        { type: 'item',   weight: 14, itemId: 'speedBoost', value: 1 },
-        { type: 'sellable', weight: 22 }
+        { type: 'coins',  weight: 30, min: 15, max: 35 },
+        { type: 'heal',   weight: 20, min: 20, max: 35 },
+        { type: 'item',   weight: 16, itemId: 'grenade',  value: 1 },
+        { type: 'item',   weight: 12, itemId: 'speedBoost', value: 1 },
+        { type: 'item',   weight: 8,  itemId: 'smoke',  value: 1 },
+        { type: 'item',   weight: 7,  itemId: 'energy', value: 1 },
+        { type: 'sellable', weight: 20 }
     ],
     rare: [
-        { type: 'coins',  weight: 26, min: 40, max: 80 },
-        { type: 'heal',   weight: 18, min: 40, max: 60 },
-        { type: 'ammo',   weight: 22, min: 30, max: 60 },
-        { type: 'item',   weight: 13, itemId: 'grenade', value: 2 },
-        { type: 'armor',  weight: 9, value: 30 },
-        { type: 'sellable', weight: 24 }
+        { type: 'coins',  weight: 24, min: 40, max: 80 },
+        { type: 'heal',   weight: 16, min: 40, max: 60 },
+        { type: 'ammo',   weight: 20, min: 30, max: 60 },
+        { type: 'item',   weight: 11, itemId: 'grenade', value: 2 },
+        { type: 'item',   weight: 9,  itemId: 'adrenaline', value: 1 },
+        { type: 'item',   weight: 8,  itemId: 'plate', value: 1 },
+        { type: 'item',   weight: 7,  itemId: 'scanner', value: 1 },
+        { type: 'armor',  weight: 8, value: 30 },
+        { type: 'sellable', weight: 22 }
     ],
     legendary: [
-        { type: 'coins',  weight: 20, min: 100, max: 200 },
-        { type: 'fullHeal', weight: 13 },
-        { type: 'ammo',   weight: 17, min: 80, max: 150, special: true },
-        { type: 'item',   weight: 13, itemId: 'ammoBox', value: 1 },
-        { type: 'item',   weight: 9, itemId: 'medkit', value: 2 },
-        { type: 'mod',    weight: 10 },
+        { type: 'coins',  weight: 18, min: 100, max: 200 },
+        { type: 'fullHeal', weight: 12 },
+        { type: 'ammo',   weight: 15, min: 80, max: 150, special: true },
+        { type: 'item',   weight: 12, itemId: 'ammoBox', value: 1 },
+        { type: 'item',   weight: 10, itemId: 'medkit', value: 2 },
+        { type: 'item',   weight: 8,  itemId: 'repair', value: 1 },
+        { type: 'item',   weight: 7,  itemId: 'adrenaline', value: 1 },
+        { type: 'mod',    weight: 9 },
         { type: 'skin',   weight: 5 },
-        { type: 'sellable', weight: 26 }
+        { type: 'sellable', weight: 24 }
     ]
 };
 
@@ -572,6 +579,9 @@ const WEAPON_TYPES = {
     LMG: 'lmg',
     SHOTGUN: 'shotgun',
     SNIPER: 'sniper',
+    DMR: 'dmr',
+    BOW: 'bow',
+    LAUNCHER: 'launcher',
     MELEE: 'melee'
 };
 
@@ -604,7 +614,27 @@ const DEFAULT_WEAPONS = [
     { id: 'sniper', name: '狙击枪', type: WEAPON_TYPES.SNIPER, damage: 120, fireRate: 1000, clipSize: 5, range: 60, icon: '🎯', ammoType: AMMO_TYPES.AP, price: 0, unlocked: true, category: 'weapon', rarity: 'rare' },
     // 近战武器
     { id: 'knife', name: '战术匕首', type: WEAPON_TYPES.MELEE, damage: 60, fireRate: 400, clipSize: 999, range: 2, icon: '🗡️', ammoType: null, price: 0, unlocked: true, isMelee: true, category: 'weapon', rarity: 'common' },
-    { id: 'machete', name: '砍刀', type: WEAPON_TYPES.MELEE, damage: 90, fireRate: 600, clipSize: 999, range: 2.5, icon: '⚔️', ammoType: null, price: 800, unlocked: false, isMelee: true, category: 'weapon', rarity: 'uncommon' }
+    { id: 'machete', name: '砍刀', type: WEAPON_TYPES.MELEE, damage: 90, fireRate: 600, clipSize: 999, range: 2.5, icon: '⚔️', ammoType: null, price: 800, unlocked: false, isMelee: true, category: 'weapon', rarity: 'uncommon' },
+    // 高射速冲锋枪
+    { id: 'vector', name: '维克托冲锋枪', type: WEAPON_TYPES.SMG, damage: 22, fireRate: 40, clipSize: 35, range: 25, icon: '🔫', ammoType: AMMO_TYPES.NORMAL, price: 1800, unlocked: false, category: 'weapon', rarity: 'epic' },
+    // 紧凑冲锋枪
+    { id: 'mp5', name: 'MP5冲锋枪', type: WEAPON_TYPES.SMG, damage: 26, fireRate: 90, clipSize: 30, range: 22, icon: '🔫', ammoType: AMMO_TYPES.NORMAL, price: 1300, unlocked: false, category: 'weapon', rarity: 'rare' },
+    // 大威力手枪
+    { id: 'deagle', name: '沙漠之鹰', type: WEAPON_TYPES.PISTOL, damage: 55, fireRate: 320, clipSize: 7, range: 28, icon: '🔫', ammoType: AMMO_TYPES.AP, price: 900, unlocked: false, category: 'weapon', rarity: 'rare' },
+    // DMR精确射手步枪
+    { id: 'mk14', name: 'MK14射手步枪', type: WEAPON_TYPES.DMR, damage: 70, fireRate: 260, clipSize: 20, range: 45, icon: '🔫', ammoType: AMMO_TYPES.AP, price: 2200, unlocked: false, category: 'weapon', rarity: 'epic' },
+    // 重型狙击
+    { id: 'awp', name: 'AWP重型狙', type: WEAPON_TYPES.SNIPER, damage: 200, fireRate: 1300, clipSize: 5, range: 75, icon: '🎯', ammoType: AMMO_TYPES.AP, price: 3000, unlocked: false, category: 'weapon', rarity: 'legendary' },
+    // 战术霰弹枪
+    { id: 'spas', name: 'SPAS霰弹枪', type: WEAPON_TYPES.SHOTGUN, damage: 95, fireRate: 700, clipSize: 8, range: 16, icon: '💥', ammoType: AMMO_TYPES.NORMAL, price: 1400, unlocked: false, pellets: 7, category: 'weapon', rarity: 'epic' },
+    // 重机枪
+    { id: 'pkp', name: 'PKP通用机枪', type: WEAPON_TYPES.LMG, damage: 34, fireRate: 65, clipSize: 150, range: 38, icon: '📦', ammoType: AMMO_TYPES.NORMAL, price: 3200, unlocked: false, category: 'weapon', rarity: 'legendary' },
+    // 突击步枪
+    { id: 'qbz', name: 'QBZ突击步枪', type: WEAPON_TYPES.RIFLE, damage: 38, fireRate: 120, clipSize: 35, range: 40, icon: '🔫', ammoType: AMMO_TYPES.NORMAL, price: 2000, unlocked: false, category: 'weapon', rarity: 'epic' },
+    // 弩
+    { id: 'crossbow', name: '战术弩', type: WEAPON_TYPES.BOW, damage: 110, fireRate: 900, clipSize: 1, range: 50, icon: '🏹', ammoType: null, price: 1600, unlocked: false, isMelee: false, category: 'weapon', rarity: 'epic' },
+    // 火箭筒
+    { id: 'rpg', name: 'RPG火箭筒', type: WEAPON_TYPES.LAUNCHER, damage: 300, fireRate: 1500, clipSize: 1, range: 55, icon: '🚀', ammoType: null, price: 4000, unlocked: false, isExplosive: true, category: 'weapon', rarity: 'legendary' }
 ];
 
 let WEAPONS = JSON.parse(JSON.stringify(DEFAULT_WEAPONS));
@@ -613,11 +643,16 @@ let WEAPONS = JSON.parse(JSON.stringify(DEFAULT_WEAPONS));
 const WEAPON_ICON_MAP = {
     pistol: 'weapon-pistol', smg: 'weapon-smg', rifle: 'weapon-rifle', ar: 'weapon-ar',
     lmg: 'weapon-lmg', shotgun: 'weapon-shotgun', sniper: 'weapon-sniper',
-    knife: 'weapon-knife', machete: 'weapon-machete'
+    knife: 'weapon-knife', machete: 'weapon-machete',
+    vector: 'weapon-vector', mp5: 'weapon-mp5', deagle: 'weapon-deagle', mk14: 'weapon-mk14',
+    awp: 'weapon-awp', spas: 'weapon-spas', pkp: 'weapon-pkp', qbz: 'weapon-qbz',
+    crossbow: 'weapon-crossbow', rpg: 'weapon-rpg'
 };
 const MOD_ICON_MAP = {
     scope: 'mod-scope', extendedMag: 'mod-extendedMag', suppressor: 'mod-suppressor',
-    grip: 'mod-grip', apRounds: 'mod-apRounds', stock: 'mod-stock', laser: 'mod-laser'
+    grip: 'mod-grip', apRounds: 'mod-apRounds', stock: 'mod-stock', laser: 'mod-laser', flashlight: 'mod-flashlight',
+    redDot: 'mod-redDot', holo: 'mod-holo', drumMag: 'mod-drumMag', bipod: 'mod-bipod',
+    muzzleBrake: 'mod-muzzleBrake', suppressor2: 'mod-suppressor'
 };
 function weaponIconHtml(w) {
     const key = w && WEAPON_ICON_MAP[w.id];
@@ -704,6 +739,54 @@ const MODIFICATIONS = {
         effects: { accuracyBonus: 1.1, spreadReduction: 0.85, visionBonus: 1.15 },
         price: 300,
         description: '提升精度与视野，散布更小'
+    },
+    // 红点瞄准镜
+    redDot: {
+        name: '红点镜',
+        icon: '🔴',
+        effects: { accuracyBonus: 1.2, spreadReduction: 0.75, reloadBonus: 1.1 },
+        price: 550,
+        description: '提升精度，换弹更快'
+    },
+    // 全息瞄准镜
+    holo: {
+        name: '全息镜',
+        icon: '🟢',
+        effects: { accuracyBonus: 1.3, spreadReduction: 0.65, trajectory: true },
+        price: 900,
+        description: '高精度，显示弹道线'
+    },
+    // 弹鼓
+    drumMag: {
+        name: '扩容弹鼓',
+        icon: '🥁',
+        effects: { clipBonus: 2.0, reloadBonus: 0.9 },
+        price: 1000,
+        description: '弹夹容量翻倍，换弹略慢'
+    },
+    // 双脚架
+    bipod: {
+        name: '战术脚架',
+        icon: '🦿',
+        effects: { recoilReduction: 0.4, accuracyBonus: 1.25, spreadReduction: 0.6 },
+        price: 650,
+        description: '蹲射时大幅稳定，精度极高'
+    },
+    // 枪口制退器
+    muzzleBrake: {
+        name: '枪口制退器',
+        icon: '🛑',
+        effects: { recoilReduction: 0.7, spreadReduction: 0.8 },
+        price: 600,
+        description: '强力抑制后坐力与散布'
+    },
+    // 消音器
+    suppressor: {
+        name: '消音器',
+        icon: '🔇',
+        effects: { damageBonus: 0.9, spreadReduction: 0.9, silent: true, accuracyBonus: 1.1 },
+        price: 750,
+        description: '降低伤害但隐蔽射击，精度提升'
     }
 };
 
@@ -871,6 +954,7 @@ let enemies = [];
 let teammates = [];
 let drops = [];
 let explosions = [];
+let smokeZones = [];      // 烟雾弹区域 {x,y,radius,until}
 let lootCrates = [];
 let activeCrate = null;
 
@@ -938,6 +1022,8 @@ function initMobileControls() {
         const fireBtn = document.getElementById('mobileFireBtn');
         const itemBtn = document.getElementById('mobileItemBtn');
         const itemPanel = document.getElementById('mobileItemPanel');
+        const reloadBtn = document.getElementById('mobileReloadBtn');
+        const packBtn = document.getElementById('mobileBackpackBtn');
         if (!joystick || !stick || !fireBtn || !itemBtn || !itemPanel) return;
 
         // --- 虚拟摇杆 ---
@@ -1000,6 +1086,21 @@ function initMobileControls() {
             itemPanel.style.display = open ? 'none' : 'block';
         });
 
+        // --- 独立换弹键（开火键左下角） ---
+        if (reloadBtn) {
+            const doReload = function(e) { if (settings.mobileMode) { try { reload(); showNotification('🔄 换弹中…'); } catch (err) { showNotification('无法换弹'); } if (e) e.preventDefault(); } };
+            reloadBtn.addEventListener('touchstart', doReload, { passive: false });
+            reloadBtn.addEventListener('mousedown', doReload);
+        }
+
+        // --- 独立背包键：raid 显示局内背包，普通战斗显示主库存概览 ---
+        if (packBtn) {
+            packBtn.addEventListener('click', function() {
+                if (!settings.mobileMode) return;
+                try { toggleMobileBackpack(); } catch (err) { showNotification('背包暂不可用'); }
+            });
+        }
+
         // --- 物品面板内按钮（动态绑定） ---
         itemPanel.querySelectorAll('[data-item]').forEach(btn => {
             btn.addEventListener('click', function() {
@@ -1009,18 +1110,6 @@ function initMobileControls() {
                     const r = useItem(id);
                     if (r && r.success) showNotification('✅ 已使用 ' + (r.item && r.item.name ? r.item.name : id));
                     else showNotification('❌ 无法使用 ' + id);
-                }
-                itemPanel.style.display = 'none';
-            });
-        });
-        itemPanel.querySelectorAll('[data-action]').forEach(btn => {
-            btn.addEventListener('click', function() {
-                const action = btn.getAttribute('data-action');
-                if (action === 'reload') {
-                    reload();
-                    showNotification('🔄 换弹中…');
-                } else if (action === 'backpack') {
-                    try { toggleRaidBackpackPanel(); } catch (err) { showNotification('背包暂不可用'); }
                 }
                 itemPanel.style.display = 'none';
             });
@@ -1496,7 +1585,13 @@ let playerData = {
         armor_heavy: 0,
         grenades: 2,
         ammoBox: 5,
-        speedBoost: 1
+        speedBoost: 1,
+        adrenaline: 1,
+        smoke: 2,
+        energy: 2,
+        plate: 1,
+        scanner: 1,
+        repair: 1
     },
     backpack: {
         capacity: 36,
@@ -1542,10 +1637,10 @@ function loadPlayerData() {
 
         // 初始化搜打撤出战配装
         if (!playerData.raidLoadout) {
-            playerData.raidLoadout = { consumables: { medkits: 0, grenades: 0, speedBoost: 0 } };
+            playerData.raidLoadout = { consumables: { medkits: 0, grenades: 0, speedBoost: 0, adrenaline: 0, smoke: 0, energy: 0, plate: 0, scanner: 0, repair: 0 } };
         }
         if (!playerData.raidLoadout.consumables) {
-            playerData.raidLoadout.consumables = { medkits: 0, grenades: 0, speedBoost: 0 };
+            playerData.raidLoadout.consumables = { medkits: 0, grenades: 0, speedBoost: 0, adrenaline: 0, smoke: 0, energy: 0, plate: 0, scanner: 0, repair: 0 };
         }
 
         // 根据已拥有武器列表恢复 WEAPONS 的 unlocked 状态（merge，不清除默认解锁）
@@ -1957,6 +2052,90 @@ const DEFAULT_ITEM_REGISTRY = {
         effect: { speedMultiplier: 1.5, duration: 30000 },
         maxStack: 999
     },
+    adrenaline: {
+        id: 'adrenaline',
+        name: '肾上腺素',
+        icon: '💉',
+        type: ITEM_TYPES.CONSUMABLE,
+        rarity: ITEM_RARITY.EPIC,
+        stackable: true,
+        maxStack: 3,
+        weight: 1,
+        description: '15秒极速+伤害提升，并回血15',
+        usableInRaid: true,
+        effect: { speedMultiplier: 1.5, damageBoost: 1.5, heal: 15, duration: 15000 },
+        maxStack: 999
+    },
+    smoke: {
+        id: 'smoke',
+        name: '烟雾弹',
+        icon: '🌫️',
+        type: ITEM_TYPES.CONSUMABLE,
+        rarity: ITEM_RARITY.UNCOMMON,
+        stackable: true,
+        maxStack: 5,
+        weight: 2,
+        description: '投掷后生成烟雾，遮挡敌人视线12秒',
+        usableInRaid: true,
+        effect: { smoke: 12 },
+        maxStack: 999
+    },
+    energy: {
+        id: 'energy',
+        name: '能量饮料',
+        icon: '🥤',
+        type: ITEM_TYPES.CONSUMABLE,
+        rarity: ITEM_RARITY.COMMON,
+        stackable: true,
+        maxStack: 5,
+        weight: 1,
+        description: '20秒内持续小幅回血',
+        usableInRaid: true,
+        effect: { regen: 1.5, duration: 20000 },
+        maxStack: 999
+    },
+    plate: {
+        id: 'plate',
+        name: '防弹插板',
+        icon: '🟦',
+        type: ITEM_TYPES.CONSUMABLE,
+        rarity: ITEM_RARITY.RARE,
+        stackable: true,
+        maxStack: 3,
+        weight: 3,
+        description: '30秒减伤40%',
+        usableInRaid: true,
+        effect: { damageReduction: 0.4, duration: 30000 },
+        maxStack: 999
+    },
+    scanner: {
+        id: 'scanner',
+        name: '战术探测器',
+        icon: '📡',
+        type: ITEM_TYPES.CONSUMABLE,
+        rarity: ITEM_RARITY.EPIC,
+        stackable: true,
+        maxStack: 3,
+        weight: 1,
+        description: '10秒内标记所有敌人位置',
+        usableInRaid: true,
+        effect: { scanner: 10000 },
+        maxStack: 999
+    },
+    repair: {
+        id: 'repair',
+        name: '维修包',
+        icon: '🔧',
+        type: ITEM_TYPES.CONSUMABLE,
+        rarity: ITEM_RARITY.RARE,
+        stackable: true,
+        maxStack: 3,
+        weight: 2,
+        description: '回血25并将所有武器弹夹补满',
+        usableInRaid: true,
+        effect: { heal: 25, refill: true },
+        maxStack: 999
+    },
     armor_light: {
         id: 'armor_light',
         name: '轻型护甲',
@@ -2338,8 +2517,16 @@ function getModifiedWeapon(weapon) {
         if (mod.effects.rangeBonus) modified.range = Math.round(modified.range * mod.effects.rangeBonus);
         if (mod.effects.damageBonus) modified.damage = Math.round(modified.damage * mod.effects.damageBonus);
         if (mod.effects.clipSizeBonus) modified.clipSize = Math.round(modified.clipSize * mod.effects.clipSizeBonus);
+        if (mod.effects.clipBonus) modified.clipSize = Math.round(modified.clipSize * mod.effects.clipBonus);
         if (mod.effects.fireRateBonus) modified.fireRate = Math.round(modified.fireRate * mod.effects.fireRateBonus);
         if (mod.effects.recoilReduction) modified.recoilReduction = mod.effects.recoilReduction;
+        if (mod.effects.reloadBonus) modified.reloadBonus = (modified.reloadBonus || 1) * mod.effects.reloadBonus;
+        if (mod.effects.spreadReduction !== undefined) modified.spreadReduction = (modified.spreadReduction !== undefined ? modified.spreadReduction : 1) * mod.effects.spreadReduction;
+        if (mod.effects.accuracyBonus) modified.accuracyBonus = (modified.accuracyBonus || 1) * mod.effects.accuracyBonus;
+        if (mod.effects.visionBonus) modified.visionBonus = (modified.visionBonus || 1) * mod.effects.visionBonus;
+        if (mod.effects.armorPenetration) modified.armorPenetration = true;
+        if (mod.effects.silent) modified.silent = true;
+        if (mod.effects.isExplosive) modified.isExplosive = true;
         // 标记类效果（镭射弹道线、穿透等）直接继承到改装结果
         if (mod.effects.trajectory) modified.trajectory = true;
         if (mod.effects.penetrationBonus) modified.penetrationBonus = true;
@@ -2857,8 +3044,11 @@ function getAmmoName(ammoType) {
 
 // 检查并消耗弹药
 function consumeAmmo(weapon, count = 1) {
-    // 普通任务模式不消耗子弹
+    // 普通任务模式不消耗子弹（冷兵器/弩/火箭筒等无需弹药）
     if (gameMode !== 'raid') return true;
+
+    // 无弹药类型武器（弩、火箭筒等）不消耗弹药
+    if (!weapon.ammoType) return true;
 
     // 获取武器装备的弹药类型，如果没有则使用默认
     const equippedType = playerMods.equippedAmmoTypes?.[weapon.id];
@@ -3611,6 +3801,25 @@ function hasLineOfSight(x1, y1, x2, y2) {
     return true;
 }
 
+// 判断两点连线是否被任一烟雾区遮挡（用于敌人失去视野）
+function lineBlockedBySmoke(x1, y1, x2, y2) {
+    if (!smokeZones.length) return false;
+    const dx = x2 - x1, dy = y2 - y1;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+    if (dist < 0.1) return false;
+    const steps = Math.ceil(dist * 2);
+    for (let i = 0; i < smokeZones.length; i++) {
+        const z = smokeZones[i];
+        for (let s = 1; s < steps; s++) {
+            const t = s / steps;
+            const px = x1 + dx * t, py = y1 + dy * t;
+            const ddx = px - z.x, ddy = py - z.y;
+            if (ddx * ddx + ddy * ddy <= z.radius * z.radius) return true;
+        }
+    }
+    return false;
+}
+
 // ============================================================
 // 对象池工具：使用 alive 标记 + 顺序复用
 // ============================================================
@@ -3811,16 +4020,45 @@ function actuallyStartGame() {
         updateSupplyUI();
     }
 
-    // 初始化局内消耗品：普通模式每局给 10 手雷且医疗/加速不限；搜打撤只能用携带数量
+    // 初始化局内消耗品：键名与对应使用函数一致（medkits/grenades 用复数）
     if (gameMode === 'raid') {
+        const c = (currentRaidLoadout && currentRaidLoadout.consumables) || {};
         battleConsumables = {
-            medkits: (currentRaidLoadout && currentRaidLoadout.consumables ? currentRaidLoadout.consumables.medkits : 0) || 0,
-            grenades: (currentRaidLoadout && currentRaidLoadout.consumables ? currentRaidLoadout.consumables.grenades : 0) || 0,
-            speedBoost: (currentRaidLoadout && currentRaidLoadout.consumables ? currentRaidLoadout.consumables.speedBoost : 0) || 0
+            medkits: c.medkits || 0,
+            grenades: c.grenades || 0,
+            speedBoost: c.speedBoost || 0,
+            ammoBox: c.ammoBox || 0,
+            adrenaline: c.adrenaline || 0,
+            smoke: c.smoke || 0,
+            energy: c.energy || 0,
+            plate: c.plate || 0,
+            scanner: c.scanner || 0,
+            repair: c.repair || 0
         };
+        // 同步玩家库存计数（用单数键，与 useItem 一致）
+        playerData.inventory.medkit = c.medkits || 0;
+        playerData.inventory.grenade = c.grenades || 0;
+        playerData.inventory.speedBoost = c.speedBoost || 0;
+        playerData.inventory.ammoBox = c.ammoBox || 0;
+        playerData.inventory.adrenaline = c.adrenaline || 0;
+        playerData.inventory.smoke = c.smoke || 0;
+        playerData.inventory.energy = c.energy || 0;
+        playerData.inventory.plate = c.plate || 0;
+        playerData.inventory.scanner = c.scanner || 0;
+        playerData.inventory.repair = c.repair || 0;
     } else {
-        // 普通模式：医疗/加速/弹药箱 generous，手雷每局固定 10 个
-        battleConsumables = { medkits: 99999, grenades: 10, speedBoost: 99999, ammoBox: 99999 };
+        // 普通模式：医疗/加速/弹药箱 generous，手雷与战术道具每局固定数量
+        battleConsumables = { medkits: 99999, grenades: 10, speedBoost: 99999, ammoBox: 99999, adrenaline: 99999, smoke: 5, energy: 99999, plate: 99999, scanner: 5, repair: 99999 };
+        playerData.inventory.medkit = 99999;
+        playerData.inventory.grenade = 10;
+        playerData.inventory.speedBoost = 99999;
+        playerData.inventory.ammoBox = 99999;
+        playerData.inventory.adrenaline = 99999;
+        playerData.inventory.smoke = 5;
+        playerData.inventory.energy = 99999;
+        playerData.inventory.plate = 99999;
+        playerData.inventory.scanner = 5;
+        playerData.inventory.repair = 99999;
     }
 
     // 隐藏大厅和所有面板
@@ -4155,10 +4393,27 @@ function update() {
     if (gamePaused || !gameRunning) return;
     const now = Date.now();
 
-    // 计算速度倍率（考虑 buff：speedBoostUntil）
+    // 计算速度倍率（考虑 buff：speedBoostUntil / 肾上腺素）
     let speedMultiplier = parseFloat(settings.playerSpeed) / 100;
-    if (player.buffs && player.buffs.speedBoostUntil && now < player.buffs.speedBoostUntil) {
-        speedMultiplier *= 1.5;
+    const b = player.buffs || {};
+    if (b.speedBoostUntil && now < b.speedBoostUntil) speedMultiplier *= 1.5;
+    if (b.adrenalineUntil && now < b.adrenalineUntil) speedMultiplier *= 1.5;
+
+    // 持续回血（能量饮料）
+    if (b.regenUntil && now < b.regenUntil && b.regenPerTick) {
+        player.health = Math.min(player.maxHealth, player.health + b.regenPerTick);
+    }
+    // 防弹插板过期清理
+    if (b.armorPlateUntil && now >= b.armorPlateUntil) {
+        b.armorPlateUntil = 0;
+        b.damageReduction = 0;
+    }
+    // 肾上腺素增益过期清理
+    if (b.adrenalineUntil && now >= b.adrenalineUntil) b.adrenalineUntil = 0;
+
+    // 清理过期的烟雾区域
+    if (smokeZones.length) {
+        smokeZones = smokeZones.filter(z => z.until > now);
     }
 
     // Ctrl + WASD 冲刺：每秒增加 5% 移速，最高 150%（即 sprintMultiplier 最大 1.5）
@@ -4327,6 +4582,8 @@ function update() {
         if (blocked) {
             if (bullet.type === 'grenade') {
                 explodeGrenade(bullet.x, bullet.y);
+            } else if (bullet.isExplosive) {
+                detonateRocket(bullet.x, bullet.y, bullet.damage);
             } else {
                 poolPushExplosion({ x: newX, y: newY, radius: 3, alpha: 1, color: '#ff4444' });
             }
@@ -4347,6 +4604,12 @@ function update() {
                 if (dxh * dxh + dyh * dyh < 1.0) {
                     if (bullet.hitEnemies && bullet.hitEnemies.indexOf(enemy) !== -1) continue;
                     const ammoType = bullet.type || 'normal';
+                    if (bullet.isExplosive) {
+                        detonateRocket(enemy.x, enemy.y, bullet.damage);
+                        bullet.hitEnemies.push(enemy);
+                        bullet.alive = false;
+                        break;
+                    }
                     let damage = bullet.damage;
                     if (ammoType === 'ap') {
                         damage = Math.floor(damage * 1.5);
@@ -4686,7 +4949,8 @@ function update() {
         }
         if (dist >= 70) continue;
 
-        const hasVisibleTarget = hasLineOfSight(enemy.x, enemy.y, target.x, target.y);
+        const hasVisibleTarget = hasLineOfSight(enemy.x, enemy.y, target.x, target.y) &&
+            !lineBlockedBySmoke(enemy.x, enemy.y, target.x, target.y);
         enemy.angle = Math.atan2(dyE, dxE);
 
         const healthPercent = enemy.health / enemy.maxHealth;
@@ -5117,6 +5381,44 @@ function explodeGrenade(x, y) {
     }
 }
 
+// 火箭筒爆炸：大范围高伤害，对敌人、boss 与玩家自身均生效
+function detonateRocket(x, y, baseDamage) {
+    const r = 4.5;
+    const rSq = r * r;
+    const dmg = baseDamage || 300;
+    alertNearbyEnemies(x, y, r * 4 + 8);
+    poolPushExplosion({ x, y, radius: r, alpha: 1, color: '#ff6600' });
+    poolPushExplosion({ x, y, radius: r / 2, alpha: 1, color: '#ffdd00' });
+    for (let j = 0; j < enemies.length; j++) {
+        const enemy = enemies[j];
+        if (!enemy.alive) continue;
+        const ddx = enemy.x - x, ddy = enemy.y - y;
+        if (ddx * ddx + ddy * ddy <= rSq) {
+            const falloff = 1 - Math.sqrt(ddx * ddx + ddy * ddy) / r * 0.5;
+            enemy.health -= Math.floor(dmg * falloff);
+            poolPushExplosion({ x: enemy.x, y: enemy.y, radius: 3, alpha: 1, color: '#ff0044' });
+            if (enemy.health <= 0) {
+                enemy.alive = false;
+                player.kills++;
+                if (enemy.isBoss) {
+                    player.score += 500; playerData.coins += 50;
+                    spawnDrop(enemy.x, enemy.y); spawnDrop(enemy.x, enemy.y); spawnDrop(enemy.x, enemy.y);
+                    showNotification('Boss 被消灭！奖励 +50 金币', 'success');
+                } else {
+                    player.score += 100; spawnDrop(enemy.x, enemy.y);
+                }
+            }
+        }
+    }
+    const pdx = player.x - x, pdy = player.y - y;
+    if (pdx * pdx + pdy * pdy <= rSq) {
+        const falloff = 1 - Math.sqrt(pdx * pdx + pdy * pdy) / r * 0.5;
+        player.health -= Math.floor(60 * falloff);
+        poolPushExplosion({ x: player.x, y: player.y, radius: 4, alpha: 1, color: '#ff0000' });
+        if (player.health <= 0) gameOver();
+    }
+}
+
 // ============================================================
 // 撤离检测（独立函数，在 update() 主循环中每帧调用）
 // ============================================================
@@ -5184,6 +5486,50 @@ function throwGrenade() {
         owner: 'player',
         type: 'grenade'
     });
+    updateHUD();
+}
+
+// 投掷烟雾弹：在落点生成烟雾云，持续一段时间，降低范围内敌人命中率
+function throwSmoke() {
+    if (!gameRunning || !player) return;
+    if (enableItemCooldown) {
+        const now = Date.now();
+        if (now - lastItemUse < ITEM_COOLDOWN) return;
+        lastItemUse = now;
+    }
+    if (battleConsumables && (battleConsumables.smoke || 0) <= 0) {
+        showNotification(gameMode === 'raid' ? '携带的烟雾弹已用完！' : '本局烟雾弹已用完！');
+        return;
+    }
+    if (battleConsumables) battleConsumables.smoke--;
+    if ((playerData.inventory.smoke || 0) > 0) {
+        playerData.inventory.smoke = Math.max(0, (playerData.inventory.smoke || 0) - 1);
+    }
+    const tx = player.x + Math.cos(player.angle) * 6;
+    const ty = player.y + Math.sin(player.angle) * 6;
+    smokeZones.push({ x: tx, y: ty, radius: 4.5, until: Date.now() + 12000 });
+    showNotification('🌫️ 烟雾弹已投掷，12秒内掩盖视野！');
+    updateHUD();
+}
+
+// 激活探测器：短时间内在雷达/画面上显示所有敌人轮廓
+function activateScanner() {
+    if (!gameRunning || !player) return;
+    if (enableItemCooldown) {
+        const now = Date.now();
+        if (now - lastItemUse < ITEM_COOLDOWN) return;
+        lastItemUse = now;
+    }
+    if (battleConsumables && (battleConsumables.scanner || 0) <= 0) {
+        showNotification(gameMode === 'raid' ? '携带的探测器已用完！' : '本局探测器已用完！');
+        return;
+    }
+    if (battleConsumables) battleConsumables.scanner--;
+    if ((playerData.inventory.scanner || 0) > 0) {
+        playerData.inventory.scanner = Math.max(0, (playerData.inventory.scanner || 0) - 1);
+    }
+    player.buffs.scannerUntil = Date.now() + 10000;
+    showNotification('📡 探测器已激活，10秒内显示所有敌人！');
     updateHUD();
 }
 
@@ -5408,11 +5754,43 @@ function draw() {
     drawMapEvents();
 
     // 绘制敌人
+    const scannerOn = player.buffs && player.buffs.scannerUntil && Date.now() < player.buffs.scannerUntil;
     for (let i = 0; i < enemies.length; i++) {
         const enemy = enemies[i];
         if (Math.abs(enemy.x - player.x) <= VIEW_RANGE_X && Math.abs(enemy.y - player.y) <= VIEW_RANGE_Y) {
             drawEnemy(enemy);
+            if (scannerOn) {
+                const s = worldToScreen(enemy.x, enemy.y);
+                ctx.save();
+                ctx.strokeStyle = 'rgba(80,255,120,0.9)';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.arc(s.x, s.y, enemy.isBoss ? 34 : 18, 0, Math.PI * 2);
+                ctx.stroke();
+                ctx.fillStyle = 'rgba(80,255,120,0.9)';
+                ctx.font = '12px monospace';
+                ctx.textAlign = 'center';
+                ctx.fillText('▲', s.x, s.y - 22);
+                ctx.restore();
+            }
         }
+    }
+
+    // 绘制烟雾区
+    for (let i = 0; i < smokeZones.length; i++) {
+        const z = smokeZones[i];
+        if (Math.abs(z.x - player.x) > VIEW_RANGE_X + z.radius || Math.abs(z.y - player.y) > VIEW_RANGE_Y + z.radius) continue;
+        const s = worldToScreen(z.x, z.y);
+        const rad = z.radius * TILE_SIZE;
+        const grad = ctx.createRadialGradient(s.x, s.y, rad * 0.2, s.x, s.y, rad);
+        grad.addColorStop(0, 'rgba(200,200,200,0.78)');
+        grad.addColorStop(1, 'rgba(200,200,200,0)');
+        ctx.save();
+        ctx.fillStyle = grad;
+        ctx.beginPath();
+        ctx.arc(s.x, s.y, rad, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
     }
 
     // 绘制子弹
@@ -5947,8 +6325,8 @@ function shoot() {
 
     // 根据武器类型计算基础后坐力
     const recoilTable = {
-        pistol: 0.02, smg: 0.025, rifle: 0.03, ar: 0.035,
-        lmg: 0.04, shotgun: 0.06, sniper: 0.05
+        pistol: 0.02, smg: 0.025, rifle: 0.03, ar: 0.035, dmr: 0.045,
+        lmg: 0.04, shotgun: 0.06, sniper: 0.05, bow: 0.01, launcher: 0.0
     };
     const baseRecoil = recoilTable[weapon.type] || 0.03;
     const recoilReduction = modifiedWeapon.recoilReduction || 0;
@@ -5956,16 +6334,18 @@ function shoot() {
     recoilAngle = Math.max(-0.25, Math.min(0.25, recoilAngle + recoilAmount));
 
     // 屏幕震动与枪口闪光
-    const shakeTable = { pistol: 2, smg: 2.5, rifle: 3, ar: 3.5, lmg: 4, shotgun: 6, sniper: 5 };
+    const shakeTable = { pistol: 2, smg: 2.5, rifle: 3, ar: 3.5, dmr: 4, lmg: 4, shotgun: 6, sniper: 5, bow: 1, launcher: 8 };
     screenShake = Math.max(screenShake, shakeTable[weapon.type] || 3);
     muzzleFlashTime = 3;
 
+    // 火箭筒爆炸弹
+    const isExplosive = modifiedWeapon.isExplosive;
     // 霰弹枪多弹丸
     const pellets = weapon.pellets || 1;
     const fireAngle = player.angle + recoilAngle;
 
     for (let i = 0; i < pellets; i++) {
-        const spread = pellets > 1 ? (Math.random() - 0.5) * 0.3 : 0;
+        const spread = pellets > 1 ? (Math.random() - 0.5) * 0.3 : (weapon.type === 'bow' ? (Math.random() - 0.5) * 0.08 : 0);
         // 穿透：狙击枪自带穿透3个敌人，装配镭射指示器额外穿透1个
         const isSniper = weapon.type === 'sniper';
         const penetration = isSniper ? 3 : (modifiedWeapon.penetrationBonus ? 1 : 0);
@@ -5973,7 +6353,7 @@ function shoot() {
             x: player.x + Math.cos(player.angle) * 0.5,
             y: player.y + Math.sin(player.angle) * 0.5,
             angle: fireAngle + spread,
-            speed: 1,
+            speed: weapon.type === 'bow' ? 0.8 : 1,
             damage: modifiedWeapon.damage,
             range: modifiedWeapon.range,
             distance: 0,
@@ -5981,6 +6361,7 @@ function shoot() {
             type: getWeaponAmmoType(weapon.id) || 'normal',
             weaponType: weapon.type,
             penetration,
+            isExplosive: !!isExplosive,
             hitEnemies: []
         });
     }
@@ -5989,7 +6370,7 @@ function shoot() {
     lastShot = Date.now();
 
     // 玩家枪声会吸引附近敌人前来调查（不同武器声音半径不同）
-    const noiseRadiusTable = { pistol: 14, smg: 16, rifle: 20, ar: 20, lmg: 22, shotgun: 24, sniper: 26 };
+    const noiseRadiusTable = { pistol: 14, smg: 16, rifle: 20, ar: 20, dmr: 22, lmg: 22, shotgun: 24, sniper: 26, bow: 6, launcher: 30 };
     alertNearbyEnemies(player.x, player.y, noiseRadiusTable[weapon.type] || 16);
 }
 
@@ -6066,15 +6447,11 @@ function reload() {
 
     // 换弹耗时：根据武器类型（秒）
     const reloadDurations = {
-        pistol: 1.0,
-        smg: 1.5,
-        rifle: 1.8,
-        ar: 2.0,
-        lmg: 3.0,
-        shotgun: 2.2,
-        sniper: 2.8
+        pistol: 1.0, smg: 1.5, rifle: 1.8, ar: 2.0, lmg: 3.0,
+        shotgun: 2.2, sniper: 2.8, dmr: 2.4, bow: 1.2, launcher: 3.2
     };
-    const durationMs = (reloadDurations[weapon.type] || 1.5) * 1000;
+    let durationMs = (reloadDurations[weapon.type] || 1.5) * 1000;
+    if (modifiedWeapon.reloadBonus) durationMs = Math.max(300, Math.round(durationMs / modifiedWeapon.reloadBonus));
 
     player.isReloading = true;
     player.reloadWeaponIndex = player.currentWeapon;
@@ -8013,12 +8390,18 @@ function updateRaidLoadoutUI() {
     if (!isRaid) return;
 
     const inv = playerData.inventory || {};
-    const loadout = playerData.raidLoadout && playerData.raidLoadout.consumables ? playerData.raidLoadout.consumables : { medkits: 0, grenades: 0, speedBoost: 0 };
+    const loadout = playerData.raidLoadout && playerData.raidLoadout.consumables ? playerData.raidLoadout.consumables : { medkits: 0, grenades: 0, speedBoost: 0, adrenaline: 0, smoke: 0, energy: 0, plate: 0, scanner: 0, repair: 0 };
 
     const fields = [
         { key: 'medkits', ui: 'raidMedkits', owned: 'ownedMedkits' },
         { key: 'grenades', ui: 'raidGrenades', owned: 'ownedGrenades' },
-        { key: 'speedBoost', ui: 'raidSpeedBoost', owned: 'ownedSpeedBoost' }
+        { key: 'speedBoost', ui: 'raidSpeedBoost', owned: 'ownedSpeedBoost' },
+        { key: 'adrenaline', ui: 'raidAdrenaline', owned: 'ownedAdrenaline' },
+        { key: 'smoke', ui: 'raidSmoke', owned: 'ownedSmoke' },
+        { key: 'energy', ui: 'raidEnergy', owned: 'ownedEnergy' },
+        { key: 'plate', ui: 'raidPlate', owned: 'ownedPlate' },
+        { key: 'scanner', ui: 'raidScanner', owned: 'ownedScanner' },
+        { key: 'repair', ui: 'raidRepair', owned: 'ownedRepair' }
     ];
     for (const f of fields) {
         const uiEl = document.getElementById(f.ui);
@@ -9281,6 +9664,30 @@ function buyItem(itemName) {
         case 'speedBoost':
             playerData.inventory.speedBoost = (playerData.inventory.speedBoost || 0) + 1;
             BackpackManager.addItem('speedBoost', 1);
+            break;
+        case 'adrenaline':
+            playerData.inventory.adrenaline = (playerData.inventory.adrenaline || 0) + 1;
+            BackpackManager.addItem('adrenaline', 1);
+            break;
+        case 'smoke':
+            playerData.inventory.smoke = (playerData.inventory.smoke || 0) + 1;
+            BackpackManager.addItem('smoke', 1);
+            break;
+        case 'energy':
+            playerData.inventory.energy = (playerData.inventory.energy || 0) + 1;
+            BackpackManager.addItem('energy', 1);
+            break;
+        case 'plate':
+            playerData.inventory.plate = (playerData.inventory.plate || 0) + 1;
+            BackpackManager.addItem('plate', 1);
+            break;
+        case 'scanner':
+            playerData.inventory.scanner = (playerData.inventory.scanner || 0) + 1;
+            BackpackManager.addItem('scanner', 1);
+            break;
+        case 'repair':
+            playerData.inventory.repair = (playerData.inventory.repair || 0) + 1;
+            BackpackManager.addItem('repair', 1);
             break;
         case 'ammo_normal':
             ammoInventory[AMMO_TYPES.NORMAL] = (ammoInventory[AMMO_TYPES.NORMAL] || 0) + 50;
@@ -10834,6 +11241,12 @@ function getItemDisplayName(itemName) {
         'grenade': '手雷',
         'ammoBox': '弹药箱',
         'speedBoost': '肾上激素',
+        'adrenaline': '肾上腺素',
+        'smoke': '烟雾弹',
+        'energy': '能量饮料',
+        'plate': '防弹插板',
+        'scanner': '探测器',
+        'repair': '维修包',
         'ammo_normal': '普通弹×50',
         'ammo_ap': '穿甲弹×20',
         'ammo_exp': '爆破弹×10',
@@ -10877,33 +11290,54 @@ function useItem(itemName) {
         return;
     }
 
-    const keyMap = {
-        'medkit': 'medkits',
-        'ammoBox': 'ammoBox',
-        'speedBoost': 'speedBoost',
-        'grenade': 'grenades'
-    };
-    const battleKey = keyMap[itemName];
+    // 所有可在战斗中使用的消耗品统一走 inventory[itemName] 计数
+    const battleItemIds = ['medkit', 'grenade', 'speedBoost', 'ammoBox', 'adrenaline', 'smoke', 'energy', 'plate', 'scanner', 'repair'];
+    if (battleItemIds.indexOf(itemName) === -1) {
+        showNotification('无法在战斗中使用该物品');
+        return;
+    }
 
-    // 局内消耗品检查（搜打撤按携带量限制，普通模式 generous）
-    if (battleKey && battleConsumables) {
-        if ((battleConsumables[battleKey] || 0) <= 0) {
+    // 普通模式保证库存计数存在（generous）
+    if (gameMode !== 'raid') {
+        playerData.inventory[itemName] = playerData.inventory[itemName] || 99999;
+    } else {
+        playerData.inventory[itemName] = playerData.inventory[itemName] || 0;
+    }
+
+    // 局内消耗品检查
+    if (battleConsumables) {
+        if ((battleConsumables[itemName] || 0) <= 0) {
             const modeHint = gameMode === 'raid' ? '携带数量已用完！' : '本局已用完！';
             showNotification(`${getItemDisplayName(itemName)} ${modeHint}`);
             return;
         }
         // 手雷走 throwGrenade 路径，那里会扣减
         if (itemName !== 'grenade') {
-            battleConsumables[battleKey]--;
+            battleConsumables[itemName]--;
+            playerData.inventory[itemName] = (playerData.inventory[itemName] || 0) - 1;
         }
     }
 
     switch (itemName) {
-        case 'medkit':
+        case 'medkit': {
             const healAmount = 30;
             player.health = Math.min(player.health + healAmount, player.maxHealth);
             showNotification(`使用医疗包，恢复 ${healAmount} 生命值！`);
             break;
+        }
+        case 'adrenaline': {
+            player.buffs.speedBoostUntil = Date.now() + 15000;
+            player.buffs.damageBoostUntil = Date.now() + 15000;
+            player.health = Math.min(player.maxHealth, player.health + 15);
+            showNotification('💉 肾上腺素：15秒极速+伤害提升，回血15！');
+            break;
+        }
+        case 'energy': {
+            player.buffs.regenUntil = Date.now() + 20000;
+            player.buffs.regenPerTick = 1.5;
+            showNotification('🥤 能量饮料：20秒持续回血！');
+            break;
+        }
         case 'ammoBox': {
             // 随机弹药类型与数量加入全局库存
             const ammoTypes = [AMMO_TYPES.NORMAL, AMMO_TYPES.AP, AMMO_TYPES.EXP, AMMO_TYPES.FIRE];
@@ -10922,11 +11356,37 @@ function useItem(itemName) {
             syncAmmoUI();
             break;
         }
-        case 'speedBoost':
-            const now = Date.now();
-            player.buffs.speedBoostUntil = now + 30000;
+        case 'speedBoost': {
+            player.buffs.speedBoostUntil = Date.now() + 30000;
             showNotification('注射肾上激素，速度提升50%（30秒）！');
             break;
+        }
+        case 'plate': {
+            player.buffs.armorPlateUntil = Date.now() + 30000;
+            player.buffs.damageReduction = Math.max(player.buffs.damageReduction || 0, 0.4);
+            showNotification('🟦 防弹插板：30秒减伤40%！');
+            break;
+        }
+        case 'smoke': {
+            throwSmoke();
+            break;
+        }
+        case 'scanner': {
+            activateScanner();
+            break;
+        }
+        case 'repair': {
+            player.health = Math.min(player.maxHealth, player.health + 25);
+            player.weapons.forEach(w => {
+                if (!w.isMelee && w.type !== WEAPON_TYPES.MELEE) {
+                    const mw = getModifiedWeapon(w);
+                    w.currentAmmo = mw.clipSize;
+                }
+            });
+            showNotification('🔧 维修包：回血25并将所有武器弹夹补满！');
+            syncAmmoUI();
+            break;
+        }
         case 'grenade':
             throwGrenade();
             break;
@@ -11871,10 +12331,8 @@ function applyCrateContents(contents) {
             case 'heal': player.health = Math.min(player.maxHealth, player.health + (c.value || 0)); break;
             case 'fullHeal': player.health = player.maxHealth; break;
             case 'item': {
-                const key = c.itemId === 'ammoBox' ? 'ammoBox' :
-                            c.itemId === 'medkit' ? 'medkits' :
-                            c.itemId === 'grenade' ? 'grenades' :
-                            c.itemId === 'speedBoost' ? 'speedBoost' : c.itemId;
+                // 库存键名与战斗 useItem 保持一致（medkit/grenade 用单数）
+                const key = c.itemId;
                 playerData.inventory[key] = (playerData.inventory[key] || 0) + (c.value || 1);
                 break;
             }
@@ -12024,6 +12482,48 @@ function toggleRaidBackpackPanel() {
         panel.style.display = 'block';
         renderRaidBackpackPanel();
     }
+}
+
+function toggleMobileBackpack() {
+    // raid 模式：显示局内战利品背包
+    if (gameMode === 'raid' && raidBackpack && raidBackpack.items.length >= 0) {
+        toggleRaidBackpackPanel();
+        return;
+    }
+    // 普通任务/非 raid：显示主库存概览面板
+    const view = document.getElementById('mobileBackpackView');
+    if (!view) { try { toggleRaidBackpackPanel(); } catch (e) {} return; }
+    const open = view.style.display === 'block';
+    if (open) { view.style.display = 'none'; return; }
+    renderMobileBackpackView();
+    view.style.display = 'block';
+}
+
+function renderMobileBackpackView() {
+    const view = document.getElementById('mobileBackpackView');
+    if (!view) return;
+    const inv = (playerData && playerData.inventory) || {};
+    const rows = [];
+    rows.push(['💰 金币', (playerData.coins || 0)]);
+    rows.push(['🩹 医疗包', inv.medkits || 0]);
+    rows.push(['💣 手雷', inv.grenades || 0]);
+    rows.push(['⚡ 加速针', inv.speedBoost || 0]);
+    rows.push(['🔋 弹药箱', inv.ammoBox || 0]);
+    // 主武器与配件
+    const wlist = (playerData.weapons && playerData.weapons.map(w => w.id)) || [];
+    const mods = (playerMods && playerMods.ownedMods) || {};
+    let html = '<div class="mbv-title">🎒 我的库存</div>';
+    html += '<div class="mbv-sec">装备武器：</div>';
+    html += wlist.length ? '<div class="mbv-row">' + wlist.map(id => {
+        const w = WEAPONS[id]; return w ? (w.name + (w.mods && w.mods.length ? '（' + w.mods.length + '配件）' : '')) : id;
+    }).join('、') + '</div>' : '<div class="mbv-row">无</div>';
+    html += '<div class="mbv-sec">持有配件：</div>';
+    const modNames = Object.keys(mods).filter(k => mods[k] > 0).map(k => (ATTACHMENTS[k] ? ATTACHMENTS[k].name : k) + '×' + mods[k]);
+    html += '<div class="mbv-row">' + (modNames.length ? modNames.join('、') : '无') + '</div>';
+    html += '<div class="mbv-sec">消耗品：</div>';
+    html += rows.map(r => '<div class="mbv-row"><span>' + r[0] + '</span><b>' + r[1] + '</b></div>').join('');
+    html += '<div class="mbv-close" onclick="document.getElementById(\'mobileBackpackView\').style.display=\'none\'">✕ 关闭</div>';
+    view.innerHTML = html;
 }
 
 function renderRaidBackpackPanel() {
