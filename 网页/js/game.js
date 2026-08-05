@@ -541,7 +541,15 @@ const SELLABLE_TYPES = {
     jewelry2:   { id: 'jewelry2',   name: '黄金首饰', icon: '💍', baseValue: 160, rarity: 'rare' },
     artifact:   { id: 'artifact',   name: '古币',     icon: '🥇', baseValue: 100, rarity: 'uncommon' },
     cigar:      { id: 'cigar',      name: '雪茄',     icon: '🚬', baseValue: 60,  rarity: 'common' },
-    statue:     { id: 'statue',     name: '雕像',     icon: '🗿', baseValue: 280, rarity: 'legendary' }
+    statue:     { id: 'statue',     name: '雕像',     icon: '🗿', baseValue: 280, rarity: 'legendary' },
+    crown:      { id: 'crown',      name: '王冠',     icon: '👑', baseValue: 400, rarity: 'legendary' },
+    relic:      { id: 'relic',      name: '文明遗物', icon: '🛸', baseValue: 360, rarity: 'legendary' },
+    serum:      { id: 'serum',      name: '黑潮血清', icon: '🧪', baseValue: 300, rarity: 'epic' },
+    chip:       { id: 'chip',       name: '控制芯片', icon: '🔌', baseValue: 250, rarity: 'epic' },
+    pearl:      { id: 'pearl',      name: '黑珍珠',   icon: '⚪', baseValue: 190, rarity: 'rare' },
+    coin2:      { id: 'coin2',      name: '古银币',   icon: '🪙', baseValue: 85,  rarity: 'uncommon' },
+    stamp:      { id: 'stamp',      name: '绝版邮票', icon: '📮', baseValue: 130, rarity: 'rare' },
+    bone:       { id: 'bone',       name: '史前化石', icon: '🦴', baseValue: 210, rarity: 'epic' }
 };
 function getSellableDef(id) { return SELLABLE_TYPES[id] || { id, name: id, icon: '📦', baseValue: 50, rarity: 'common' }; }
 
@@ -683,6 +691,14 @@ const MODIFICATIONS = {
         effects: { trajectory: true, penetrationBonus: true },
         price: 700,
         description: '显示弹道线，子弹可穿透1名敌人'
+    },
+    // 战术手电
+    flashlight: {
+        name: '战术手电',
+        icon: '🔦',
+        effects: { accuracyBonus: 1.1, spreadReduction: 0.85, visionBonus: 1.15 },
+        price: 300,
+        description: '提升精度与视野，散布更小'
     }
 };
 
@@ -707,14 +723,20 @@ const SKINS = {
         { id: 'skin_inferno', name: '炽焰霰弹', weaponId: null, color: '#ff4400', price: 900, unlocked: false, pattern: 'inferno' },
         { id: 'skin_viper', name: '毒蛇狙击', weaponId: null, color: '#2d8c2d', price: 1100, unlocked: false, pattern: 'viper' },
         { id: 'skin_platinum', name: '白金手枪', weaponId: null, color: '#e8e8e8', price: 1300, unlocked: false, pattern: 'platinum' },
-        { id: 'skin_arctic', name: '极地步枪', weaponId: null, color: '#c8d8e4', price: 700, unlocked: false, pattern: 'arctic' }
+        { id: 'skin_arctic', name: '极地步枪', weaponId: null, color: '#c8d8e4', price: 700, unlocked: false, pattern: 'arctic' },
+        { id: 'skin_void', name: '虚空行者', weaponId: null, color: '#2a0a3a', price: 1600, unlocked: false, pattern: 'crystal' },
+        { id: 'skin_frost', name: '霜冻之刃', weaponId: null, color: '#7fd8ff', price: 1000, unlocked: false, pattern: 'arctic' },
+        { id: 'skin_ember', name: '余烬狙击', weaponId: null, color: '#b5532a', price: 1200, unlocked: false, pattern: 'inferno' }
     ],
     players: [
         { id: 'player_default', name: '默认', color: '#00AA55', price: 0, unlocked: true },
         { id: 'player_soldier', name: '士兵', color: '#556B2F', price: 200, unlocked: false },
         { id: 'player_mercenary', name: '佣兵', color: '#8B4513', price: 500, unlocked: false },
         { id: 'player_elite', name: '精英', color: '#2F4F4F', price: 800, unlocked: false },
-        { id: 'player_ghost', name: '幽灵', color: '#1a1a1a', price: 1200, unlocked: false }
+        { id: 'player_ghost', name: '幽灵', color: '#1a1a1a', price: 1200, unlocked: false },
+        { id: 'player_ronin', name: '浪人', color: '#3a2a4a', price: 1500, unlocked: false },
+        { id: 'player_warden', name: '狱长', color: '#5a3210', price: 1800, unlocked: false },
+        { id: 'player_spectre', name: '幽影特工', color: '#102030', price: 2200, unlocked: false }
     ]
 };
 
@@ -5449,39 +5471,51 @@ function drawEnemy(enemy) {
     const screenY = worldToScreen(enemy.x, enemy.y).y;
 
     const sizeMul = enemy.isBoss ? 1.6 : 1.0;
+
+    // 缓存 Image 对象，避免每帧 new Image
+    if (enemy.img && !enemy._imgEl) {
+        try { enemy._imgEl = new Image(); enemy._imgEl.src = enemy.img; } catch (e) { enemy._imgEl = null; }
+    }
+
     ctx.save();
     ctx.translate(screenX, screenY);
     ctx.rotate(enemy.angle);
 
-    ctx.fillStyle = enemy.isBoss ? '#aa00aa' : '#cc3333';
-    ctx.beginPath();
-    ctx.moveTo(ENEMY_SIZE * TILE_SIZE * sizeMul, 0);
-    ctx.lineTo(-ENEMY_SIZE * TILE_SIZE * 0.7 * sizeMul, -ENEMY_SIZE * TILE_SIZE * 0.7 * sizeMul);
-    ctx.lineTo(-ENEMY_SIZE * TILE_SIZE * 0.5 * sizeMul, 0);
-    ctx.lineTo(-ENEMY_SIZE * TILE_SIZE * 0.7 * sizeMul, ENEMY_SIZE * TILE_SIZE * 0.7 * sizeMul);
-    ctx.closePath();
-    ctx.fill();
+    const r = ENEMY_SIZE * TILE_SIZE * sizeMul;
 
-    ctx.fillStyle = enemy.isBoss ? '#ff66ff' : '#ff4444';
-    ctx.shadowColor = enemy.isBoss ? '#ff66ff' : '#ff4444';
-    ctx.shadowBlur = enemy.isBoss ? 16 : 8;
-    ctx.beginPath();
-    ctx.arc(0, 0, ENEMY_SIZE * TILE_SIZE * 0.4 * sizeMul, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.shadowBlur = 0;
+    if (enemy._imgEl && enemy._imgEl.complete && enemy._imgEl.naturalWidth > 0) {
+        // 用图片立绘（顶部朝向 +x 方向绘制）
+        ctx.save();
+        ctx.rotate(-enemy.angle); // 抵消外层旋转，使图片始终正向，仅位置正确
+        ctx.translate(-r, -r);
+        ctx.drawImage(enemy._imgEl, 0, 0, r * 2, r * 2);
+        ctx.restore();
+    } else {
+        // 回退：纯色三角
+        ctx.fillStyle = enemy.isBoss ? '#aa00aa' : '#cc3333';
+        ctx.beginPath();
+        ctx.moveTo(r, 0);
+        ctx.lineTo(-r * 0.7, -r * 0.7);
+        ctx.lineTo(-r * 0.5, 0);
+        ctx.lineTo(-r * 0.7, r * 0.7);
+        ctx.closePath();
+        ctx.fill();
+
+        ctx.fillStyle = enemy.isBoss ? '#ff66ff' : '#ff4444';
+        ctx.shadowColor = enemy.isBoss ? '#ff66ff' : '#ff4444';
+        ctx.shadowBlur = enemy.isBoss ? 16 : 8;
+        ctx.beginPath();
+        ctx.arc(0, 0, r * 0.4, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.shadowBlur = 0;
+    }
 
     // 受击白色闪烁
     if (enemy.hitFlash > 0) {
-        ctx.fillStyle = `rgba(255, 255, 255, ${Math.min(0.7, enemy.hitFlash / 5)})`;
+        const a = Math.min(0.7, enemy.hitFlash / 5);
+        ctx.fillStyle = `rgba(255, 255, 255, ${a})`;
         ctx.beginPath();
-        ctx.moveTo(ENEMY_SIZE * TILE_SIZE * sizeMul, 0);
-        ctx.lineTo(-ENEMY_SIZE * TILE_SIZE * 0.7 * sizeMul, -ENEMY_SIZE * TILE_SIZE * 0.7 * sizeMul);
-        ctx.lineTo(-ENEMY_SIZE * TILE_SIZE * 0.5 * sizeMul, 0);
-        ctx.lineTo(-ENEMY_SIZE * TILE_SIZE * 0.7 * sizeMul, ENEMY_SIZE * TILE_SIZE * 0.7 * sizeMul);
-        ctx.closePath();
-        ctx.fill();
-        ctx.beginPath();
-        ctx.arc(0, 0, ENEMY_SIZE * TILE_SIZE * 0.4 * sizeMul, 0, Math.PI * 2);
+        ctx.arc(0, 0, r * 0.9, 0, Math.PI * 2);
         ctx.fill();
     }
 
@@ -5887,6 +5921,10 @@ function spawnEnemy() {
         return { x: MAP_SIZE * 0.5, y: MAP_SIZE * 0.5 };
     }
     function pushOne(x, y, boss) {
+        // 普通敌人按类型分配像素立绘；Boss 使用专属立绘
+        const typeImgs = ['assets/art/enemy-grunt.jpg', 'assets/art/enemy-sniper.jpg', 'assets/art/enemy-heavy.jpg'];
+        const img = boss ? 'assets/art/boss-anvil.jpg'
+            : typeImgs[Math.floor(Math.random() * typeImgs.length)];
         enemies.push({
             x, y,
             health: boss ? enemyHealth * 3 * difficultyHealthMul : enemyHealth * difficultyHealthMul,
@@ -5896,6 +5934,7 @@ function spawnEnemy() {
             fireRate: boss ? enemyFireRate * 0.75 : enemyFireRate,
             isBoss: boss,
             alive: true,
+            img,
             path: null, pathIndex: 0, lastPathUpdate: 0, pathUpdateInterval: 500
         });
     }
@@ -7197,7 +7236,7 @@ function updateGameModeUI() {
 var MAP_DETAILS = {
     desert: {
         name: '沙漠战场', emoji: '🏜️',
-        img: 'assets/art/map-trench.jpg',
+        img: 'assets/art/map-desert.jpg',
         bg: '曾经的绿洲贸易站，如今被风沙吞没。一支运输车队在撤离途中失联，敌方的游骑兵小队占据制高点，试图封锁唯一的水源补给点。',
         scale: '中型 · 约 1.2km²',
         terrain: '开阔沙丘、岩石掩体、零星废墟，视野极佳但缺乏遮蔽。',
@@ -7208,6 +7247,7 @@ var MAP_DETAILS = {
     },
     city: {
         name: '城市巷战', emoji: '🏙️',
+        img: 'assets/art/map-city.jpg',
         bg: '沦陷的边境城市，街区被改造成迷宫般的火力网。情报显示敌方指挥官藏身于中央写字楼，携带高价值情报芯片。',
         scale: '大型 · 约 1.8km²',
         terrain: '密集楼宇、断壁残垣、地下车库，近距离交火频繁。',
@@ -7258,6 +7298,7 @@ var MAP_DETAILS = {
     },
     ruins: {
         name: '古代遗迹', emoji: '🏛️',
+        img: 'assets/art/map-ruins.jpg',
         bg: '被黄沙半掩的文明遗迹，考古队触发了未知的防御机制。敌方雇佣兵已先一步进入，争夺地下的远古遗物。',
         scale: '中型 · 约 1.1km²',
         terrain: '石柱回廊、陷阱密室、坍塌神殿，机关与伏击并存。',
@@ -7278,6 +7319,7 @@ var MAP_DETAILS = {
     },
     forest: {
         name: '密林猎场', emoji: '🌲',
+        img: 'assets/art/map-forest.jpg',
         bg: '北境针叶林，猎人与猎物界限模糊。一支走私队利用林海转运违禁品，巡逻队装备精良。',
         scale: '中型 · 约 1.2km²',
         terrain: '针叶密林、木屋据点、溪流浅滩，遮蔽良好。',
@@ -7288,6 +7330,7 @@ var MAP_DETAILS = {
     },
     wasteland: {
         name: '废土荒野', emoji: '🪨',
+        img: 'assets/art/map-wasteland.jpg',
         bg: '核战后的荒芜之地，残存势力在废铁堆中争夺最后资源。辐射区与掠夺者同样致命。',
         scale: '大型 · 约 1.7km²',
         terrain: '废铁残骸、塌陷公路、辐射坑，开阔且危险。',
@@ -9551,7 +9594,12 @@ function getDefaultMails() {
     return [
         { id: 'welcome', sender: '指挥部', subject: '欢迎加入死亡战壕特遣队', body: '欢迎你，新兵。本次行动代号为 "Trench Strike"。\n\n任务简报：\n1. 装备你的护甲，选择合适的武器。\n2. 进入战场，消灭敌人，收集金币与补给。\n3. 活着撤离以保存收获。\n\n祝你好运，战士。', date: '2026-06-20 10:00', unread: true },
         { id: 'brief', sender: '指挥官 · 普莱斯', subject: '行动简报：沙漠行动', body: '本次任务目标：\n- 穿越敌人防御区域，消灭敌方有生力量。\n- 收集战场金币，用于装备升级。\n- 按时撤离以获取最高奖励。\n\n注意：站在出生点（地图中心）保持不动 3 秒可撤离。\n\n撤离奖励为金币翻倍，请务必小心。', date: '2026-06-20 10:01', unread: true },
-        { id: 'tip', sender: '战术支援', subject: '战术小贴士 #1', body: '\u2705 使用连发模式：按空格切换自动射击。\n\u2705 手雷在近距离战斗中效果极佳。\n\u2705 敌人被击中时会减速，这是你的重要机会。\n\u2705 补给品（💊🔋💣）可在黑市购买。\n\n保持行动，保持戒备。', date: '2026-06-20 10:02', unread: true }
+        { id: 'tip', sender: '战术支援', subject: '战术小贴士 #1', body: '\u2705 使用连发模式：按空格切换自动射击。\n\u2705 手雷在近距离战斗中效果极佳。\n\u2705 敌人被击中时会减速，这是你的重要机会。\n\u2705 补给品（💊🔋💣）可在黑市购买。\n\n保持行动，保持戒备。', date: '2026-06-20 10:02', unread: true },
+        { id: 'lore1', sender: '历史学家 · 艾琳', subject: '黑潮纪事：我们如何走到今天', body: '战壕之下埋着旧世界的残骸。\n\n二十年前，"黑潮"只是一种网络传说——直到第一座城市在午夜熄灭灯火。它们不是军队，更像潮汐：退去时留下满地金属与寂静，涨起时吞噬一切。\n\n特遣队的雏形，正是那群在废墟里捡到武器的幸存者。你手中的每一发子弹，都来自某段被遗忘的历史。', date: '2026-06-21 09:30', unread: true },
+        { id: 'lore2', sender: '情报官 · 幽灵', subject: '关于"铁砧"的最新研判', body: '目标代号"铁砧"，黑潮前线指挥官。\n\n它不是普通士兵——动力装甲让它的冲锋能撞穿混凝土墙。但我们截获的通讯显示，它似乎在"等待"什么。\n\n我的直觉：它手里握着旧世界的核心数据。击溃它，也许能让我们第一次听懂黑潮在说什么。', date: '2026-06-22 14:12', unread: true },
+        { id: 'tip2', sender: '后勤 · 商人', subject: '摸金变卖物收购清单更新', body: '特遣队注意：近期黑市对"高价值战利品"的需求暴涨。\n\n金条、钻石、名画、加密硬盘、军械零件——带得出来就能换成金币。背包按格计算，同种物资可堆叠至 999，记得把空间留给最值钱的东西。\n\n——你的老朋友，商人', date: '2026-06-23 18:45', unread: true },
+        { id: 'event1', sender: '指挥部', subject: '特别行动：废墟撤离点', body: '【新行动预告】\n\n情报显示，森林深处的撤离点近期异常活跃。我们怀疑黑潮在那里建立了中转仓库。\n\n行动将于本周末开放，奖励翻倍。请提前检修装备，备足医疗包与弹药。\n\n——活着回来，比什么都重要。', date: '2026-06-24 20:00', unread: true },
+        { id: 'tip3', sender: '铁匠铺', subject: '武器改装指南', body: '战士，配件决定生死。\n\n· 瞄准镜：提升命中与射程\n· 扩容弹匣：减少换弹频率\n· 消音器：降低暴露风险\n· 握把：提升稳定性\n· 穿甲弹：撕裂重甲\n· 枪托：提升机动\n· 镭射指示器：弹道可视 + 子弹穿透\n\n合理搭配，方能以一当十。', date: '2026-06-25 11:20', unread: true }
     ];
 }
 function openMailbox() {
@@ -12704,6 +12752,46 @@ const DIALOGUES = {
                 { text: '我做了对的事。', action: () => { setStoryFlag('game_completed'); sendStoryMail('ch5_ending_mail'); showEndingScreen(); } }
             ]}
         ]
+    },
+    'merchant_intro': {
+        speaker: '商人',
+        avatar: '🧳',
+        avatarImg: 'assets/art/npc-merchant.jpg',
+        tag: '后勤补给',
+        lines: [
+            { text: '嘿，幸存者。看到你还活着，我的货又好卖了。' },
+            { text: '战场上的战利品——金条、钻石、名画——带回来找我，金币管够。' },
+            { text: '记住：背包按格算，同种可叠到 999。把空间留给最值钱的，别捡一袋子破铜烂铁。', choices: [
+                { text: '明白，老规矩。', action: () => { setStoryFlag('met_merchant'); } },
+                { text: '你这人真现实。', action: () => { setStoryFlag('met_merchant'); addNpcAffinity('merchant', 5); } }
+            ]}
+        ]
+    },
+    'eileen_lore': {
+        speaker: '艾琳',
+        avatar: '📚',
+        avatarImg: 'assets/art/npc-eileen.jpg',
+        tag: '战地医疗',
+        lines: [
+            { text: '我整理过黑潮的残骸，发现它们的装甲上刻着旧世界的工厂编号。' },
+            { text: '这说明一件事：黑潮不是外星来的，是我们自己造的。' },
+            { text: '所以……赢的可能不是消灭它们，而是弄明白是谁按下开关。', choices: [
+                { text: '我会找到那个人。', action: () => { setStoryFlag('eileen_lore_seen'); addNpcAffinity('eileen', 10); } }
+            ]}
+        ]
+    },
+    'raid_treasure_tip': {
+        speaker: '商人',
+        avatar: '🧳',
+        avatarImg: 'assets/art/npc-merchant.jpg',
+        tag: '后勤补给',
+        lines: [
+            { text: '搜打撤模式下，箱子随机出变卖物。越稀有的箱子，越可能出传奇货。' },
+            { text: '钻石、名画、加密硬盘——这些才是让金币滚动的硬通货。' },
+            { text: '带上镭射指示器，弹道可循，穿透掩体，效率翻倍。去吧，淘金者。', choices: [
+                { text: '这就出发。', action: () => { setStoryFlag('treasure_tip_seen'); } }
+            ]}
+        ]
     }
 };
 
@@ -12872,6 +12960,21 @@ const MISSION_GUIDES = {
         title: '仁慈：撤离难民',
         story: '森林深处有一个平民撤离点。黑潮正在逼近。\n\n艾琳说：「只要你能拖住他们三分钟，我就能把人带出来。」',
         objectives: ['① 选择「森林」地图。', '② 保护撤离点直至撤离完成。', '③ 不要恋战，以拖延为目标。']
+    },
+    'task_treasure_hunter': {
+        title: '摸金：战利品猎手',
+        story: '商人透露，战场各处散落着高价值战利品：金条、钻石、名画、加密硬盘……\n\n带得出来，就能在黑市换成金币。这不再是单纯的厮杀，而是一场淘金。',
+        objectives: ['① 任意地图进入搜打撤模式。', '② 收集至少 10 件变卖物并成功撤离。', '③ 背包按格计算，优先带走最值钱的种类。']
+    },
+    'task_night_raid': {
+        title: '夜袭：潜入与撤离',
+        story: '黑潮在夜晚松懈。铁匠建议你装配消音器与镭射指示器，悄然接近、精准收割。\n\n「子弹穿透掩体，弹道可循——这才是高手的做法。」',
+        objectives: ['① 装配「消音器」「镭射指示器」配件。', '② 在搜打撤中消灭 20 名敌人。', '③ 利用穿透与弹道线打出优势。']
+    },
+    'task_anvil_war': {
+        title: '决战：铁砧之怒',
+        story: '铁砧不再等待。它率领精锐小队全面压上，战壕震颤。\n\n普莱斯沉声道：「这不是任务，是战争。拿下它，故事才真正开始。」',
+        objectives: ['① 任意地图，Boss 刷新概率已提升。', '② 连续消灭 3 名 Boss 单位。', '③ 准备穿甲弹、医疗包与爆炸物，不要吝啬。']
     }
 };
 
