@@ -525,7 +525,6 @@ const LOOT_CRATE_DROP_TABLE = {
 // 游戏版本
 const GAME_VERSION = '2.1.0';
 const UPDATE_CHECK_URL = 'https://gitee.com/wang-zirui-from-beijing/death-trench-ai-game/raw/main/version.json';
-const UPDATE_NOTES_KEY = 'deathTrench_update_notes_seen';
 
 // ==================== 武器系统 ====================
 // 武器类型
@@ -8756,19 +8755,19 @@ function closeAllPanels() {
     hideOverlay('saveManagerPanel');
     hideOverlay('mailPanel');
     hideOverlay('feedbackPanel');
-    hideOverlay('updateNotesPanel');
+    hideOverlay('announcementPanel');
     hideOverlay('mapDetailPanel');
-    var un = document.getElementById('updateNotesPanel'); if (un) un.style.display = 'none';
+    var an = document.getElementById('announcementPanel'); if (an) an.style.display = 'none';
     var md = document.getElementById('mapDetailPanel'); if (md) md.style.display = 'none';
 }
 
 // ESC 关闭所有遮罩弹窗
 document.addEventListener('keydown', function (e) {
     if (e.key === 'Escape') {
-        ['updateNotesPanel', 'mapDetailPanel'].forEach(function (id) {
+        ['announcementPanel', 'mapDetailPanel'].forEach(function (id) {
             var el = document.getElementById(id);
             if (el && (el.classList.contains('active') || el.style.display === 'flex')) {
-                if (id === 'updateNotesPanel') closeUpdateNotes();
+                if (id === 'announcementPanel') closeAnnouncement();
                 else if (id === 'mapDetailPanel') closeMapDetail();
             }
         });
@@ -10000,78 +9999,33 @@ function setMissionLanguage(lang) {
     checkForUpdates();
 })();
 
-// 版本检查函数
+// 版本检查函数（仅桌面版弹窗提示，网页版跳过自动弹窗）
 async function checkForUpdates() {
     try {
-        let info = null;
         if (window.electronAPI && window.electronAPI.checkVersion) {
             const result = await window.electronAPI.checkVersion();
-            if (result.success) {
-                info = result.data;
+            if (result.success && result.data && result.data.version) {
+                const latest = result.data.version;
+                if (compareVersions(latest, GAME_VERSION) > 0) {
+                    showNotification(`发现新版本 ${latest}！请前往下载。`);
+                }
             }
-        } else {
-            // 网页版：用内置版本与本地存储对比，进入即弹更新提示
-            info = await loadVersionInfoLocal();
-        }
-        if (info && info.version) {
-            const latest = info.version;
-            if (compareVersions(latest, GAME_VERSION) > 0) {
-                showNotification(`发现新版本 ${latest}！请前往下载。`);
-            }
-            // 更新提示：本地记录的已读版本低于当前版本则弹窗
-            maybeShowUpdateNotes(info);
         }
     } catch (e) {
         console.warn('[UPDATE] Version check failed:', e.message);
     }
 }
 
-// 读取内置版本信息（网页版使用）
-async function loadVersionInfoLocal() {
-    // 优先尝试远程拉取最新 version.json（同域 Pages 可访问）
-    try {
-        const res = await fetch('version.json?t=' + Date.now());
-        if (res.ok) {
-            const data = await res.json();
-            return data;
-        }
-    } catch (e) { /* 忽略，回退到内置 */ }
-    return {
-        version: GAME_VERSION,
-        releaseDate: '',
-        changelog: []
-    };
+// ============================================================
+// 更新公告（常驻入口，点击查看固定公告内容）
+// ============================================================
+function openAnnouncement() {
+    showOverlay('announcementPanel');
 }
 
-// 若玩家尚未查看过当前版本，则弹出更新提示
-function maybeShowUpdateNotes(info) {
-    let seen = null;
-    try { seen = localStorage.getItem(UPDATE_NOTES_KEY); } catch (e) {}
-    if (seen === info.version) return; // 已读过本版本
-    showUpdateNotes(info);
-}
-
-function showUpdateNotes(info) {
-    var panel = document.getElementById('updateNotesPanel');
-    if (!panel) return;
-    var title = document.getElementById('updateNotesTitle');
-    var date = document.getElementById('updateNotesDate');
-    var list = document.getElementById('updateNotesList');
-    if (title) title.textContent = '更新日志 v' + info.version;
-    if (date) date.textContent = info.releaseDate ? ('发布于 ' + info.releaseDate) : '';
-    if (list) {
-        var logs = (info.changelog && info.changelog.length) ? info.changelog : ['优化与问题修复。'];
-        list.innerHTML = logs.map(function (t) {
-            return '<li>' + escapeHtml(t) + '</li>';
-        }).join('');
-    }
-    showOverlay('updateNotesPanel');
-}
-
-function closeUpdateNotes() {
-    try { localStorage.setItem(UPDATE_NOTES_KEY, GAME_VERSION); } catch (e) {}
-    hideOverlay('updateNotesPanel');
-    var el = document.getElementById('updateNotesPanel');
+function closeAnnouncement() {
+    hideOverlay('announcementPanel');
+    var el = document.getElementById('announcementPanel');
     if (el) el.style.display = 'none';
 }
 
