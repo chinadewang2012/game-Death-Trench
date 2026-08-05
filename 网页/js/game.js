@@ -904,7 +904,7 @@ function getRaidBackpack() {
     return raidBackpack;
 }
 function raidBackpackUsed() {
-    return getRaidBackpack().items.reduce((s, it) => s + (it.count || 0), 0);
+    return getRaidBackpack().items.length;
 }
 
 // Round 3：地图事件与 AI 埋伏
@@ -3266,6 +3266,7 @@ function generateMap(theme) {
     }
 
     console.log('[MAP] Generated structured map with', Object.keys(mapData).length, 'tiles');
+    buildBlockedGrid();
 }
 
 function loadCustomMapIfExists(mapName) {
@@ -3319,11 +3320,30 @@ function loadCustomMapIfExists(mapName) {
             }
         }
         console.log(`[MAP] 已加载自定义地图: ${target.name} (${cols}x${rows})`);
+        buildBlockedGrid();
         return true;
     } catch (e) {
         console.warn('[MAP] 自定义地图加载失败:', e);
         return false;
     }
+}
+
+// 预计算的实体阻挡网格（一维布尔数组，索引 y*MAP_SIZE+x），避免每帧字符串拼接与对象分配
+let blockedGrid = null;
+function buildBlockedGrid() {
+    blockedGrid = new Uint8Array(MAP_SIZE * MAP_SIZE);
+    const n = MAP_SIZE * MAP_SIZE;
+    for (let i = 0; i < n; i++) {
+        const tile = mapData[i % MAP_SIZE + '_' + (i / MAP_SIZE | 0)];
+        const t = tile && tile.type;
+        if (t === 'obstacle' || t === 'building' || t === 'water' || t === 'brick') {
+            blockedGrid[i] = 1;
+        }
+    }
+}
+function isBlockedRaw(x, y) {
+    if (x < 0 || x >= MAP_SIZE || y < 0 || y >= MAP_SIZE) return true;
+    return blockedGrid[y * MAP_SIZE + x] === 1;
 }
 
 function getTile(x, y) {
@@ -3348,10 +3368,7 @@ function isBlocked(x, y) {
     for (let i = 0; i < offsets.length; i++) {
         const tx = Math.floor(x + offsets[i][0]);
         const ty = Math.floor(y + offsets[i][1]);
-        const tile = getTile(tx, ty);
-        if (tile.type === 'obstacle' || tile.type === 'building' || tile.type === 'water') {
-            return true;
-        }
+        if (isBlockedRaw(tx, ty)) return true;
     }
     return false;
 }
@@ -3369,16 +3386,10 @@ function isBlockedCircle(x, y, radius) {
         const sy = y + Math.sin(angle) * radius * 0.95;
         const tx = Math.floor(sx);
         const ty = Math.floor(sy);
-        const tile = getTile(tx, ty);
-        if (tile.type === 'obstacle' || tile.type === 'building' || tile.type === 'water') {
-            return true;
-        }
+        if (isBlockedRaw(tx, ty)) return true;
     }
     // 额外检查中心点
-    const centerTile = getTile(Math.floor(x), Math.floor(y));
-    if (centerTile.type === 'obstacle' || centerTile.type === 'building' || centerTile.type === 'water') {
-        return true;
-    }
+    if (isBlockedRaw(Math.floor(x), Math.floor(y))) return true;
     return false;
 }
 
@@ -3396,7 +3407,7 @@ function hasLineOfSight(x1, y1, x2, y2) {
         const t = i / steps;
         const cx = x1 + dx * t;
         const cy = y1 + dy * t;
-        if (isBlocked(cx, cy)) return false;
+        if (isBlockedRaw(Math.floor(cx), Math.floor(cy))) return false;
     }
     return true;
 }
@@ -5050,11 +5061,6 @@ function draw() {
             ctx.fillStyle = tile.color;
             ctx.fillRect(screenX, screenY, TILE_SIZE, TILE_SIZE);
 
-            // 绘制格子边框，增强地块边界感
-            ctx.strokeStyle = 'rgba(0,0,0,0.06)';
-            ctx.lineWidth = 0.5;
-            ctx.strokeRect(screenX, screenY, TILE_SIZE, TILE_SIZE);
-
             if (tile.type === 'obstacle') {
                 // 底部投影
                 ctx.fillStyle = 'rgba(0,0,0,0.35)';
@@ -5827,7 +5833,9 @@ function switchWeapon(index) {
 // ============================================================
 // 敌人生成
 // ============================================================
+const MAX_ENEMIES = 80;
 function spawnEnemy() {
+    if (enemies.length >= MAX_ENEMIES) return;
     const isBoss = Math.random() < 0.16;
     const enemyHealth = gameParams.ENEMY.health || 80;
     const enemyFireRate = gameParams.ENEMY.fireRate || 2000;
@@ -8290,13 +8298,19 @@ function previewSkin(skin) {
 // 小地图绘制（搜打撤风格）
 let __minimapStaticCache = null;
 let __minimapStaticKey = '';
+let __minimapCanvas = null;
+let __minimapCtx = null;
 
 function drawMinimap() {
-    const canvas = document.getElementById('minimapCanvas');
+    if (!__minimapCanvas) {
+        __minimapCanvas = document.getElementById('minimapCanvas');
+        if (__minimapCanvas) __minimapCtx = __minimapCanvas.getContext('2d');
+    }
+    const canvas = __minimapCanvas;
     const minimap = document.getElementById('minimap');
     if (!canvas || !minimap || minimap.style.display === 'none') return;
 
-    const mctx = canvas.getContext('2d');
+    const mctx = __minimapCtx;
     const mapSize = typeof MAP_SIZE !== 'undefined' ? MAP_SIZE : 150;
     const scale = canvas.width / mapSize;
 
@@ -11700,15 +11714,24 @@ function renderRaidBackpackPanel() {
 }
 
 // 更新战斗中局内背包按钮徽标
+let _raidBadgeBtn = null, _raidBadgeEl = null, _raidBadgeLast = -1;
 function updateRaidBackpackBadge() {
-    const btn = document.getElementById('raidBackpackBtn');
-    const badge = document.getElementById('raidBackpackBadge');
+    if (!_raidBadgeBtn) {
+        _raidBadgeBtn = document.getElementById('raidBackpackBtn');
+        _raidBadgeEl = document.getElementById('raidBackpackBadge');
+    }
+    const btn = _raidBadgeBtn;
     if (!btn) return;
     if (gameMode === 'raid') {
         btn.style.display = '';
-        if (badge) badge.textContent = raidBackpackUsed();
+        const used = raidBackpackUsed();
+        if (_raidBadgeEl && used !== _raidBadgeLast) {
+            _raidBadgeEl.textContent = used;
+            _raidBadgeLast = used;
+        }
     } else {
         btn.style.display = 'none';
+        _raidBadgeLast = -1;
     }
 }
 
