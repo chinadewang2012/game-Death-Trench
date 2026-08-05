@@ -8712,14 +8712,6 @@ function showMapSelect() {
     if (fourthBtn) fourthBtn.classList.add('active');
 }
 
-function showLeaderboard() {
-    showNotification('排行榜功能开发中...');
-}
-
-function showFriends() {
-    showNotification('好友功能开发中...');
-}
-
 function buyItem(itemName) {
     const price = getItemPrice(itemName);
     if (playerData.coins < price) {
@@ -11701,6 +11693,8 @@ function mountAllUIfunctions() {
 }
 
 window.addEventListener('DOMContentLoaded', function() {
+    const verEl = document.querySelector('.menu-banner-version');
+    if (verEl) verEl.textContent = 'v' + GAME_VERSION;
     mountAllUIfunctions();
     init();
 });

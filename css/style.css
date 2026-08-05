@@ -629,6 +629,96 @@ body {
     display: block;
 }
 
+/* 主页战壕 banner 区（与 index.html 中的 menu-banner-area 对应） */
+.menu-banner-area {
+    position: relative;
+    width: 600px;
+    max-width: 90vw;
+    margin: 0 auto 28px;
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.55), 0 0 24px rgba(56, 189, 248, 0.12);
+    border: 1px solid rgba(120, 144, 156, 0.25);
+    aspect-ratio: 3 / 2;
+    background: #0a0f12;
+}
+
+.menu-banner-area > img {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+    filter: saturate(0.92) contrast(1.04) brightness(0.92);
+}
+
+.menu-banner-overlay {
+    position: absolute;
+    inset: 0;
+    background:
+        linear-gradient(180deg, rgba(8, 14, 18, 0.15) 0%, rgba(8, 14, 18, 0.05) 40%, rgba(8, 14, 18, 0.78) 100%),
+        radial-gradient(circle at 50% 0%, rgba(56, 189, 248, 0.10), transparent 60%);
+    pointer-events: none;
+}
+
+.menu-banner-info {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    padding: 14px 18px;
+    pointer-events: none;
+}
+
+.menu-banner-tag {
+    font-family: var(--font-body, 'Rajdhani', sans-serif);
+    font-size: 13px;
+    letter-spacing: 2px;
+    color: #cfe8ef;
+    text-shadow: 0 1px 4px rgba(0, 0, 0, 0.85);
+    margin: 0;
+}
+
+.menu-banner-version {
+    font-family: var(--font-display, 'Orbitron', sans-serif);
+    font-size: 13px;
+    color: #7dd3fc;
+    text-shadow: 0 1px 4px rgba(0, 0, 0, 0.85);
+    margin: 2px 0 0;
+    letter-spacing: 1px;
+}
+
+.menu-banner-badges {
+    display: flex;
+    gap: 8px;
+}
+
+.menu-badge-pvp,
+.menu-badge-coop {
+    font-family: var(--font-body, 'Rajdhani', sans-serif);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    padding: 3px 9px;
+    border-radius: 4px;
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    backdrop-filter: blur(2px);
+}
+
+.menu-badge-pvp {
+    color: #ff6b6b;
+    background: rgba(255, 80, 80, 0.14);
+}
+
+.menu-badge-coop {
+    color: #6bdcff;
+    background: rgba(80, 200, 255, 0.14);
+}
+
 .menu-buttons {
     display: flex;
     flex-direction: column;
