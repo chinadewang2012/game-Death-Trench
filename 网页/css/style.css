@@ -725,6 +725,16 @@ body {
     gap: 15px;
 }
 
+.menu-btn.has-update {
+    border-color: #ff4444 !important;
+    box-shadow: 0 0 0 2px rgba(255, 68, 68, 0.5), 0 0 16px rgba(255, 68, 68, 0.6);
+    animation: updatePulse 1.4s ease-in-out infinite;
+}
+@keyframes updatePulse {
+    0%, 100% { box-shadow: 0 0 0 2px rgba(255, 68, 68, 0.5), 0 0 14px rgba(255, 68, 68, 0.55); }
+    50% { box-shadow: 0 0 0 3px rgba(255, 68, 68, 0.8), 0 0 22px rgba(255, 68, 68, 0.9); }
+}
+
 .menu-btn {
     width: 220px;
     padding: 18px 30px;

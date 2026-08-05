@@ -3074,7 +3074,7 @@ function generateMap(theme) {
     }
 
     // 2. 建筑区：生成若干矩形建筑群，内部为空地，边缘为建筑/掩体
-    const buildingCount = Math.floor(buildingRate * 30) + 6;
+    const buildingCount = Math.floor(buildingRate * 45) + 10;
     for (let i = 0; i < buildingCount; i++) {
         const bx = randInt(8, MAP_SIZE - 18);
         const by = randInt(8, MAP_SIZE - 18);
@@ -3105,7 +3105,7 @@ function generateMap(theme) {
     }
 
     // 3. 自然障碍物集群（岩石/废墟/树木）
-    const clusterCount = Math.floor(obstacleRate * 60) + 4;
+    const clusterCount = Math.floor(obstacleRate * 90) + 8;
     for (let i = 0; i < clusterCount; i++) {
         const cx = randInt(5, MAP_SIZE - 6);
         const cy = randInt(5, MAP_SIZE - 6);
@@ -3124,7 +3124,7 @@ function generateMap(theme) {
     }
 
     // 4. 零散掩体（沙袋/矮墙/灌木）
-    const coverCount = Math.floor(coverRate * 80) + 8;
+    const coverCount = Math.floor(coverRate * 120) + 14;
     for (let i = 0; i < coverCount; i++) {
         const cx = randInt(3, MAP_SIZE - 4);
         const cy = randInt(3, MAP_SIZE - 4);
@@ -5691,89 +5691,62 @@ function switchWeapon(index) {
 // 敌人生成
 // ============================================================
 function spawnEnemy() {
-    const isBoss = Math.random() < 0.1;
-    let x = null;
-    let y = null;
-    let attempts = 0;
+    const isBoss = Math.random() < 0.16;
+    const enemyHealth = gameParams.ENEMY.health || 80;
+    const enemyFireRate = gameParams.ENEMY.fireRate || 2000;
+    const difficultyHealthMul = settings.difficulty === 'topsecret' ? 1.6 : (settings.difficulty === 'confidential' ? 1.3 : (settings.difficulty === 'advanced' ? 1.0 : 0.8));
 
-    // 玩家周围留出安全距离，且避免生成到不可达位置
+    // 在玩家安全距离外寻找合法出生点
     const SAFE_RADIUS = 22;
     const playerX = (player && typeof player.x === 'number') ? player.x : MAP_SIZE / 2;
     const playerY = (player && typeof player.y === 'number') ? player.y : MAP_SIZE / 2;
-
-    do {
-        const candidateX = Math.random() * MAP_SIZE;
-        const candidateY = Math.random() * MAP_SIZE;
-        attempts++;
-        // 必须离玩家足够远，且不能在障碍/水里
-        if (Math.abs(candidateX - playerX) < SAFE_RADIUS && Math.abs(candidateY - playerY) < SAFE_RADIUS) continue;
-        if (isBlocked(candidateX, candidateY)) continue;
-        x = candidateX;
-        y = candidateY;
-        break;
-    } while (attempts < 50);
-
-    // 兜底：若尝试都失败，选择地图的四角之一作为备用位置（避免无敌人生成，也避免卡住逻辑）
-    if (x === null || y === null) {
+    function findSpot() {
+        let attempts = 0;
+        while (attempts < 50) {
+            attempts++;
+            const cx = Math.random() * MAP_SIZE;
+            const cy = Math.random() * MAP_SIZE;
+            if (Math.abs(cx - playerX) < SAFE_RADIUS && Math.abs(cy - playerY) < SAFE_RADIUS) continue;
+            if (isBlocked(cx, cy)) continue;
+            return { x: cx, y: cy };
+        }
+        // 兜底：四角优先，再边缘，最后中心
         const fallbacks = [
-            [5, 5], [MAP_SIZE - 5, 5],
-            [5, MAP_SIZE - 5], [MAP_SIZE - 5, MAP_SIZE - 5]
+            [5, 5], [MAP_SIZE - 5, 5], [5, MAP_SIZE - 5], [MAP_SIZE - 5, MAP_SIZE - 5],
+            [MAP_SIZE * 0.5, MAP_SIZE * 0.1], [MAP_SIZE * 0.5, MAP_SIZE * 0.9],
+            [MAP_SIZE * 0.1, MAP_SIZE * 0.5], [MAP_SIZE * 0.9, MAP_SIZE * 0.5]
         ];
         for (const [fx, fy] of fallbacks) {
-            if (!isBlocked(fx, fy) &&
-                Math.abs(fx - playerX) >= SAFE_RADIUS &&
-                Math.abs(fy - playerY) >= SAFE_RADIUS) {
-                x = fx;
-                y = fy;
-                break;
-            }
+            if (!isBlocked(fx, fy) && Math.abs(fx - playerX) >= SAFE_RADIUS && Math.abs(fy - playerY) >= SAFE_RADIUS) return { x: fx, y: fy };
         }
-        // 最终兜底：从地图边缘向内搜索合法坐标（极端情况也要保证有个合法坐标）
-        if (x === null || y === null) {
-            const fallbackCandidates = [
-                [MAP_SIZE * 0.1, MAP_SIZE * 0.1],
-                [MAP_SIZE * 0.9, MAP_SIZE * 0.1],
-                [MAP_SIZE * 0.1, MAP_SIZE * 0.9],
-                [MAP_SIZE * 0.9, MAP_SIZE * 0.9],
-                [MAP_SIZE * 0.5, MAP_SIZE * 0.1],
-                [MAP_SIZE * 0.5, MAP_SIZE * 0.9],
-                [MAP_SIZE * 0.1, MAP_SIZE * 0.5],
-                [MAP_SIZE * 0.9, MAP_SIZE * 0.5]
-            ];
-            for (const [fx, fy] of fallbackCandidates) {
-                if (!isBlocked(fx, fy)) {
-                    x = fx;
-                    y = fy;
-                    break;
-                }
-            }
-            // 终极兜底：即使被阻挡也给出合法坐标（避免 x/y 仍为 null 导致后续 NaN）
-            if (x === null || y === null) {
-                x = MAP_SIZE * 0.5;
-                y = MAP_SIZE * 0.5;
-            }
-        }
+        return { x: MAP_SIZE * 0.5, y: MAP_SIZE * 0.5 };
+    }
+    function pushOne(x, y, boss) {
+        enemies.push({
+            x, y,
+            health: boss ? enemyHealth * 3 * difficultyHealthMul : enemyHealth * difficultyHealthMul,
+            maxHealth: boss ? enemyHealth * 3 * difficultyHealthMul : enemyHealth * difficultyHealthMul,
+            angle: Math.random() * Math.PI * 2,
+            lastShot: 0,
+            fireRate: boss ? enemyFireRate * 0.75 : enemyFireRate,
+            isBoss: boss,
+            alive: true,
+            path: null, pathIndex: 0, lastPathUpdate: 0, pathUpdateInterval: 500
+        });
     }
 
-    const enemyHealth = gameParams.ENEMY.health || 80;
-    const enemyFireRate = gameParams.ENEMY.fireRate || 2000;
+    // 主单位
+    const spot = findSpot();
+    pushOne(spot.x, spot.y, isBoss);
 
-    const difficultyHealthMul = settings.difficulty === 'topsecret' ? 1.6 : (settings.difficulty === 'confidential' ? 1.3 : (settings.difficulty === 'advanced' ? 1.0 : 0.8));
-    enemies.push({
-        x, y,
-        health: isBoss ? enemyHealth * 3 * difficultyHealthMul : enemyHealth * difficultyHealthMul,
-        maxHealth: isBoss ? enemyHealth * 3 * difficultyHealthMul : enemyHealth * difficultyHealthMul,
-        angle: Math.random() * Math.PI * 2,
-        lastShot: 0,
-        fireRate: isBoss ? enemyFireRate * 0.75 : enemyFireRate,
-        isBoss,
-        alive: true,
-        // DFS 寻路相关
-        path: null,
-        pathIndex: 0,
-        lastPathUpdate: 0,
-        pathUpdateInterval: 500 // 每500ms更新一次路径
-    });
+    // Boss 以小组形式刷新：主 Boss 带 1~3 名副 Boss（避免一次只刷一只）
+    if (isBoss) {
+        const squad = 1 + Math.floor(Math.random() * 3);
+        for (let i = 0; i < squad; i++) {
+            const s = findSpot();
+            pushOne(s.x, s.y, true);
+        }
+    }
 }
 
 // ============================================================
@@ -10198,14 +10171,25 @@ function setMissionLanguage(lang) {
 // 版本检查函数（仅桌面版弹窗提示，网页版跳过自动弹窗）
 async function checkForUpdates() {
     try {
+        let latest = null;
         if (window.electronAPI && window.electronAPI.checkVersion) {
             const result = await window.electronAPI.checkVersion();
-            if (result.success && result.data && result.data.version) {
-                const latest = result.data.version;
-                if (compareVersions(latest, GAME_VERSION) > 0) {
-                    showNotification(`发现新版本 ${latest}！请前往下载。`);
+            if (result.success && result.data && result.data.version) latest = result.data.version;
+        } else {
+            // 网页版：同源 fetch version.json 检测新版本（GitHub Pages 同目录）
+            try {
+                const res = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' });
+                if (res.ok) {
+                    const data = await res.json();
+                    if (data && data.version) latest = data.version;
                 }
-            }
+            } catch (fe) { /* 网络失败静默 */ }
+        }
+        if (latest && compareVersions(latest, GAME_VERSION) > 0) {
+            showNotification(`发现新版本 ${latest}！`, 'success');
+            // 高亮公告入口，引导玩家查看更新内容
+            const ab = document.getElementById('announcementBtn');
+            if (ab) { ab.classList.add('has-update'); ab.title = '发现新版本 ' + latest; }
         }
     } catch (e) {
         console.warn('[UPDATE] Version check failed:', e.message);
