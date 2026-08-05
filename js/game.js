@@ -3659,6 +3659,9 @@ function actuallyStartGame() {
     gameStartTime = Date.now();
     updateHUD();
 
+    // 游戏开始时启动自动备份（仅在游戏进行中备份）
+    try { startAutoBackup(); } catch (e) { console.error(e); }
+
     // 搜打撤模式显示局内弹药补充入口
     const raidAmmoToggle = document.getElementById('raidAmmoToggle');
     if (raidAmmoToggle) raidAmmoToggle.style.display = gameMode === 'raid' ? 'block' : 'none';
@@ -8956,6 +8959,12 @@ function startAutoBackup() {
     autoBackupCountdown = 30;
     updateBackupStatusUI();
     autoBackupTimerId = setInterval(function() {
+        // 仅在游戏进行中才执行自动备份，避免大厅/未加载状态下用空数据覆盖真实存档
+        if (!gameRunning) {
+            autoBackupCountdown = 30;
+            updateBackupCountdownUI();
+            return;
+        }
         autoBackupCountdown -= 1;
         if (autoBackupCountdown <= 0) {
             doManualBackup();
@@ -9016,6 +9025,15 @@ function restoreFromBackup(slotIdx) {
         if (!confirm('确定恢复备份 ' + slotIdx + ' ? 当前游戏状态将被覆盖。')) return;
         if (save.playerData) Object.assign(playerData, save.playerData);
         if (save.settings) Object.assign(settings, save.settings);
+        // 持久化恢复结果，避免被旧数据覆盖
+        try { savePlayerData(); saveSettings(); } catch (e) {}
+        // 刷新相关 UI
+        try {
+            if (typeof renderPlayerInfo === 'function') renderPlayerInfo();
+            if (typeof updateHUD === 'function') updateHUD();
+            refreshBackupUI();
+            refreshSaveStatus();
+        } catch (e) {}
         showNotification('已恢复备份 ' + slotIdx);
     } catch (e) { showNotification('恢复失败: ' + e.message); }
 }
