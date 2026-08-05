@@ -8173,23 +8173,6 @@ function previewSkin(skin) {
 // 购买皮肤
 // 皮肤预览和购买由原有的 buySkin/equipSkin 函数处理
 
-// 受击变红效果
-function showDamageFlash() {
-    const flash = document.getElementById('damageFlash');
-    if (flash) {
-        flash.style.opacity = '0.6';
-        setTimeout(() => { flash.style.opacity = '0'; }, 150);
-    }
-}
-
-// 血量变化时更新暗角
-function updateDamageVignette(healthPercent) {
-    const vignette = document.getElementById('damageVignette');
-    if (vignette) {
-        vignette.style.opacity = Math.max(0, (1 - healthPercent) * 0.3).toString();
-    }
-}
-
 // 小地图绘制（搜打撤风格）
 let __minimapStaticCache = null;
 let __minimapStaticKey = '';
