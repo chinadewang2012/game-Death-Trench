@@ -6557,7 +6557,106 @@ body.mobile-mode .setting-label {
 body.mobile-mode #gameCanvas {
     touch-action: none;
 }
-/* 触屏虚拟摇杆/按钮容器（如有需要可后续填充，默认隐藏以免干扰） */
-body.mobile-mode #mobileControls {
+/* 移动端触屏控件容器：默认（PC）完全不显示，开启 mobile-mode 才显示 */
+.mobile-controls {
     display: none;
+}
+body.mobile-mode .mobile-controls {
+    display: block;
+    position: absolute;
+    inset: 0;
+    z-index: 600;
+    pointer-events: none; /* 容器不挡游戏，子元素各自开启 */
+}
+/* 虚拟摇杆（左下） */
+body.mobile-mode .mobile-joystick {
+    position: absolute;
+    left: 24px;
+    bottom: 36px;
+    width: 120px;
+    height: 120px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.08);
+    border: 2px solid rgba(255,255,255,0.25);
+    pointer-events: auto;
+    touch-action: none;
+}
+body.mobile-mode .mobile-joystick-stick {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 52px;
+    height: 52px;
+    margin-left: -26px;
+    margin-top: -26px;
+    border-radius: 50%;
+    background: rgba(0,200,120,0.55);
+    border: 2px solid rgba(255,255,255,0.5);
+    transform: translate(0,0);
+}
+/* 右侧操作区 */
+body.mobile-mode .mobile-right {
+    position: absolute;
+    right: 22px;
+    bottom: 36px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 18px;
+    pointer-events: none;
+}
+body.mobile-mode .mobile-fire-btn {
+    width: 92px;
+    height: 92px;
+    border-radius: 50%;
+    background: rgba(220,60,60,0.55);
+    border: 3px solid rgba(255,255,255,0.6);
+    color: #fff;
+    font-size: 34px;
+    pointer-events: auto;
+    touch-action: none;
+    user-select: none;
+}
+body.mobile-mode .mobile-item-btn {
+    width: 64px;
+    height: 64px;
+    border-radius: 50%;
+    background: rgba(60,120,220,0.55);
+    border: 3px solid rgba(255,255,255,0.6);
+    color: #fff;
+    font-size: 28px;
+    pointer-events: auto;
+    touch-action: none;
+    user-select: none;
+}
+/* 战斗物品快捷面板 */
+body.mobile-mode .mobile-item-panel {
+    position: absolute;
+    right: 22px;
+    bottom: 220px;
+    width: 160px;
+    background: rgba(10,15,10,0.92);
+    border: 1px solid rgba(74,93,35,0.6);
+    border-radius: 10px;
+    padding: 10px;
+    pointer-events: auto;
+    z-index: 700;
+}
+body.mobile-mode .mobile-item-title {
+    color: #aadd88;
+    font-size: 13px;
+    text-align: center;
+    margin-bottom: 8px;
+}
+body.mobile-mode .mobile-item-opt {
+    display: block;
+    width: 100%;
+    margin: 6px 0;
+    padding: 12px 8px;
+    background: rgba(74,93,35,0.25);
+    border: 1px solid rgba(74,93,35,0.5);
+    border-radius: 8px;
+    color: #e8f0d8;
+    font-size: 15px;
+    text-align: left;
 }

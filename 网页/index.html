@@ -161,6 +161,27 @@
         <!-- 侧边栏遮罩层 -->
         <div id="sidebarOverlay" class="sidebar-overlay" onclick="toggleSidebar()"></div>
 
+        <!-- 移动端触屏控件（仅 body.mobile-mode 时显示；默认隐藏不影响 PC 端） -->
+        <div id="mobileControls" class="mobile-controls">
+            <!-- 虚拟摇杆（左） -->
+            <div id="mobileJoystick" class="mobile-joystick">
+                <div id="mobileJoystickStick" class="mobile-joystick-stick"></div>
+            </div>
+            <!-- 右侧操作区：物品按钮 + 射击键 -->
+            <div class="mobile-right">
+                <button id="mobileItemBtn" class="mobile-item-btn" type="button">🎒</button>
+                <button id="mobileFireBtn" class="mobile-fire-btn" type="button">🔫</button>
+            </div>
+            <!-- 战斗物品快捷面板 -->
+            <div id="mobileItemPanel" class="mobile-item-panel" style="display:none;">
+                <div class="mobile-item-title">战斗物品</div>
+                <button class="mobile-item-opt" data-item="medkit" type="button">🩹 医疗包</button>
+                <button class="mobile-item-opt" data-item="speedBoost" type="button">⚡ 加速</button>
+                <button class="mobile-item-opt" data-item="ammoBox" type="button">🔋 弹药箱</button>
+                <button class="mobile-item-opt" data-item="grenade" type="button">💣 手雷</button>
+            </div>
+        </div>
+
         <!-- 撤离进度条 -->
         <div id="extractProgressBar" style="display:none; position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.7); border: 2px solid #00ff88; border-radius: 8px; padding: 10px 20px; min-width: 260px; text-align: center;">
             <div style="color: #00ff88; font-size: 14px; font-weight: bold; margin-bottom: 6px;">🚁 撤离进度</div>

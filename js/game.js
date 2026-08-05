@@ -923,6 +923,101 @@ function applyMobileModeClass() {
 }
 window.applyMobileModeClass = applyMobileModeClass;
 
+// ====================================================================
+// 移动端触屏控制（实验性）：虚拟摇杆 + 射击键 + 战斗物品面板
+// 仅在 settings.mobileMode 开启、且战斗进行中（gameRunning）时绑定/生效。
+// 全部独立于键盘逻辑，不影响 PC 端主界面。
+// ====================================================================
+window.__mobileMove = { dx: 0, dy: 0 };
+
+function initMobileControls() {
+    try {
+        const joystick = document.getElementById('mobileJoystick');
+        const stick = document.getElementById('mobileJoystickStick');
+        const fireBtn = document.getElementById('mobileFireBtn');
+        const itemBtn = document.getElementById('mobileItemBtn');
+        const itemPanel = document.getElementById('mobileItemPanel');
+        if (!joystick || !stick || !fireBtn || !itemBtn || !itemPanel) return;
+
+        // --- 虚拟摇杆 ---
+        let joyId = null;
+        const joyRadius = 55;
+        function joyStart(e) {
+            if (!settings.mobileMode) return;
+            const t = e.changedTouches ? e.changedTouches[0] : e;
+            joyId = t.identifier !== undefined ? t.identifier : 'mouse';
+            joyMove(e);
+            e.preventDefault();
+        }
+        function joyMove(e) {
+            if (!settings.mobileMode) return;
+            const rect = joystick.getBoundingClientRect();
+            const t = (e.changedTouches)
+                ? Array.from(e.changedTouches).find(x => (x.identifier === joyId)) || e.changedTouches[0]
+                : e;
+            let cx = t.clientX - rect.left - rect.width / 2;
+            let cy = t.clientY - rect.top - rect.height / 2;
+            const dist = Math.sqrt(cx * cx + cy * cy);
+            const max = joyRadius;
+            if (dist > max) { cx = cx / dist * max; cy = cy / dist * max; }
+            stick.style.transform = 'translate(' + cx + 'px,' + cy + 'px)';
+            window.__mobileMove.dx = cx / max;
+            window.__mobileMove.dy = cy / max;
+            e.preventDefault();
+        }
+        function joyEnd(e) {
+            if (!settings.mobileMode) return;
+            joyId = null;
+            stick.style.transform = 'translate(0px,0px)';
+            window.__mobileMove.dx = 0;
+            window.__mobileMove.dy = 0;
+            e.preventDefault();
+        }
+        joystick.addEventListener('touchstart', joyStart, { passive: false });
+        joystick.addEventListener('touchmove', joyMove, { passive: false });
+        joystick.addEventListener('touchend', joyEnd, { passive: false });
+        joystick.addEventListener('touchcancel', joyEnd, { passive: false });
+        // 鼠标兜底（桌面测试用）
+        joystick.addEventListener('mousedown', joyStart);
+        window.addEventListener('mousemove', (e) => { if (joyId !== null) joyMove(e); });
+        window.addEventListener('mouseup', (e) => { if (joyId !== null) joyEnd(e); });
+
+        // --- 射击键 ---
+        function fireOn(e) { if (settings.mobileMode) { mouseFiring = true; e.preventDefault(); } }
+        function fireOff(e) { if (settings.mobileMode) { mouseFiring = false; e.preventDefault(); } }
+        fireBtn.addEventListener('touchstart', fireOn, { passive: false });
+        fireBtn.addEventListener('touchend', fireOff, { passive: false });
+        fireBtn.addEventListener('touchcancel', fireOff, { passive: false });
+        fireBtn.addEventListener('mousedown', fireOn);
+        fireBtn.addEventListener('mouseup', fireOff);
+        fireBtn.addEventListener('mouseleave', fireOff);
+
+        // --- 物品面板开关 ---
+        itemBtn.addEventListener('click', function() {
+            if (!settings.mobileMode) return;
+            const open = itemPanel.style.display === 'block';
+            itemPanel.style.display = open ? 'none' : 'block';
+        });
+
+        // --- 物品面板内按钮（动态绑定） ---
+        itemPanel.querySelectorAll('[data-item]').forEach(btn => {
+            btn.addEventListener('click', function() {
+                const id = btn.getAttribute('data-item');
+                if (id === 'grenade') { try { throwGrenade(); showNotification('💣 手雷已投掷'); } catch (err) { showNotification('无法投掷手雷'); } }
+                else {
+                    const r = useItem(id);
+                    if (r && r.success) showNotification('✅ 已使用 ' + (r.item && r.item.name ? r.item.name : id));
+                    else showNotification('❌ 无法使用 ' + id);
+                }
+                itemPanel.style.display = 'none';
+            });
+        });
+    } catch (e) {
+        console.warn('[MOBILE] 控件初始化失败（不影响主游戏）:', e.message);
+    }
+}
+window.initMobileControls = initMobileControls;
+
 // 游戏模式：mission 普通任务 / raid 搜打撤
 let gameMode = 'mission';
 window.gameMode = gameMode;
@@ -4080,6 +4175,15 @@ function update() {
     if (keys.has('ArrowLeft') && keys.get('ArrowLeft')) dx -= speed;
     if (keys.has('ArrowRight') && keys.get('ArrowRight')) dx += speed;
 
+    // 移动端虚拟摇杆：仅在开启 mobileMode 时生效，独立于键盘逻辑，不影响主界面
+    if (settings.mobileMode && window.__mobileMove) {
+        const mv = window.__mobileMove;
+        if (mv.dx || mv.dy) {
+            dx += mv.dx * speed;
+            dy += mv.dy * speed;
+        }
+    }
+
     if (dx !== 0 || dy !== 0) {
         const length = Math.sqrt(dx * dx + dy * dy);
         dx = (dx / length) * speed;
@@ -5529,28 +5633,94 @@ function drawEnemy(enemy) {
     const screenY = worldToScreen(enemy.x, enemy.y).y;
 
     const sizeMul = enemy.isBoss ? 1.6 : 1.0;
+    const r = ENEMY_SIZE * TILE_SIZE * sizeMul;
+    const now = performance.now();
 
-    // 缓存 Image 对象，避免每帧 new Image
-    if (enemy.img && !enemy._imgEl) {
-        try { enemy._imgEl = new Image(); enemy._imgEl.src = enemy.img; } catch (e) { enemy._imgEl = null; }
+    // ---- Boss：程序化动作绘制（已移除静态背景立绘） ----
+    if (enemy.isBoss) {
+        const pulse = 1 + 0.08 * Math.sin(now / 250);          // 呼吸缩放
+        const spin = (now / 600) % (Math.PI * 2);              // 旋转光环
+        const rr = r * pulse;
+        ctx.save();
+        ctx.translate(screenX, screenY);
+
+        // 外层旋转能量环
+        ctx.strokeStyle = 'rgba(255,80,255,0.55)';
+        ctx.lineWidth = 4;
+        ctx.beginPath();
+        for (let i = 0; i < 6; i++) {
+            const a0 = spin + i * Math.PI / 3;
+            const a1 = a0 + Math.PI / 6;
+            ctx.moveTo(Math.cos(a0) * rr, Math.sin(a0) * rr);
+            ctx.lineTo(Math.cos(a1) * rr * 1.25, Math.sin(a1) * rr * 1.25);
+        }
+        ctx.stroke();
+
+        // 主体（紫色脉冲圆 + 攻击预兆）
+        const charging = (now % 2000) < 400; // 每 2s 有 0.4s “蓄力”动作
+        ctx.fillStyle = charging ? '#ff99ff' : '#aa00aa';
+        ctx.shadowColor = '#ff66ff';
+        ctx.shadowBlur = charging ? 28 : 16;
+        ctx.beginPath();
+        ctx.arc(0, 0, rr * 0.5, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.shadowBlur = 0;
+
+        // 朝向玩家的“眼”
+        ctx.fillStyle = '#fff';
+        ctx.beginPath();
+        ctx.arc(Math.cos(enemy.angle) * rr * 0.3, Math.sin(enemy.angle) * rr * 0.3, rr * 0.12, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+
+        // 受击白色闪烁
+        if (enemy.hitFlash > 0) {
+            const a = Math.min(0.7, enemy.hitFlash / 5);
+            ctx.fillStyle = `rgba(255, 255, 255, ${a})`;
+            ctx.beginPath();
+            ctx.arc(screenX, screenY, rr * 0.9, 0, Math.PI * 2);
+            ctx.fill();
+        }
+
+        const healthPercent = enemy.health / enemy.maxHealth;
+        const barW = 50, barH = 6;
+        ctx.fillStyle = '#333';
+        ctx.fillRect(screenX - barW / 2, screenY - 25, barW, barH);
+        ctx.fillStyle = healthPercent > 0.5 ? '#00cc66' : '#ff4444';
+        ctx.fillRect(screenX - barW / 2, screenY - 25, barW * healthPercent, barH);
+        return;
+    }
+
+    // ---- 普通小怪：两态图片交替（动作感） ----
+    if (!enemy._imgEl) {
+        try {
+            const cur = (enemy._frame === 0) ? enemy.img : enemy.imgAlt;
+            enemy._imgEl = new Image();
+            enemy._imgEl.src = cur;
+            enemy._imgEl.onerror = function () { enemy._imgEl = null; };
+        } catch (e) { enemy._imgEl = null; }
+    }
+    // 帧计时：每 360ms 切换一次，并加载对应图片
+    enemy._frameT = (enemy._frameT || 0) + 16;
+    if (enemy._frameT >= 360) {
+        enemy._frameT = 0;
+        enemy._frame = enemy._frame === 0 ? 1 : 0;
+        enemy._imgEl = null; // 触发下一帧重新加载对应图
     }
 
     ctx.save();
     ctx.translate(screenX, screenY);
     ctx.rotate(enemy.angle);
 
-    const r = ENEMY_SIZE * TILE_SIZE * sizeMul;
-
     if (enemy._imgEl && enemy._imgEl.complete && enemy._imgEl.naturalWidth > 0) {
-        // 用图片立绘（顶部朝向 +x 方向绘制）
         ctx.save();
-        ctx.rotate(-enemy.angle); // 抵消外层旋转，使图片始终正向，仅位置正确
+        ctx.rotate(-enemy.angle);
         ctx.translate(-r, -r);
         ctx.drawImage(enemy._imgEl, 0, 0, r * 2, r * 2);
         ctx.restore();
     } else {
         // 回退：纯色三角
-        ctx.fillStyle = enemy.isBoss ? '#aa00aa' : '#cc3333';
+        ctx.fillStyle = '#cc3333';
         ctx.beginPath();
         ctx.moveTo(r, 0);
         ctx.lineTo(-r * 0.7, -r * 0.7);
@@ -5558,14 +5728,10 @@ function drawEnemy(enemy) {
         ctx.lineTo(-r * 0.7, r * 0.7);
         ctx.closePath();
         ctx.fill();
-
-        ctx.fillStyle = enemy.isBoss ? '#ff66ff' : '#ff4444';
-        ctx.shadowColor = enemy.isBoss ? '#ff66ff' : '#ff4444';
-        ctx.shadowBlur = enemy.isBoss ? 16 : 8;
+        ctx.fillStyle = '#ff4444';
         ctx.beginPath();
         ctx.arc(0, 0, r * 0.4, 0, Math.PI * 2);
         ctx.fill();
-        ctx.shadowBlur = 0;
     }
 
     // 受击白色闪烁
@@ -5580,8 +5746,7 @@ function drawEnemy(enemy) {
     ctx.restore();
 
     const healthPercent = enemy.health / enemy.maxHealth;
-    const barW = enemy.isBoss ? 50 : 30;
-    const barH = enemy.isBoss ? 6 : 4;
+    const barW = 30, barH = 4;
     ctx.fillStyle = '#333';
     ctx.fillRect(screenX - barW / 2, screenY - 25, barW, barH);
     ctx.fillStyle = healthPercent > 0.5 ? '#00cc66' : '#ff4444';
@@ -5979,10 +6144,13 @@ function spawnEnemy() {
         return { x: MAP_SIZE * 0.5, y: MAP_SIZE * 0.5 };
     }
     function pushOne(x, y, boss) {
-        // 普通敌人按类型分配像素立绘；Boss 使用专属立绘
-        const typeImgs = ['assets/art/enemy-grunt.png', 'assets/art/enemy-sniper.png', 'assets/art/enemy-heavy.png'];
-        const img = boss ? 'assets/art/boss-anvil.png'
-            : typeImgs[Math.floor(Math.random() * typeImgs.length)];
+        // 小怪按类型分配两态像素立绘（交替切换呈现动作）
+        const typePairs = [
+            ['assets/art/enemy-grunt.png', 'assets/art/enemy-grunt2.png'],
+            ['assets/art/enemy-sniper.png', 'assets/art/enemy-sniper2.png'],
+            ['assets/art/enemy-heavy.png', 'assets/art/enemy-heavy2.png']
+        ];
+        const pair = typePairs[Math.floor(Math.random() * typePairs.length)];
         enemies.push({
             x, y,
             health: boss ? enemyHealth * 3 * difficultyHealthMul : enemyHealth * difficultyHealthMul,
@@ -5992,7 +6160,12 @@ function spawnEnemy() {
             fireRate: boss ? enemyFireRate * 0.75 : enemyFireRate,
             isBoss: boss,
             alive: true,
-            img,
+            // Boss 不再使用静态背景立绘，改用程序化动作绘制（drawEnemy 内处理）
+            img: boss ? null : pair[0],
+            imgAlt: boss ? null : pair[1],
+            // 小怪两态交替：每 360ms 切换一帧
+            _frameT: Math.random() * 360,
+            _frame: 0,
             path: null, pathIndex: 0, lastPathUpdate: 0, pathUpdateInterval: 500
         });
     }
@@ -11000,6 +11173,7 @@ function init() {
     loadGameParams();
     loadSettings();
     applyMobileModeClass();
+    initMobileControls();
     loadPlayerMods();
     loadCustomTitles();
     loadMedals();
