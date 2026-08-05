@@ -1012,6 +1012,18 @@ function initMobileControls() {
                 itemPanel.style.display = 'none';
             });
         });
+        itemPanel.querySelectorAll('[data-action]').forEach(btn => {
+            btn.addEventListener('click', function() {
+                const action = btn.getAttribute('data-action');
+                if (action === 'reload') {
+                    reload();
+                    showNotification('🔄 换弹中…');
+                } else if (action === 'backpack') {
+                    try { toggleRaidBackpackPanel(); } catch (err) { showNotification('背包暂不可用'); }
+                }
+                itemPanel.style.display = 'none';
+            });
+        });
     } catch (e) {
         console.warn('[MOBILE] 控件初始化失败（不影响主游戏）:', e.message);
     }
@@ -4241,7 +4253,15 @@ function update() {
     // 计算瞄准角度（鼠标位置相对于屏幕中心），并叠加当前后坐力
     const screenCenterX = canvas.width / 2;
     const screenCenterY = canvas.height / 2;
-    player.angle = Math.atan2(mouseY - screenCenterY, mouseX - screenCenterX) + recoilAngle;
+    if (settings.mobileMode) {
+        // 移动端无鼠标：枪口朝向跟随虚拟摇杆方向（移动即开火方向），叠加后坐力
+        if (window.__mobileMove && (window.__mobileMove.dx || window.__mobileMove.dy)) {
+            player.angle = Math.atan2(window.__mobileMove.dy, window.__mobileMove.dx) + recoilAngle;
+        }
+        // 无摇杆输入时保持当前朝向（recoilAngle 已自然衰减，不重复叠加）
+    } else {
+        player.angle = Math.atan2(mouseY - screenCenterY, mouseX - screenCenterX) + recoilAngle;
+    }
 
     // 更新瞄准方向与镜头缩放
     // 狙击枪开镜：缩小镜头以观察全图（配合黑色遮罩只露出枪口方向）

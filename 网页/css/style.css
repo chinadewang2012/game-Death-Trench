@@ -6660,3 +6660,12 @@ body.mobile-mode .mobile-item-opt {
     font-size: 15px;
     text-align: left;
 }
+/* 移动端局内背包面板需高于触屏控件层，且适配小屏 */
+body.mobile-mode #raidBackpackPanel.grid-panel {
+    z-index: 900;
+    max-height: 80vh;
+    overflow-y: auto;
+}
+body.mobile-mode #raidBackpackPanel .inv-grid {
+    grid-template-columns: repeat(4, 1fr);
+}
