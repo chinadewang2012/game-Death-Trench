@@ -2003,18 +2003,31 @@ const BackpackManager = (() => {
         });
 
         const merged = [];
+        const RARITY_ORDER = { legendary: 4, epic: 3, rare: 2, uncommon: 1, common: 0 };
+        // 先放置不可堆叠物品（按稀有度从高到低），尽量优先保留高价值物品，避免被容量截断静默丢弃
+        const stackableGroups = [];
         for (const itemId of Object.keys(groups)) {
             const def = getItemDef(itemId);
             if (!def || !def.stackable) {
+                const rarity = RARITY_ORDER[def.rarity] ?? 0;
+                groups[itemId].forEach(s => s.__rarity = rarity);
                 merged.push(...groups[itemId]);
                 continue;
             }
-            let total = groups[itemId].reduce((sum, s) => sum + (s.count || 0), 0);
+            stackableGroups.push({ itemId, def, total: groups[itemId].reduce((sum, s) => sum + (s.count || 0), 0) });
+        }
+        stackableGroups.sort((a, b) => (RARITY_ORDER[b.def.rarity] ?? 0) - (RARITY_ORDER[a.def.rarity] ?? 0));
+        for (const g of stackableGroups) {
+            let total = g.total;
             while (total > 0) {
-                const chunk = Math.min(total, def.maxStack);
-                merged.push({ itemId, count: chunk, metadata: null });
+                const chunk = Math.min(total, g.def.maxStack);
+                merged.push({ itemId: g.itemId, count: chunk, metadata: null });
                 total -= chunk;
             }
+        }
+        // 仅在确实超出容量时保留高价值物品，并给出警告（不静默丢弃高价值物）
+        if (merged.length > bp.capacity) {
+            console.warn('[背包] 合并后格数超出容量，已优先保留高价值物品，部分低价值堆叠物品被截断');
         }
         bp.items = merged.slice(0, bp.capacity);
         save();
@@ -3334,8 +3347,15 @@ function buildBlockedGrid() {
     blockedGrid = new Uint8Array(MAP_SIZE * MAP_SIZE);
     const n = MAP_SIZE * MAP_SIZE;
     for (let i = 0; i < n; i++) {
-        const tile = mapData[i % MAP_SIZE + '_' + (i / MAP_SIZE | 0)];
-        const t = tile && tile.type;
+        const x = i % MAP_SIZE;
+        const y = (i / MAP_SIZE) | 0;
+        const tile = mapData[x + '_' + y];
+        // 自定义非正方形地图时，未填充的越界格子视为"虚空=阻挡"，防止走入碰撞/渲染不一致区域
+        if (!tile) {
+            blockedGrid[i] = 1;
+            continue;
+        }
+        const t = tile.type;
         if (t === 'obstacle' || t === 'building' || t === 'water' || t === 'brick') {
             blockedGrid[i] = 1;
         }
