@@ -815,15 +815,7 @@
                         </div>
                     </div>
                     <ul class="un-list">
-                        <li>🔫 操作优化：左键开枪、右键狙击开镜可放大指定方向镜头</li>
-                        <li>🔧 修复扩容弹匣换弹后显示30发、实际45发的显示错误</li>
-                        <li>⚡ 移速上限提升，Ctrl 加速不再误触其他操作，长按 WASD 不再异常持续移动</li>
-                        <li>💉 道具「加速卡」已更名为「肾上激素」</li>
-                        <li>🎟️ 兑换码改为无规律随机串（字母+数字混合、区分大小写），杜绝被枚举猜出</li>
-                        <li>🗺️ 小地图不再被任务提示遮挡；寻路逻辑与 FPS 表现优化</li>
-                        <li>📦 修复子弹/医疗包/手雷/弹药箱出售「库存不够」误报（分别可出售至 3/5/7 个）</li>
-                        <li>🛒 修复皮肤购买「皮肤不存在」、空投开出「normal」子弹显示异常</li>
-                        <li>📖 剧情系统完善：新增幽灵引导对话；通关后弹出结局回顾（忠诚/真相/仁慈三结局）</li>
+                        <li></li>
                     </ul>
                     <div class="un-actions">
                         <button class="menu-btn primary" onclick="closeAnnouncement()">知道了</button>
@@ -1672,21 +1664,6 @@
             <div class="popup-message" id="warmTipMessage"></div>
             <div class="popup-actions">
                 <button class="menu-btn primary" onclick="closeWarmTip()">知道了</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- 更新公告弹窗 -->
-    <div id="announcementModal" class="popup-overlay" style="display:none;">
-        <div class="popup-box popup-announcement">
-            <div class="popup-title">📢 更新公告 <span class="announcement-version" id="announcementVersion"></span></div>
-            <div class="announcement-date" id="announcementDate"></div>
-            <div class="announcement-content" id="announcementContent"></div>
-            <div class="announcement-actions">
-                <label class="announcement-dont-show">
-                    <input type="checkbox" id="announcementDontShow"> 不再提示此版本
-                </label>
-                <button class="menu-btn primary" onclick="closeAnnouncement()">知道了</button>
             </div>
         </div>
     </div>
