@@ -841,6 +841,19 @@ window.gameMode = gameMode;
 let raidLoot = [];
 let currentRaidLoadout = null;
 let battleConsumables = null;
+// 搜打撤局内背包（三角洲式：搜到的战利品暂存在此，撤离成功才带回，死亡清空）
+let raidBackpack = null;
+const RAID_BACKPACK_CAPACITY = 24; // 6x4 网格
+const RAID_BACKPACK_COLS = 6;
+function getRaidBackpack() {
+    if (!raidBackpack) {
+        raidBackpack = { capacity: RAID_BACKPACK_CAPACITY, items: [] };
+    }
+    return raidBackpack;
+}
+function raidBackpackUsed() {
+    return getRaidBackpack().items.reduce((s, it) => s + (it.count || 0), 0);
+}
 
 // Round 3：地图事件与 AI 埋伏
 let mapEvents = [];
@@ -3502,6 +3515,7 @@ function actuallyStartGame() {
     // 重置搜打撤临时数据
     raidLoot = [];
     currentRaidLoadout = null;
+    raidBackpack = { capacity: RAID_BACKPACK_CAPACITY, items: [] };
 
     if (gameMode === 'raid') {
         // 记录本局出战配装（武器、护甲、消耗品）
@@ -3571,6 +3585,7 @@ function actuallyStartGame() {
     if (_ctrlStart) _ctrlStart.style.display = 'block';
     document.getElementById('hud').style.display = 'block';
     document.getElementById('gameSettingsBtn').style.display = 'flex';
+    updateRaidBackpackBadge();
 
     generateMap(playerData.selectedMap);
     selectMissionForMap(playerData.selectedMap);
@@ -5807,6 +5822,8 @@ function gameOver() {
         playerData.equippedWeapons = { primary: 'rifle', secondary: 'pistol' };
         playerData.equippedArmor = '';
         raidLoot = [];
+        raidBackpack = { capacity: RAID_BACKPACK_CAPACITY, items: [] };
+        closeContainerPanel();
         showNotification('⚠️ 搜打撤行动失败：出战装备与战利品全部丢失', 'error');
     }
 
@@ -5993,6 +6010,8 @@ function _hudSet(cacheKey, el, value) {
 
 function updateHUD() {
     if (!player) return;
+
+    updateRaidBackpackBadge();
 
     // 血条
     const healthPercent = player.health / player.maxHealth;
@@ -8345,6 +8364,34 @@ function showInventory() {
     renderAmmoBackpack();
     renderAmmoSlots();
     updateInventoryWeaponInfo();
+    renderBackpackGrid();
+}
+
+function renderBackpackGrid() {
+    const grid = document.getElementById('backpackGrid');
+    const capEl = document.getElementById('backpackCapText');
+    if (!grid) return;
+    const items = playerData.backpack.items || [];
+    if (capEl) capEl.textContent = BackpackManager.getUsedCapacity() + '/' + (playerData.backpack.capacity || 36);
+    grid.innerHTML = '';
+    const rarityClass = { common: '', uncommon: 'r-uncommon', rare: 'r-rare', epic: 'r-epic', legendary: 'r-legendary' };
+    const total = playerData.backpack.capacity || 36;
+    for (let i = 0; i < total; i++) {
+        const cell = document.createElement('div');
+        cell.className = 'grid-cell';
+        const it = items[i];
+        if (it) {
+            cell.classList.add('filled');
+            const def = getItemDef(it.itemId);
+            const rc = rarityClass[def && def.rarity ? def.rarity : 'common'] || '';
+            if (rc) cell.classList.add(rc);
+            const icon = (def && def.icon) || '📦';
+            const name = (it.count > 1 ? it.count + '× ' : '') + (def ? def.name : it.itemId);
+            cell.innerHTML = `<span class="cell-icon">${icon}</span><span class="cell-name">${name}</span>`;
+            cell.title = name;
+        }
+        grid.appendChild(cell);
+    }
 }
 
 function showBlackMarket() {
@@ -8903,6 +8950,10 @@ document.addEventListener('keydown', function (e) {
                 closeMapDetail();
             } else if (id === 'raidAmmoPanel' && el.style.display === 'block') {
                 closeRaidAmmoPanel();
+            } else if (id === 'containerPanel' && el.style.display === 'block') {
+                closeContainerPanel();
+            } else if (id === 'raidBackpackPanel' && el.style.display === 'block') {
+                toggleRaidBackpackPanel();
             }
         });
     }
@@ -11187,7 +11238,6 @@ function openLootCrate(crate) {
     const rarityInfo = LOOT_CRATE_RARITY[crate.rarity.toUpperCase()] || LOOT_CRATE_RARITY.COMMON;
     const drops = LOOT_CRATE_DROP_TABLE[crate.rarity] || LOOT_CRATE_DROP_TABLE.common;
     const lootCount = Math.max(1, Math.floor(LOOT_CRATE_LOOT_COUNT * rarityInfo.lootMul));
-    const lootMessages = [];
     const isRaid = gameMode === 'raid';
 
     function pickDrop() {
@@ -11200,44 +11250,29 @@ function openLootCrate(crate) {
         return drops[0];
     }
 
+    // 生成容器内容（格子化的战利品）
+    const contents = [];
     for (let i = 0; i < lootCount; i++) {
         const drop = pickDrop();
         switch (drop.type) {
             case 'coins': {
                 const coins = drop.min + Math.floor(Math.random() * (drop.max - drop.min + 1));
-                if (isRaid) {
-                    raidLoot.push({ type: 'coins', value: coins });
-                    lootMessages.push(`待撤离 +${coins} 金币`);
-                } else {
-                    playerData.coins += coins;
-                    lootMessages.push(`+${coins} 金币`);
-                }
+                contents.push({ type: 'coins', value: coins, icon: '🪙', name: coins + ' 金币', rarity: 'common' });
                 break;
             }
             case 'heal': {
                 const heal = drop.min + Math.floor(Math.random() * (drop.max - drop.min + 1));
-                player.health = Math.min(player.maxHealth, player.health + heal);
-                lootMessages.push(`+${heal} 生命`);
+                contents.push({ type: 'heal', value: heal, icon: '❤️', name: '+' + heal + ' 生命', rarity: 'uncommon' });
                 break;
             }
             case 'fullHeal': {
-                player.health = player.maxHealth;
-                lootMessages.push('生命全满');
+                contents.push({ type: 'fullHeal', value: player.maxHealth, icon: '💗', name: '生命全满', rarity: 'rare' });
                 break;
             }
             case 'item': {
-                const key = drop.itemId === 'ammoBox' ? 'ammoBox' :
-                            drop.itemId === 'medkit' ? 'medkits' :
-                            drop.itemId === 'grenade' ? 'grenades' :
-                            drop.itemId === 'speedBoost' ? 'speedBoost' : drop.itemId;
                 const value = drop.value || 1;
-                if (isRaid) {
-                    raidLoot.push({ type: 'item', key: key, value: value });
-                    lootMessages.push(`待撤离 +${value} ${itemName(drop.itemId)}`);
-                } else {
-                    playerData.inventory[key] = (playerData.inventory[key] || 0) + value;
-                    lootMessages.push(`+${value} ${itemName(drop.itemId)}`);
-                }
+                const def = getItemDef(drop.itemId) || { icon: '📦', name: drop.itemId, rarity: 'common' };
+                contents.push({ type: 'item', itemId: drop.itemId, value: value, icon: def.icon, name: value + '× ' + def.name, rarity: def.rarity || 'common' });
                 break;
             }
             case 'ammo': {
@@ -11245,18 +11280,15 @@ function openLootCrate(crate) {
                 if (w && !w.isMelee && w.type !== WEAPON_TYPES.MELEE) {
                     const ammoType = getWeaponAmmoType(w.id);
                     const amount = drop.min + Math.floor(Math.random() * (drop.max - drop.min + 1));
-                    ammoInventory[ammoType] = (ammoInventory[ammoType] || 0) + amount;
                     const ammoNameMap = { normal: '普通弹', ap: '穿甲弹', exp: '爆裂弹', fire: '燃烧弹' };
-                    lootMessages.push(`+${amount} ${ammoNameMap[ammoType] || ammoType} 弹药`);
+                    contents.push({ type: 'ammo', ammoType: ammoType, value: amount, icon: '🔫', name: '+' + amount + ' ' + (ammoNameMap[ammoType] || ammoType) + '弹药', rarity: 'common' });
                 } else {
-                    playerData.inventory.grenades = (playerData.inventory.grenades || 0) + 1;
-                    lootMessages.push('+1 手雷');
+                    contents.push({ type: 'item', itemId: 'grenade', value: 1, icon: '💣', name: '1× 手雷', rarity: 'rare' });
                 }
                 break;
             }
             case 'armor': {
-                player.health = Math.min(player.maxHealth, player.health + (drop.value || 30));
-                lootMessages.push(`+${drop.value || 30} 护甲/生命`);
+                contents.push({ type: 'armor', value: drop.value || 30, icon: '🦺', name: '+' + (drop.value || 30) + ' 护甲/生命', rarity: 'uncommon' });
                 break;
             }
             case 'mod': {
@@ -11264,21 +11296,9 @@ function openLootCrate(crate) {
                 if (modList.length > 0) {
                     const modId = modList[Math.floor(Math.random() * modList.length)];
                     const mod = MODIFICATIONS[modId];
-                    if (isRaid) {
-                        raidLoot.push({ type: 'mod', modId: modId });
-                        lootMessages.push(`待撤离 +1 ${mod ? mod.name : modId} 配件`);
-                    } else {
-                        playerMods.ownedMods[modId] = (playerMods.ownedMods[modId] || 0) + 1;
-                        lootMessages.push(`+1 ${mod ? mod.name : modId} 配件`);
-                    }
+                    contents.push({ type: 'mod', modId: modId, icon: '🔧', name: '1× ' + (mod ? mod.name : modId), rarity: 'epic' });
                 } else {
-                    if (isRaid) {
-                        raidLoot.push({ type: 'coins', value: 100 });
-                        lootMessages.push('待撤离 +100 金币');
-                    } else {
-                        playerData.coins += 100;
-                        lootMessages.push('+100 金币');
-                    }
+                    contents.push({ type: 'coins', value: 100, icon: '🪙', name: '100 金币', rarity: 'common' });
                 }
                 break;
             }
@@ -11288,45 +11308,229 @@ function openLootCrate(crate) {
                     const skin = skinTemplates[Math.floor(Math.random() * skinTemplates.length)];
                     const skinId = 'skin_' + skin.id;
                     if (!playerMods.ownedSkins.includes(skinId)) {
-                        if (isRaid) {
-                            raidLoot.push({ type: 'skin', skinId: skinId });
-                            lootMessages.push(`🎨 待撤离 皮肤碎片：${skin.name}`);
-                        } else {
-                            playerMods.ownedSkins.push(skinId);
-                            lootMessages.push(`🎨 皮肤碎片：${skin.name}`);
-                        }
+                        contents.push({ type: 'skin', skinId: skinId, icon: '🎨', name: '皮肤碎片：' + skin.name, rarity: 'legendary' });
                     } else {
-                        if (isRaid) {
-                            raidLoot.push({ type: 'coins', value: 50 });
-                            lootMessages.push('待撤离 +50 金币（重复皮肤）');
-                        } else {
-                            playerData.coins += 50;
-                            lootMessages.push('+50 金币（重复皮肤）');
-                        }
+                        contents.push({ type: 'coins', value: 50, icon: '🪙', name: '50 金币（重复皮肤）', rarity: 'common' });
                     }
                 } else {
-                    if (isRaid) {
-                        raidLoot.push({ type: 'coins', value: 80 });
-                        lootMessages.push('待撤离 +80 金币');
-                    } else {
-                        playerData.coins += 80;
-                        lootMessages.push('+80 金币');
-                    }
+                    contents.push({ type: 'coins', value: 80, icon: '🪙', name: '80 金币', rarity: 'common' });
                 }
                 break;
             }
             default:
-                if (isRaid) {
-                    raidLoot.push({ type: 'coins', value: 10 });
-                    lootMessages.push('待撤离 +10 金币');
-                } else {
-                    playerData.coins += 10;
-                    lootMessages.push('+10 金币');
-                }
+                contents.push({ type: 'coins', value: 10, icon: '🪙', name: '10 金币', rarity: 'common' });
         }
     }
-    showNotification(`${rarityInfo.icon} ${rarityInfo.label}物资箱：${lootMessages.join(' / ')}`, 'success');
+    crate.contents = contents;
+
+    if (isRaid) {
+        // 三角洲式：弹出容器格子面板，由玩家逐格拾取到局内背包
+        showNotification(`${rarityInfo.icon} ${rarityInfo.label}物资箱已开启，点击格子拾取战利品`, 'success');
+        openContainerPanel(crate);
+    } else {
+        // 非 raid 模式：即时结算
+        applyCrateContents(contents, false);
+        showNotification(`${rarityInfo.icon} ${rarityInfo.label}物资箱：${contents.map(c => c.name).join(' / ')}`, 'success');
+    }
     updateHUD();
+}
+
+// 把容器内容结算到玩家（非 raid 模式即时结算，保持原有 inventory 行为）
+function applyCrateContents(contents) {
+    for (const c of contents) {
+        switch (c.type) {
+            case 'coins': playerData.coins += c.value || 0; break;
+            case 'heal': player.health = Math.min(player.maxHealth, player.health + (c.value || 0)); break;
+            case 'fullHeal': player.health = player.maxHealth; break;
+            case 'item': {
+                const key = c.itemId === 'ammoBox' ? 'ammoBox' :
+                            c.itemId === 'medkit' ? 'medkits' :
+                            c.itemId === 'grenade' ? 'grenades' :
+                            c.itemId === 'speedBoost' ? 'speedBoost' : c.itemId;
+                playerData.inventory[key] = (playerData.inventory[key] || 0) + (c.value || 1);
+                break;
+            }
+            case 'ammo': ammoInventory[c.ammoType] = (ammoInventory[c.ammoType] || 0) + (c.value || 0); break;
+            case 'armor': player.health = Math.min(player.maxHealth, player.health + (c.value || 0)); break;
+            case 'mod': playerMods.ownedMods[c.modId] = (playerMods.ownedMods[c.modId] || 0) + 1; break;
+            case 'skin': if (!playerMods.ownedSkins.includes(c.skinId)) playerMods.ownedSkins.push(c.skinId); break;
+        }
+    }
+}
+
+// ============================================================
+// 搜打撤：容器格子面板（三角洲式逐格拾取）
+// ============================================================
+let activeContainer = null;
+
+function openContainerPanel(crate) {
+    activeContainer = crate;
+    const panel = document.getElementById('containerPanel');
+    if (!panel) return;
+    panel.classList.add('active');
+    panel.style.display = 'block';
+    renderContainerPanel();
+}
+
+function closeContainerPanel() {
+    activeContainer = null;
+    const panel = document.getElementById('containerPanel');
+    if (panel) { panel.classList.remove('active'); panel.style.display = 'none'; }
+}
+
+function renderContainerPanel() {
+    const grid = document.getElementById('containerGrid');
+    const capEl = document.getElementById('containerCapacity');
+    if (!grid) return;
+    const crate = activeContainer;
+    if (!crate || !Array.isArray(crate.contents)) { if (grid) grid.innerHTML = ''; return; }
+
+    const bp = getRaidBackpack();
+    if (capEl) capEl.textContent = `局内背包 ${raidBackpackUsed()}/${bp.capacity}`;
+
+    grid.innerHTML = '';
+    // 容器使用 6 列网格，内容按序铺格
+    const cols = 6;
+    const cells = [];
+    crate.contents.forEach((c, idx) => {
+        if (c && c.taken) return; // 已拾取
+        cells.push({ idx, content: c });
+    });
+    const totalCells = Math.max(cells.length, 12);
+    const rarityClass = { common: '', uncommon: 'r-uncommon', rare: 'r-rare', epic: 'r-epic', legendary: 'r-legendary' };
+    for (let i = 0; i < totalCells; i++) {
+        const cell = document.createElement('div');
+        cell.className = 'grid-cell';
+        const data = cells[i];
+        if (data) {
+            const c = data.content;
+            cell.classList.add('filled');
+            const rc = rarityClass[c.rarity] || '';
+            if (rc) cell.classList.add(rc);
+            cell.innerHTML = `<span class="cell-icon">${c.icon || '📦'}</span><span class="cell-name">${c.name}</span>`;
+            cell.title = c.name + '（点击拾取）';
+            cell.onclick = function () { pickFromContainer(data.idx); };
+        }
+        grid.appendChild(cell);
+    }
+    // 渲染局内背包
+    renderRaidBackpackGrid();
+}
+
+function pickFromContainer(index) {
+    const crate = activeContainer;
+    if (!crate || !crate.contents[index]) return;
+    const c = crate.contents[index];
+    if (c.taken) return;
+    const bp = getRaidBackpack();
+    if (raidBackpackUsed() >= bp.capacity) {
+        showNotification('局内背包已满，无法拾取！（撤离带回更多空间）', 'error');
+        return;
+    }
+    // 存入局内背包
+    const slot = { itemId: c.itemId || ('_ct_' + c.type), count: c.value || 1, meta: c, taken: true };
+    bp.items.push(slot);
+    if (c.itemId) {
+        raidLoot.push({ type: c.type === 'item' ? 'item' : c.type, itemId: c.itemId, value: c.value || 1, _slot: slot });
+    } else {
+        raidLoot.push({ type: c.type, value: c.value, ammoType: c.ammoType, modId: c.modId, skinId: c.skinId, _slot: slot });
+    }
+    c.taken = true;
+    showNotification('拾取：' + c.name, 'success');
+    renderContainerPanel();
+}
+
+function renderRaidBackpackGrid() {
+    const grid = document.getElementById('raidBackpackGrid');
+    if (!grid) return;
+    const bp = getRaidBackpack();
+    grid.innerHTML = '';
+    const cols = RAID_BACKPACK_COLS;
+    const totalCells = bp.capacity;
+    const rarityClass = { common: '', uncommon: 'r-uncommon', rare: 'r-rare', epic: 'r-epic', legendary: 'r-legendary' };
+    for (let i = 0; i < totalCells; i++) {
+        const cell = document.createElement('div');
+        cell.className = 'grid-cell';
+        const slot = bp.items[i];
+        if (slot) {
+            cell.classList.add('filled');
+            const meta = slot.meta || {};
+            const rc = rarityClass[meta.rarity] || '';
+            if (rc) cell.classList.add(rc);
+            const icon = meta.icon || (slot.itemId && getItemDef(slot.itemId) ? getItemDef(slot.itemId).icon : '📦');
+            const name = meta.name || (slot.itemId ? (slot.count + '× ' + getItemDef(slot.itemId).name) : '物品');
+            cell.innerHTML = `<span class="cell-icon">${icon}</span><span class="cell-name">${name}</span>`;
+            cell.title = name + '（点击丢弃）';
+            const idx = i;
+            cell.onclick = function () { dropFromRaidBackpack(idx); };
+        }
+        grid.appendChild(cell);
+    }
+}
+
+function dropFromRaidBackpack(index) {
+    const bp = getRaidBackpack();
+    if (!bp.items[index]) return;
+    const slot = bp.items[index];
+    // 从 raidLoot 中移除对应记录
+    const mi = raidLoot.findIndex(r => r._slot === slot);
+    if (mi !== -1) raidLoot.splice(mi, 1);
+    bp.items.splice(index, 1);
+    showNotification('丢弃：' + (slot.meta ? slot.meta.name : '物品'), 'warn');
+    renderContainerPanel();
+}
+
+// 战斗中局内背包面板开关
+function toggleRaidBackpackPanel() {
+    const panel = document.getElementById('raidBackpackPanel');
+    if (!panel) return;
+    const open = panel.style.display === 'block';
+    if (open) {
+        panel.style.display = 'none';
+    } else {
+        panel.style.display = 'block';
+        renderRaidBackpackPanel();
+    }
+}
+
+function renderRaidBackpackPanel() {
+    const grid = document.getElementById('raidBackpackGrid2');
+    const capEl = document.getElementById('raidBackpackCap2');
+    if (!grid) return;
+    const bp = getRaidBackpack();
+    if (capEl) capEl.textContent = raidBackpackUsed() + '/' + bp.capacity;
+    grid.innerHTML = '';
+    const cols = RAID_BACKPACK_COLS;
+    const rarityClass = { common: '', uncommon: 'r-uncommon', rare: 'r-rare', epic: 'r-epic', legendary: 'r-legendary' };
+    for (let i = 0; i < bp.capacity; i++) {
+        const cell = document.createElement('div');
+        cell.className = 'grid-cell';
+        const slot = bp.items[i];
+        if (slot) {
+            cell.classList.add('filled');
+            const meta = slot.meta || {};
+            const rc = rarityClass[meta.rarity] || '';
+            if (rc) cell.classList.add(rc);
+            const icon = meta.icon || (slot.itemId && getItemDef(slot.itemId) ? getItemDef(slot.itemId).icon : '📦');
+            const name = meta.name || (slot.itemId ? (slot.count + '× ' + getItemDef(slot.itemId).name) : '物品');
+            cell.innerHTML = `<span class="cell-icon">${icon}</span><span class="cell-name">${name}</span>`;
+            cell.title = name;
+        }
+        grid.appendChild(cell);
+    }
+}
+
+// 更新战斗中局内背包按钮徽标
+function updateRaidBackpackBadge() {
+    const btn = document.getElementById('raidBackpackBtn');
+    const badge = document.getElementById('raidBackpackBadge');
+    if (!btn) return;
+    if (gameMode === 'raid') {
+        btn.style.display = '';
+        if (badge) badge.textContent = raidBackpackUsed();
+    } else {
+        btn.style.display = 'none';
+    }
 }
 
 // ============================================================
@@ -11342,10 +11546,26 @@ function applyRaidLoot() {
                 summary.coins += loot.value || 0;
                 break;
             case 'item':
-                if (loot.key) {
-                    playerData.inventory[loot.key] = (playerData.inventory[loot.key] || 0) + (loot.value || 1);
-                    summary.items.push(`${loot.value || 1} ${itemName(loot.key)}`);
+                if (loot.itemId) {
+                    BackpackManager.addItem(loot.itemId, loot.value || 1);
+                    const def = getItemDef(loot.itemId);
+                    summary.items.push(`${loot.value || 1} ${def ? def.name : loot.itemId}`);
                 }
+                break;
+            case 'ammo':
+                if (loot.ammoType) {
+                    ammoInventory[loot.ammoType] = (ammoInventory[loot.ammoType] || 0) + (loot.value || 0);
+                    summary.items.push(`+${loot.value} 弹药`);
+                }
+                break;
+            case 'heal':
+                player.health = Math.min(player.maxHealth, player.health + (loot.value || 0));
+                break;
+            case 'fullHeal':
+                player.health = player.maxHealth;
+                break;
+            case 'armor':
+                player.health = Math.min(player.maxHealth, player.health + (loot.value || 0));
                 break;
             case 'mod':
                 if (loot.modId) {

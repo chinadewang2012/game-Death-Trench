@@ -130,6 +130,9 @@
             <button id="raidAmmoBuyBtn" class="raid-ammo-buy" onclick="buyRaidAmmo()">购买并补充</button>
         </div>
 
+        <!-- 搜打撤局内背包按钮 -->
+        <button id="raidBackpackBtn" class="raid-backpack-btn" onclick="toggleRaidBackpackPanel()" style="display:none;">🎒 <span id="raidBackpackBadge">0</span></button>
+
         <!-- 游戏内设置按钮（右上角） -->
         <button id="gameSettingsBtn" class="game-settings-btn" onclick="showSettings()">
             <span class="settings-icon">⚙️</span>
@@ -145,6 +148,35 @@
                 <div id="extractProgressFill" style="background: linear-gradient(90deg, #00cc66, #00ff88); height: 100%; width: 0%; transition: width 0.1s linear; border-radius: 4px;"></div>
             </div>
             <div id="extractProgressText" style="color: #00ff88; font-size: 12px; margin-top: 4px;">撤离中... 0%</div>
+        </div>
+
+        <!-- 容器格子面板（三角洲式逐格拾取） -->
+        <div id="containerPanel" class="grid-panel" style="display:none;">
+            <div class="grid-panel-title">
+                <span>📦 物资箱 · <span id="containerCapacity">局内背包 0/24</span></span>
+                <button class="grid-panel-close" onclick="closeContainerPanel()">×</button>
+            </div>
+            <div class="grid-panel-body">
+                <div class="grid-section-label">容器（点击格子拾取）</div>
+                <div id="containerGrid" class="inv-grid"></div>
+                <div class="grid-section-label">局内背包（点击格子丢弃 · 撤离带回）</div>
+                <div id="raidBackpackGrid" class="inv-grid"></div>
+            </div>
+            <div class="grid-panel-foot">
+                <button class="grid-panel-done" onclick="closeContainerPanel()">完成搜索</button>
+            </div>
+        </div>
+
+        <!-- 局内背包面板 -->
+        <div id="raidBackpackPanel" class="grid-panel" style="display:none;">
+            <div class="grid-panel-title">
+                <span>🎒 局内背包 · <span id="raidBackpackCap2">0/24</span></span>
+                <button class="grid-panel-close" onclick="toggleRaidBackpackPanel()">×</button>
+            </div>
+            <div class="grid-panel-body">
+                <div id="raidBackpackGrid2" class="inv-grid"></div>
+                <div class="grid-section-label" style="color:#9fb0ab">撤离成功后，背包内物品将带回主仓库；阵亡则全部丢失。</div>
+            </div>
         </div>
 
         <!-- 物资圆盘（按住 Shift 显示） -->
@@ -600,6 +632,12 @@
                 <div class="ammo-slots-bar">
                     <div class="section-label">当前武器弹格（6格）</div>
                     <div class="ammo-slot-row" id="ammoSlotRow"></div>
+                </div>
+
+                <!-- 背包物品网格 -->
+                <div class="ammo-slots-bar">
+                    <div class="section-label">背包物品（搜打撤带回）· <span id="backpackCapText">0/36</span></div>
+                    <div class="inv-grid" id="backpackGrid" style="grid-template-columns: repeat(6, 1fr);"></div>
                 </div>
             </div>
 

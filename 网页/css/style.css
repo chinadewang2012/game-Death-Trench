@@ -2081,6 +2081,164 @@ body {
     justify-content: flex-end;
 }
 
+/* --- 搜打撤：格子化容器/背包面板（三角洲风格） --- */
+.raid-backpack-btn {
+    position: fixed;
+    top: 14px;
+    right: 56px;
+    z-index: 1003;
+    padding: 8px 14px;
+    font-family: var(--font-body, 'Rajdhani', sans-serif);
+    font-size: 14px;
+    font-weight: 600;
+    color: #e8f4f0;
+    background: rgba(18, 27, 31, 0.92);
+    border: 1px solid rgba(120, 144, 156, 0.35);
+    border-radius: 8px;
+    cursor: pointer;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.45);
+    backdrop-filter: blur(4px);
+    transition: border-color 0.2s ease, background 0.2s ease;
+}
+.raid-backpack-btn:hover { border-color: var(--brand-accent, #00ff88); background: rgba(24, 36, 40, 0.95); }
+#raidBackpackBadge {
+    display: inline-block;
+    min-width: 18px;
+    padding: 0 5px;
+    margin-left: 2px;
+    text-align: center;
+    font-size: 12px;
+    font-weight: 700;
+    color: #06231a;
+    background: var(--brand-accent, #00ff88);
+    border-radius: 9px;
+}
+
+.grid-panel {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 1005;
+    width: 460px;
+    max-width: 94vw;
+    max-height: 88vh;
+    display: flex;
+    flex-direction: column;
+    background: rgba(11, 17, 21, 0.97);
+    border: 1px solid rgba(120, 144, 156, 0.4);
+    border-radius: 14px;
+    box-shadow: 0 16px 48px rgba(0, 0, 0, 0.7), 0 0 24px rgba(56, 189, 248, 0.12);
+    backdrop-filter: blur(8px);
+    color: #dce8e4;
+    font-family: var(--font-body, 'Rajdhani', sans-serif);
+    overflow: hidden;
+}
+.grid-panel-title {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 16px;
+    font-size: 15px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    color: #eef6f2;
+    border-bottom: 1px solid rgba(120, 144, 156, 0.2);
+    background: rgba(255, 255, 255, 0.03);
+}
+.grid-panel-close {
+    width: 26px;
+    height: 26px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    line-height: 1;
+    color: #cfe0da;
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+.grid-panel-close:hover { color: #fff; background: rgba(255, 90, 90, 0.25); border-color: rgba(255, 90, 90, 0.5); }
+.grid-panel-body { padding: 14px 16px; overflow-y: auto; }
+.grid-panel-foot { padding: 12px 16px; border-top: 1px solid rgba(120, 144, 156, 0.2); }
+.grid-panel-done {
+    width: 100%;
+    padding: 9px 0;
+    font-family: var(--font-body, 'Rajdhani', sans-serif);
+    font-size: 14px;
+    font-weight: 700;
+    color: #06231a;
+    background: linear-gradient(180deg, #2ff5a8, #00cc77);
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: filter 0.15s ease;
+}
+.grid-panel-done:hover { filter: brightness(1.08); }
+
+.grid-section-label {
+    margin: 4px 0 8px;
+    font-size: 12px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: #7f9690;
+}
+
+.inv-grid {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    gap: 4px;
+    margin-bottom: 14px;
+}
+.grid-cell {
+    position: relative;
+    aspect-ratio: 1 / 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    padding: 3px;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(120, 144, 156, 0.18);
+    border-radius: 6px;
+    font-size: 10px;
+    color: #9fb0ab;
+    user-select: none;
+}
+.grid-cell.filled {
+    cursor: pointer;
+    background: rgba(255, 255, 255, 0.05);
+    border-color: rgba(120, 144, 156, 0.35);
+    transition: all 0.12s ease;
+}
+.grid-cell.filled:hover {
+    border-color: var(--brand-accent, #00ff88);
+    background: rgba(0, 255, 136, 0.1);
+    transform: translateY(-1px);
+}
+.cell-icon { font-size: 20px; line-height: 1; }
+.cell-name {
+    font-size: 9px;
+    line-height: 1.1;
+    text-align: center;
+    color: #cfe0da;
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+}
+
+/* 稀有度配色 */
+.grid-cell.r-uncommon { border-color: rgba(80, 200, 120, 0.5); }
+.grid-cell.r-rare { border-color: rgba(90, 160, 255, 0.6); box-shadow: inset 0 0 10px rgba(90, 160, 255, 0.15); }
+.grid-cell.r-epic { border-color: rgba(180, 110, 255, 0.6); box-shadow: inset 0 0 10px rgba(180, 110, 255, 0.15); }
+.grid-cell.r-legendary { border-color: rgba(255, 190, 70, 0.7); box-shadow: inset 0 0 12px rgba(255, 190, 70, 0.18); }
+.grid-cell.r-legendary .cell-name { color: #ffe1a0; }
+
 /* 更新提示弹窗 */
 .update-notes-modal {
     position: relative;
