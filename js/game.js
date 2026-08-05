@@ -503,7 +503,7 @@ const LOOT_CRATE_DROP_TABLE = {
         { type: 'heal',   weight: 22, min: 20, max: 35 },
         { type: 'item',   weight: 18, itemId: 'grenade',  value: 1 },
         { type: 'item',   weight: 14, itemId: 'speedBoost', value: 1 },
-        { type: 'sellable', weight: 12 }
+        { type: 'sellable', weight: 22 }
     ],
     rare: [
         { type: 'coins',  weight: 26, min: 40, max: 80 },
@@ -511,7 +511,7 @@ const LOOT_CRATE_DROP_TABLE = {
         { type: 'ammo',   weight: 22, min: 30, max: 60 },
         { type: 'item',   weight: 13, itemId: 'grenade', value: 2 },
         { type: 'armor',  weight: 9, value: 30 },
-        { type: 'sellable', weight: 12 }
+        { type: 'sellable', weight: 24 }
     ],
     legendary: [
         { type: 'coins',  weight: 20, min: 100, max: 200 },
@@ -521,18 +521,27 @@ const LOOT_CRATE_DROP_TABLE = {
         { type: 'item',   weight: 9, itemId: 'medkit', value: 2 },
         { type: 'mod',    weight: 10 },
         { type: 'skin',   weight: 5 },
-        { type: 'sellable', weight: 13 }
+        { type: 'sellable', weight: 26 }
     ]
 };
 
 // 摸金变卖物：游戏中拾取，回到仓库后可出售换取金币（非即时消耗品）
 const SELLABLE_TYPES = {
-    goldbar:  { id: 'goldbar',  name: '金条',   icon: '🪙', baseValue: 120, rarity: 'rare' },
-    diamond:  { id: 'diamond',  name: '钻石',   icon: '💎', baseValue: 260, rarity: 'epic' },
-    watch:    { id: 'watch',    name: '名表',   icon: '⌚', baseValue: 180, rarity: 'epic' },
-    antique:  { id: 'antique',  name: '古董',   icon: '🏺', baseValue: 90,  rarity: 'uncommon' },
-    intel:    { id: 'intel',    name: '情报文件', icon: '📜', baseValue: 150, rarity: 'rare' },
-    painting: { id: 'painting', name: '名画',   icon: '🖼️', baseValue: 320, rarity: 'legendary' }
+    goldbar:    { id: 'goldbar',    name: '金条',     icon: '🪙', baseValue: 120, rarity: 'rare' },
+    diamond:    { id: 'diamond',    name: '钻石',     icon: '💎', baseValue: 260, rarity: 'epic' },
+    watch:      { id: 'watch',      name: '名表',     icon: '⌚', baseValue: 180, rarity: 'epic' },
+    antique:    { id: 'antique',    name: '古董',     icon: '🏺', baseValue: 90,  rarity: 'uncommon' },
+    intel:      { id: 'intel',      name: '情报文件', icon: '📜', baseValue: 150, rarity: 'rare' },
+    painting:   { id: 'painting',   name: '名画',     icon: '🖼️', baseValue: 320, rarity: 'legendary' },
+    jewelry:    { id: 'jewelry',    name: '珠宝',     icon: '📿', baseValue: 200, rarity: 'epic' },
+    goldcoin:   { id: 'goldcoin',   name: '金币袋',   icon: '💰', baseValue: 75,  rarity: 'uncommon' },
+    wine:       { id: 'wine',       name: '名酒',     icon: '🍷', baseValue: 110, rarity: 'rare' },
+    harddrive:  { id: 'harddrive',  name: '加密硬盘', icon: '💽', baseValue: 230, rarity: 'epic' },
+    weaponpart: { id: 'weaponpart', name: '军械零件', icon: '🔧', baseValue: 140, rarity: 'rare' },
+    jewelry2:   { id: 'jewelry2',   name: '黄金首饰', icon: '💍', baseValue: 160, rarity: 'rare' },
+    artifact:   { id: 'artifact',   name: '古币',     icon: '🥇', baseValue: 100, rarity: 'uncommon' },
+    cigar:      { id: 'cigar',      name: '雪茄',     icon: '🚬', baseValue: 60,  rarity: 'common' },
+    statue:     { id: 'statue',     name: '雕像',     icon: '🗿', baseValue: 280, rarity: 'legendary' }
 };
 function getSellableDef(id) { return SELLABLE_TYPES[id] || { id, name: id, icon: '📦', baseValue: 50, rarity: 'common' }; }
 
@@ -1717,7 +1726,7 @@ const DEFAULT_ITEM_REGISTRY = {
         type: ITEM_TYPES.CONSUMABLE,
         rarity: ITEM_RARITY.UNCOMMON,
         stackable: true,
-        maxStack: 10,
+        maxStack: 999,
         weight: 1,
         description: '回复一定生命值',
         usableInRaid: true,
@@ -1734,7 +1743,8 @@ const DEFAULT_ITEM_REGISTRY = {
         weight: 2,
         description: '投掷造成范围伤害',
         usableInRaid: true,
-        effect: { damage: 120, radius: 4 }
+        effect: { damage: 120, radius: 4 },
+        maxStack: 999
     },
     ammoBox: {
         id: 'ammoBox',
@@ -1747,7 +1757,8 @@ const DEFAULT_ITEM_REGISTRY = {
         weight: 1,
         description: '补充普通弹药',
         usableInRaid: true,
-        effect: { ammoNormal: 50 }
+        effect: { ammoNormal: 50 },
+        maxStack: 999
     },
     speedBoost: {
         id: 'speedBoost',
@@ -1760,7 +1771,8 @@ const DEFAULT_ITEM_REGISTRY = {
         weight: 1,
         description: '短时间内提升移动速度',
         usableInRaid: true,
-        effect: { speedMultiplier: 1.5, duration: 30000 }
+        effect: { speedMultiplier: 1.5, duration: 30000 },
+        maxStack: 999
     },
     armor_light: {
         id: 'armor_light',
@@ -1798,7 +1810,8 @@ const DEFAULT_ITEM_REGISTRY = {
         maxStack: 50,
         weight: 0.2,
         description: '常见电子材料',
-        usableInRaid: false
+        usableInRaid: false,
+        maxStack: 999
     },
     circuit_board: {
         id: 'circuit_board',
@@ -1810,7 +1823,8 @@ const DEFAULT_ITEM_REGISTRY = {
         maxStack: 20,
         weight: 0.5,
         description: '中等价值电子元件',
-        usableInRaid: false
+        usableInRaid: false,
+        maxStack: 999
     },
     gold_watch: {
         id: 'gold_watch',
@@ -1822,7 +1836,8 @@ const DEFAULT_ITEM_REGISTRY = {
         maxStack: 5,
         weight: 0.3,
         description: '高价值战利品',
-        usableInRaid: false
+        usableInRaid: false,
+        maxStack: 999
     },
     classified_docs: {
         id: 'classified_docs',
@@ -1883,7 +1898,7 @@ const BackpackManager = (() => {
 
     function getUsedCapacity() {
         const bp = getBackpack();
-        return bp.items.reduce((sum, slot) => sum + (slot.count || 0), 0);
+        return bp.items.length;
     }
 
     function getRemainingCapacity() {
@@ -5899,9 +5914,12 @@ function collectDrop(drop) {
             showNotification(`+${drop.value} 金币`);
             break;
         case 'medkit':
-            const medkitHeal = gameParams.DROPS.medkitHeal || 30;
-            player.health = Math.min(player.health + medkitHeal, player.maxHealth);
-            showNotification(`+${medkitHeal} 生命值`);
+            const r = BackpackManager.addItem('medkit', 1);
+            if (r.success) {
+                showNotification('医疗包 +1（已存入背包）');
+            } else {
+                showNotification('背包已满，无法拾取医疗包');
+            }
             break;
         case 'ammo':
             player.weapons.forEach(w => w.currentAmmo = w.clipSize);
