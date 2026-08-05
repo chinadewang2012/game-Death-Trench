@@ -523,7 +523,7 @@ const LOOT_CRATE_DROP_TABLE = {
 };
 
 // 游戏版本
-const GAME_VERSION = '2.1.0';
+const GAME_VERSION = '2.2.0';
 const UPDATE_CHECK_URL = 'https://gitee.com/wang-zirui-from-beijing/death-trench-ai-game/raw/main/version.json';
 
 // ==================== 武器系统 ====================
@@ -10055,7 +10055,15 @@ function autoShowAnnouncement() {
     var seen = null;
     try { seen = localStorage.getItem(ANNOUNCE_VERSION_KEY); } catch (e) {}
     if (seen !== GAME_VERSION) {
-        setTimeout(function () { openAnnouncement(true); }, 600);
+        setTimeout(function () {
+            // 若已有其他遮罩打开，则跳过本次自动弹出，避免叠加遮挡
+            var anyOpen = false;
+            ['mapDetailPanel', 'missionLinePanel', 'saveManagerPanel', 'mailPanel', 'personalInfoPanel'].forEach(function (id) {
+                var el = document.getElementById(id);
+                if (el && (el.classList.contains('active') || el.style.display === 'flex' || el.style.display === 'block')) anyOpen = true;
+            });
+            if (!anyOpen) openAnnouncement(true);
+        }, 600);
     }
 }
 
