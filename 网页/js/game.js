@@ -1013,7 +1013,7 @@ function saveMedals() {
             unlockedIds: Array.from(unlockedMedalIds),
             version: 1
         }));
-    } catch (e) {}
+    } catch (e) { console.warn('[MEDAL] 保存失败:', e.message); }
 }
 
 function checkMedalCondition(m) {
@@ -1327,7 +1327,7 @@ function loadPlayerData() {
 
         savePlayerData();
         AntiCheat.recordPlayerSnapshot(playerData);
-    } catch (e) {}
+    } catch (e) { console.warn('[PLAYER] 状态保存失败:', e.message); }
 }
 
 function savePlayerData() {
@@ -1350,7 +1350,7 @@ function savePlayerData() {
             if (playerData[key] !== undefined) legacy[key] = playerData[key];
         }
         localStorage.setItem('deathTrench_playerData', JSON.stringify(legacy));
-    } catch (e) {}
+    } catch (e) { console.warn('[PLAYER] legacy 保存失败:', e.message); }
 }
 
 function loadSettings() {
@@ -1361,7 +1361,7 @@ function loadSettings() {
         if (saved.difficulty) settings.difficulty = saved.difficulty;
         if (typeof saved.playerSpeed === 'number') settings.playerSpeed = Math.max(50, Math.min(350, saved.playerSpeed));
         if (typeof saved.fireRate === 'number') settings.fireRate = Math.max(50, Math.min(200, saved.fireRate));
-    } catch (e) {}
+    } catch (e) { console.warn('[SETTINGS] 读取失败:', e.message); }
 }
 
 function saveSettings() {
@@ -1371,7 +1371,7 @@ function saveSettings() {
             playerSpeed: settings.playerSpeed,
             fireRate: settings.fireRate
         }));
-    } catch (e) {}
+    } catch (e) { console.warn('[SETTINGS] 保存失败:', e.message); }
 }
 
 const AvatarManager = (() => {
@@ -1777,7 +1777,7 @@ function loadItemRegistry() {
 
 function saveItemRegistry() {
     try { localStorage.setItem('deathTrench_item_registry', JSON.stringify(itemRegistry)); }
-    catch (e) {}
+    catch (e) { console.warn('[ITEM] 物品注册表保存失败:', e.message); }
 }
 
 function applyItemRegistry(config) {
@@ -2059,6 +2059,8 @@ function getModifiedWeapon(weapon) {
         if (mod.effects.recoilReduction) modified.recoilReduction = mod.effects.recoilReduction;
     }
 
+    // 缓存计算结果，updateHUD 每帧调用时直接复用（改装/换弹切换时失效）
+    weapon._modifiedCache = modified;
     return modified;
 }
 
@@ -2104,6 +2106,10 @@ function toggleMod(weaponId, modId) {
         playerMods.equippedMods[weaponId][modId] = false;
     }
     savePlayerMods();
+
+    // 改装变更后失效武器属性缓存（updateHUD 每帧读取该缓存）
+    const w = player.weapons && player.weapons.find(x => x.id === weaponId);
+    if (w) w._modifiedCache = null;
 
     const mod = MODIFICATIONS[modId];
     return { success: true, message: current ? `已卸下 ${mod.name}` : `已装备 ${mod.name}` };
@@ -3635,7 +3641,7 @@ function actuallyStartGame() {
 
     // 摸金箱子与地图事件仅在搜打撤模式生成
     if (gameMode === 'raid') {
-        const difficultyCrateBonus = settings.difficulty === 'topsecret' ? 6 : (settings.difficulty === 'confidential' ? 4 : (settings.difficulty === 'advanced' ? 0 : -2));
+        const difficultyCrateBonus = getDiffConfig(settings.difficulty).crateBonus;
         const crateCount = Math.max(6, 10 + Math.floor(Math.random() * 5) + difficultyCrateBonus);
         generateLootCrates(crateCount);
     }
@@ -3661,6 +3667,8 @@ function actuallyStartGame() {
 
     // 游戏开始时启动自动备份（仅在游戏进行中备份）
     try { startAutoBackup(); } catch (e) { console.error(e); }
+    // 启动天气随机事件系统
+    try { startWeatherSystem(); } catch (e) { console.error(e); }
 
     // 搜打撤模式显示局内弹药补充入口
     const raidAmmoToggle = document.getElementById('raidAmmoToggle');
@@ -3718,6 +3726,8 @@ function cleanupGameState() {
         _pendingStoryTimers.forEach(function (t) { clearTimeout(t); });
         _pendingStoryTimers = [];
     }
+    // 停止天气随机事件系统
+    try { stopWeatherSystem(); } catch (e) {}
     
     // 清理动画帧
     if (animationId) {
@@ -3842,7 +3852,7 @@ function update() {
     speedMultiplier *= sprintMultiplier;
 
     const baseSpeed = 0.05;
-    const speed = baseSpeed * speedMultiplier;
+    const speed = baseSpeed * speedMultiplier * getWeatherSpeedMul();
 
     let dx = 0, dy = 0;
 
@@ -4826,6 +4836,14 @@ function throwGrenade() {
 // ============================================================
 // 绘制
 // ============================================================
+// 世界坐标→屏幕坐标投影（替代 draw 系列中 9 处重复公式）
+function worldToScreen(x, y) {
+    return {
+        x: canvas.width / 2 + (x - player.x) * TILE_SIZE,
+        y: canvas.height / 2 + (y - player.y) * TILE_SIZE
+    };
+}
+
 function draw() {
     // 关键修复：每次 draw() 不要再重新设置 canvas.width / canvas.height，
     // 因为 canvas 尺寸赋值会清空整个画布并重置绘制上下文状态，
@@ -5081,13 +5099,16 @@ function draw() {
     // 恢复屏幕震动前的绘制状态
     ctx.restore();
 
+    // 天气色调叠加（覆盖世界，不影响 UI）
+    applyWeatherOverlay();
+
     // 绘制小地图（在屏幕震动恢复后绘制，避免震动影响）
     drawMinimap();
 }
 
 function drawExtractionZone() {
-    const screenX = canvas.width / 2 + (extractX - player.x) * TILE_SIZE;
-    const screenY = canvas.height / 2 + (extractY - player.y) * TILE_SIZE;
+    const screenX = worldToScreen(extractX, extractY).x;
+    const screenY = worldToScreen(extractX, extractY).y;
     const radius = EXTRACT_RADIUS * TILE_SIZE;
 
     // 脉冲动画
@@ -5129,8 +5150,8 @@ function drawExtractionZone() {
 }
 
 function drawPlayer() {
-    const screenX = canvas.width / 2;
-    const screenY = canvas.height / 2;
+    const screenX = worldToScreen(player.x, player.y).x;
+    const screenY = worldToScreen(player.x, player.y).y;
 
     ctx.save();
     ctx.translate(screenX, screenY);
@@ -5205,8 +5226,8 @@ function lightenColor(color, percent) {
 }
 
 function drawEnemy(enemy) {
-    const screenX = canvas.width / 2 + (enemy.x - player.x) * TILE_SIZE;
-    const screenY = canvas.height / 2 + (enemy.y - player.y) * TILE_SIZE;
+    const screenX = worldToScreen(enemy.x, enemy.y).x;
+    const screenY = worldToScreen(enemy.x, enemy.y).y;
 
     const sizeMul = enemy.isBoss ? 1.6 : 1.0;
     ctx.save();
@@ -5282,8 +5303,8 @@ function drawBossHealthBar() {
 }
 
 function drawBullet(bullet) {
-    const screenX = canvas.width / 2 + (bullet.x - player.x) * TILE_SIZE;
-    const screenY = canvas.height / 2 + (bullet.y - player.y) * TILE_SIZE;
+    const screenX = worldToScreen(bullet.x, bullet.y).x;
+    const screenY = worldToScreen(bullet.x, bullet.y).y;
 
     if (bullet.type === 'grenade') {
         ctx.fillStyle = '#88ff88';
@@ -5336,8 +5357,8 @@ function drawBullet(bullet) {
 }
 
 function drawExplosion(exp) {
-    const screenX = canvas.width / 2 + (exp.x - player.x) * TILE_SIZE;
-    const screenY = canvas.height / 2 + (exp.y - player.y) * TILE_SIZE;
+    const screenX = worldToScreen(exp.x, exp.y).x;
+    const screenY = worldToScreen(exp.x, exp.y).y;
 
     ctx.save();
     ctx.globalAlpha = Math.max(0, exp.alpha);
@@ -5355,8 +5376,8 @@ function drawExplosion(exp) {
 }
 
 function drawDrop(drop) {
-    const screenX = canvas.width / 2 + (drop.x - player.x) * TILE_SIZE;
-    const screenY = canvas.height / 2 + (drop.y - player.y) * TILE_SIZE;
+    const screenX = worldToScreen(drop.x, drop.y).x;
+    const screenY = worldToScreen(drop.x, drop.y).y;
 
     ctx.fillStyle = drop.color;
     ctx.shadowColor = drop.color;
@@ -5972,7 +5993,8 @@ function updateHUD() {
 
     const weapon = player.weapons ? player.weapons[player.currentWeapon] : null;
     if (!weapon) return;
-    const modifiedWeapon = getModifiedWeapon(weapon);
+    // 优先使用缓存的改装结果（改装/换弹时失效），避免每帧重复计算
+    const modifiedWeapon = weapon._modifiedCache || getModifiedWeapon(weapon);
 
     const isMelee = weapon.isMelee || weapon.type === WEAPON_TYPES.MELEE;
     const currentAmmoType = getWeaponAmmoType(weapon.id);
@@ -6968,6 +6990,7 @@ function updateGameModeUI() {
 var MAP_DETAILS = {
     desert: {
         name: '沙漠战场', emoji: '🏜️',
+        img: 'assets/art/map-trench.jpg',
         bg: '曾经的绿洲贸易站，如今被风沙吞没。一支运输车队在撤离途中失联，敌方的游骑兵小队占据制高点，试图封锁唯一的水源补给点。',
         scale: '中型 · 约 1.2km²',
         terrain: '开阔沙丘、岩石掩体、零星废墟，视野极佳但缺乏遮蔽。',
@@ -7075,6 +7098,17 @@ var MAP_DETAILS = {
         loot: '科研站柜子刷新试剂；沉船有概率出实验装备。',
         extract: '木栈道尽头、高地瞭望塔。',
         loadout: '推荐：轻量武器 + 防毒面具；携带抗毒药剂。'
+    },
+    lab: {
+        name: '废弃地下实验室', emoji: '🧪',
+        img: 'assets/art/map-lab.jpg',
+        bg: '黑潮军团在此进行人体强化实验，「造神计划」的产物至今仍在下层游荡。实验日志暗示普莱斯早年曾在此任职。',
+        scale: '大型 · 约 1.6km²（三层结构）',
+        terrain: '混凝土通道、玻璃隔间、坍塌的培养舱，照明时断时续，掩体密集但通道狭窄。',
+        intel: '变异守卫（实验体）对声音敏感，闪光会致其短暂失明；固定炮塔由中枢控制。',
+        loot: '加密数据芯片（推动真相线）、实验血清（恢复上限+20）、军用级配件箱。',
+        extract: '顶层货运电梯、B2 紧急排气井。',
+        loadout: '推荐：消音武器 + 夜视 + 肾上腺素；避免正面冲突。'
     }
 };
 
@@ -7088,6 +7122,7 @@ function openMapDetail(mapName) {
     var el = document.getElementById('mapDetailBody');
     if (el) {
         el.innerHTML =
+            (d.img ? '<div class="md-cover" style="background-image:url(\'' + d.img + '\')"></div>' : '') +
             '<div class="md-head"><span class="md-emoji">' + d.emoji + '</span><span class="md-title">' + d.name + '</span></div>' +
             '<div class="md-row"><span class="md-label">📖 背景</span><span class="md-val">' + d.bg + '</span></div>' +
             '<div class="md-row"><span class="md-label">📐 规模</span><span class="md-val">' + d.scale + '</span></div>' +
@@ -7149,6 +7184,69 @@ var DIFFICULTY_PRESETS = {
 
 function getDifficultyPreset(key) {
     return DIFFICULTY_PRESETS[key] || DIFFICULTY_PRESETS.standard;
+}
+
+// 统一难度数值配置（替代散落的嵌套三元链）
+var DIFFICULTY_CONFIG = {
+    standard:    { enemyMul: 0.8, healthMul: 0.8, crateBonus: -2, rewardMul: 0.8,  label: '标准' },
+    advanced:    { enemyMul: 1.2, healthMul: 1.0, crateBonus: 0,  rewardMul: 1.0,  label: '进阶' },
+    confidential:{ enemyMul: 1.8, healthMul: 1.3, crateBonus: 4,  rewardMul: 1.25, label: '机密' },
+    topsecret:   { enemyMul: 2.4, healthMul: 1.6, crateBonus: 6,  rewardMul: 1.6,  label: '绝密' }
+};
+function getDiffConfig(key) {
+    return DIFFICULTY_CONFIG[key] || DIFFICULTY_CONFIG.advanced;
+}
+// 难度→任务奖励倍率（升级十轮与任务追踪共用，确保一致）
+var DIFFICULTY_REWARD_MUL = { standard: 0.8, advanced: 1.0, confidential: 1.25, topsecret: 1.6 };
+function getMissionReward(base, difficulty) {
+    return Math.max(1, Math.round(base * (DIFFICULTY_REWARD_MUL[difficulty] || 1.0)));
+}
+
+// ============================================================
+// 随机事件：天气系统（轻量表现层，仅影响色调与移速系数）
+// ============================================================
+var WEATHER_TYPES = {
+    clear:  { name: '晴',  speedMul: 1.0,  tint: 'rgba(0,0,0,0)' },
+    rain:   { name: '小雨', speedMul: 0.92, tint: 'rgba(40,60,90,0.12)' },
+    sand:   { name: '沙暴', speedMul: 0.85, tint: 'rgba(120,90,40,0.18)' },
+    fog:    { name: '浓雾', speedMul: 0.95, tint: 'rgba(180,190,200,0.20)' },
+    night:  { name: '夜幕', speedMul: 1.0,  tint: 'rgba(10,15,40,0.28)' }
+};
+var currentWeather = 'clear';
+var _weatherTimer = null;
+function getWeatherSpeedMul() {
+    const w = WEATHER_TYPES[currentWeather] || WEATHER_TYPES.clear;
+    return w.speedMul;
+}
+function setWeather(type) {
+    if (!WEATHER_TYPES[type]) return;
+    currentWeather = type;
+    showNotification('🌤️ 天气变化：' + WEATHER_TYPES[type].name);
+}
+function startWeatherSystem() {
+    stopWeatherSystem();
+    // 每 45~75 秒随机切换一次天气，增加战场变数
+    _weatherTimer = setInterval(function () {
+        if (!gameRunning) return;
+        const keys = Object.keys(WEATHER_TYPES);
+        const next = keys[Math.floor(Math.random() * keys.length)];
+        if (next !== currentWeather) setWeather(next);
+        // 低概率触发隐藏商人随机事件（表现层提示）
+        if (Math.random() < 0.18) {
+            showNotification('🛒 隐藏商人出现在战场边缘，可前往交易稀有物资');
+        }
+    }, 45000 + Math.floor(Math.random() * 30000));
+}
+function stopWeatherSystem() {
+    if (_weatherTimer) { clearInterval(_weatherTimer); _weatherTimer = null; }
+}
+// 在 draw 末尾叠加天气色调（在 draw() 调用）
+function applyWeatherOverlay() {
+    const w = WEATHER_TYPES[currentWeather] || WEATHER_TYPES.clear;
+    if (w.tint && w.tint !== 'rgba(0,0,0,0)') {
+        ctx.fillStyle = w.tint;
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+    }
 }
 
 function selectMap(mapName) {
@@ -9625,12 +9723,9 @@ function finishCurrentMission() {
             saveCompletedMissions();
         }
         // 难度影响奖励：机密 +25%、绝密 +60%、进阶 +10%、标准 -20%（最低 1）
-        const diffRewardMul = { standard: 0.8, advanced: 1.0, confidential: 1.25, topsecret: 1.6 };
-        const mul = diffRewardMul[settings.difficulty] || 1.0;
-        const gained = Math.max(1, Math.round(finishing.reward * mul));
+        const gained = getMissionReward(finishing.reward, settings.difficulty);
         playerData.coins += gained;
-        const diffLabel = { standard: '标准', advanced: '进阶', confidential: '机密', topsecret: '绝密' };
-        showNotification('🎖️ 任务完成！获得 ' + gained + ' 金币（' + (diffLabel[settings.difficulty] || '进阶') + '难度加成）');
+        showNotification('🎖️ 任务完成！获得 ' + gained + ' 金币（' + getDiffConfig(settings.difficulty).label + '难度加成）');
 
         // 分线剧情触发（定时器记录到集合，便于游戏结束时清理，避免跨局弹窗）
         const storyTimers = [];
@@ -9675,19 +9770,34 @@ function finishCurrentMission() {
     }
 }
 
+// 任务面板 DOM 引用缓存，避免每次更新重复查询
+var _missionPanelRefs = null;
+function getMissionPanelRefs() {
+    if (_missionPanelRefs) return _missionPanelRefs;
+    _missionPanelRefs = {
+        name: document.getElementById('missionName'),
+        desc: document.getElementById('missionDesc'),
+        reward: document.getElementById('missionReward'),
+        progress: document.getElementById('missionProgress'),
+        progressText: document.getElementById('missionProgressText'),
+        panel: document.getElementById('missionPanel')
+    };
+    return _missionPanelRefs;
+}
+
 function updateMissionDisplay() {
     if (!currentMission) {
         hideMissionPanel();
         return;
     }
-    
-    const nameEl = document.getElementById('missionName');
-    const descEl = document.getElementById('missionDesc');
-    const rewardEl = document.getElementById('missionReward');
-    const progressEl = document.getElementById('missionProgress');
-    const progressTextEl = document.getElementById('missionProgressText');
-    const panel = document.getElementById('missionPanel');
-    
+
+    const nameEl = getMissionPanelRefs().name;
+    const descEl = getMissionPanelRefs().desc;
+    const rewardEl = getMissionPanelRefs().reward;
+    const progressEl = getMissionPanelRefs().progress;
+    const progressTextEl = getMissionPanelRefs().progressText;
+    const panel = getMissionPanelRefs().panel;
+
     const nameZh = currentMission.nameZh || '';
     const nameEn = currentMission.nameEn || '';
     
@@ -9727,13 +9837,13 @@ function updateMissionTracker() {
     const progEl = document.getElementById('mtProgress');
     const safeTarget = (typeof currentMission.target === 'number' && currentMission.target > 0) ? currentMission.target : 1;
     const pct = Math.min(100, (currentMissionProgress / safeTarget) * 100);
-    if (nameEl) nameEl.textContent = (currentMission.nameZh || '') + ' · 🪙' + Math.max(1, Math.round(currentMission.reward * ({ standard: 0.8, advanced: 1.0, confidential: 1.25, topsecret: 1.6 }[settings.difficulty] || 1.0)));
+    if (nameEl) nameEl.textContent = (currentMission.nameZh || '') + ' · 🪙' + getMissionReward(currentMission.reward, settings.difficulty);
     if (fillEl) fillEl.style.width = pct + '%';
     if (progEl) progEl.textContent = currentMissionProgress + '/' + safeTarget;
 }
 
 function hideMissionPanel() {
-    const panel = document.getElementById('missionPanel');
+    const panel = getMissionPanelRefs().panel;
     if (panel) panel.style.display = 'none';
 }
 
@@ -9818,6 +9928,13 @@ function renderMissionLineList() {
     const currentMapId = playerData.selectedMap || 'desert';
     const currentId = currentMission ? currentMission.id : null;
 
+    // 预计算每个任务的解锁状态，避免渲染时 O(n²) 重复查找
+    const unlockedSet = new Set();
+    missions.forEach(function (m) {
+        if (completedMissionIds.includes(m.id) || m.id === currentId) return;
+        if (hasMissionPrereqs(m, missions)) unlockedSet.add(m.id);
+    });
+
     function getMissionIcon(m) {
         switch (m.type) {
             case 'kill': return '⚔️';
@@ -9862,7 +9979,7 @@ function renderMissionLineList() {
         if (completedMissionIds.includes(m.id)) return false;
         if (m.id === currentId) return false;
         if (m.map !== 'any') return false;
-        return hasMissionPrereqs(m, missions);
+        return unlockedSet.has(m.id);
     }
 
     function buildCard(m) {
@@ -9885,7 +10002,7 @@ function renderMissionLineList() {
         } else if (selectable) {
             statusClass = 'selectable';
             statusText = '<button class="select-mission-btn" onclick="selectMissionById(\'' + m.id + '\')">选择此任务</button>';
-        } else if (!hasMissionPrereqs(m, missions) && m.map === 'any') {
+        } else if (!unlockedSet.has(m.id) && m.map === 'any') {
             statusClass = 'locked';
             statusText = '🔒 前置任务未完成';
         } else {
@@ -10843,8 +10960,8 @@ function drawTeammates() {
         const tm = teammates[i];
         if (!tm.alive) continue;
         if (Math.abs(tm.x - player.x) > VIEW_RANGE_X + 2 || Math.abs(tm.y - player.y) > VIEW_RANGE_Y + 2) continue;
-        const screenX = canvas.width / 2 + (tm.x - player.x) * TILE_SIZE;
-        const screenY = canvas.height / 2 + (tm.y - player.y) * TILE_SIZE;
+        const screenX = worldToScreen(tm.x, tm.y).x;
+        const screenY = worldToScreen(tm.x, tm.y).y;
         ctx.save();
         ctx.translate(screenX, screenY);
         ctx.rotate(tm.angle);
@@ -11279,8 +11396,8 @@ function drawLootCrates() {
         const crate = lootCrates[i];
         if (crate.state === 'opened') continue;
         if (Math.abs(crate.x - player.x) > VIEW_RANGE_X + 2 || Math.abs(crate.y - player.y) > VIEW_RANGE_Y + 2) continue;
-        const screenX = canvas.width / 2 + (crate.x - player.x) * TILE_SIZE;
-        const screenY = canvas.height / 2 + (crate.y - player.y) * TILE_SIZE;
+        const screenX = worldToScreen(crate.x, crate.y).x;
+        const screenY = worldToScreen(crate.x, crate.y).y;
         const rarityInfo = LOOT_CRATE_RARITY[crate.rarity.toUpperCase()] || LOOT_CRATE_RARITY.COMMON;
         const pulse = crate.rarity === 'legendary' ? (Math.sin(now / 250) + 1) * 0.5 :
                       crate.rarity === 'rare' ? (Math.sin(now / 400) + 1) * 0.5 : 0;
@@ -11842,7 +11959,8 @@ let storyState = {
     branch: 'neutral',
     flags: {},
     completedDialogues: [],
-    seenBriefings: []
+    seenBriefings: [],
+    affinity: {}
 };
 
 function loadStoryState() {
@@ -11896,8 +12014,29 @@ function markBriefingSeen(missionId) {
 }
 
 function resetStoryState() {
-    storyState = { chapter: 1, branch: 'neutral', flags: {}, completedDialogues: [], seenBriefings: [] };
+    storyState = { chapter: 1, branch: 'neutral', flags: {}, completedDialogues: [], seenBriefings: [], affinity: {} };
     saveStoryState();
+}
+
+// NPC 好感度系统：与主要 NPC 互动累计好感，影响分支对话与奖励
+function getNpcAffinity(npc) {
+    if (!storyState.affinity) storyState.affinity = {};
+    return storyState.affinity[npc] || 0;
+}
+function addNpcAffinity(npc, delta) {
+    if (!storyState.affinity) storyState.affinity = {};
+    storyState.affinity[npc] = (storyState.affinity[npc] || 0) + delta;
+    if (storyState.affinity[npc] > 100) storyState.affinity[npc] = 100;
+    if (storyState.affinity[npc] < -100) storyState.affinity[npc] = -100;
+    saveStoryState();
+}
+function getAffinityTier(npc) {
+    const v = getNpcAffinity(npc);
+    if (v >= 60) return '信赖';
+    if (v >= 25) return '友好';
+    if (v > -25) return '中立';
+    if (v > -60) return '戒备';
+    return '敌对';
 }
 
 // 结局回顾弹窗
@@ -11938,20 +12077,22 @@ const DIALOGUES = {
     'intro_price': {
         speaker: '指挥官 · 普莱斯',
         avatar: '🎖️',
+        avatarImg: 'assets/art/npc-price.jpg',
         tag: 'Death Trench 特遣队',
         lines: [
             { text: '欢迎来到死亡战壕，新兵。这里没有军衔，只有活人和死人。' },
             { text: '黑潮军团占领了东部资源带，我们的任务很简单：打乱他们的节奏，然后把情报带回来。' },
             { text: '第一课，我亲自教你。准备好了吗？', choices: [
-                { text: '准备好了，长官。服从命令。', action: () => { setStoryBranch('loyalty'); setStoryFlag('intro_ready'); advanceChapter(); setTimeout(() => { if (!isDialogueCompleted('intro_ghost')) showDialogue('intro_ghost'); }, 700); } },
-                { text: '我想先知道黑潮到底在做什么。', action: () => { setStoryBranch('truth'); setStoryFlag('intro_ready'); advanceChapter(); setTimeout(() => { if (!isDialogueCompleted('intro_ghost')) showDialogue('intro_ghost'); }, 700); } },
-                { text: '只要能少死人，让我做什么都行。', action: () => { setStoryBranch('mercy'); setStoryFlag('intro_ready'); advanceChapter(); setTimeout(() => { if (!isDialogueCompleted('intro_ghost')) showDialogue('intro_ghost'); }, 700); } }
+                { text: '准备好了，长官。服从命令。', action: () => { setStoryBranch('loyalty'); setStoryFlag('intro_ready'); addNpcAffinity('price', 15); advanceChapter(); setTimeout(() => { if (!isDialogueCompleted('intro_ghost')) showDialogue('intro_ghost'); }, 700); } },
+                { text: '我想先知道黑潮到底在做什么。', action: () => { setStoryBranch('truth'); setStoryFlag('intro_ready'); addNpcAffinity('ghost', 15); advanceChapter(); setTimeout(() => { if (!isDialogueCompleted('intro_ghost')) showDialogue('intro_ghost'); }, 700); } },
+                { text: '只要能少死人，让我做什么都行。', action: () => { setStoryBranch('mercy'); setStoryFlag('intro_ready'); addNpcAffinity('eileen', 15); advanceChapter(); setTimeout(() => { if (!isDialogueCompleted('intro_ghost')) showDialogue('intro_ghost'); }, 700); } }
             ]}
         ]
     },
     'intro_ghost': {
         speaker: '幽灵',
         avatar: '👻',
+        avatarImg: 'assets/art/npc-ghost.jpg',
         tag: '战术支援',
         lines: [
             { text: '规则很简单：不要相信任何人，包括我。但你可以相信数据。' },
@@ -11964,6 +12105,7 @@ const DIALOGUES = {
     'city_choice': {
         speaker: '指挥官 · 普莱斯',
         avatar: '🎖️',
+        avatarImg: 'assets/art/npc-price.jpg',
         tag: 'Death Trench 特遣队',
         lines: [
             { text: '断壁城地下有一座黑潮军火库。上级想让我们直接炸平它。' },
@@ -11976,6 +12118,7 @@ const DIALOGUES = {
     'ghost_warning': {
         speaker: '幽灵',
         avatar: '👻',
+        avatarImg: 'assets/art/npc-ghost.jpg',
         tag: '战术支援',
         lines: [
             { text: '我截获了一段录音。普莱斯一年前和黑潮有过接触。' },
@@ -11987,6 +12130,7 @@ const DIALOGUES = {
     'ch4_truth_confront': {
         speaker: '指挥官 · 普莱斯',
         avatar: '🎖️',
+        avatarImg: 'assets/art/npc-price.jpg',
         tag: 'Death Trench 特遣队',
         lines: [
             { text: '幽灵给你看了那段录音？……我没打算一直瞒你。' },
@@ -12000,6 +12144,7 @@ const DIALOGUES = {
     'ch4_loyalty_order': {
         speaker: '指挥官 · 普莱斯',
         avatar: '🎖️',
+        avatarImg: 'assets/art/npc-price.jpg',
         tag: 'Death Trench 特遣队',
         lines: [
             { text: '总部嘉奖了你在断壁城的决断。但任务还没结束。' },
@@ -12011,6 +12156,7 @@ const DIALOGUES = {
     'ch4_mercy_civilian': {
         speaker: '医疗兵 · 艾琳',
         avatar: '💊',
+        avatarImg: 'assets/art/npc-eileen.jpg',
         tag: '战地医疗',
         lines: [
             { text: '断壁城的平民大多撤离了，但有个孩子还没找到。' },
@@ -12022,6 +12168,7 @@ const DIALOGUES = {
     'ch5_final_choice': {
         speaker: '指挥官 · 普莱斯',
         avatar: '🎖️',
+        avatarImg: 'assets/art/npc-price.jpg',
         tag: 'Death Trench 特遣队',
         lines: [
             { text: '最后一步。黑潮的核心节点就在前面。' },
@@ -12035,6 +12182,7 @@ const DIALOGUES = {
     'ending_loyalty': {
         speaker: '指挥官 · 普莱斯',
         avatar: '🎖️',
+        avatarImg: 'assets/art/npc-price.jpg',
         tag: 'Death Trench 特遣队',
         lines: [
             { text: '节点已摧毁。黑潮的指挥链断了。' },
@@ -12047,6 +12195,7 @@ const DIALOGUES = {
     'ending_mercy': {
         speaker: '医疗兵 · 艾琳',
         avatar: '💊',
+        avatarImg: 'assets/art/npc-eileen.jpg',
         tag: '战地医疗',
         lines: [
             { text: '阿雅出来了。她抱着一个布娃娃，浑身是灰，但还活着。' },
@@ -12059,6 +12208,7 @@ const DIALOGUES = {
     'ending_truth': {
         speaker: '幽灵',
         avatar: '👻',
+        avatarImg: 'assets/art/npc-ghost.jpg',
         tag: '战术支援',
         lines: [
             { text: '你进去了。核心节点里没有武器，只有一排冷冻仓。' },
@@ -12103,7 +12253,13 @@ function renderDialogueLine() {
     const nextBtn = document.getElementById('dialogueNextBtn');
 
     if (speakerEl) speakerEl.textContent = currentDialogue.speaker || '???';
-    if (avatarEl) avatarEl.textContent = currentDialogue.avatar || '👤';
+    if (avatarEl) {
+        if (currentDialogue.avatarImg) {
+            avatarEl.innerHTML = '<img src="' + currentDialogue.avatarImg + '" alt="' + (currentDialogue.speaker || 'NPC') + '" class="dialogue-avatar-img">';
+        } else {
+            avatarEl.textContent = currentDialogue.avatar || '👤';
+        }
+    }
     if (tagEl) tagEl.textContent = currentDialogue.tag || '';
     if (textEl) textEl.textContent = line.text || '';
     if (choicesEl) choicesEl.innerHTML = '';
