@@ -499,28 +499,42 @@ const LOOT_CRATE_RARITY = {
 };
 const LOOT_CRATE_DROP_TABLE = {
     common: [
-        { type: 'coins',  weight: 40, min: 15, max: 35 },
-        { type: 'heal',   weight: 25, min: 20, max: 35 },
-        { type: 'item',   weight: 20, itemId: 'grenade',  value: 1 },
-        { type: 'item',   weight: 15, itemId: 'speedBoost', value: 1 }
+        { type: 'coins',  weight: 34, min: 15, max: 35 },
+        { type: 'heal',   weight: 22, min: 20, max: 35 },
+        { type: 'item',   weight: 18, itemId: 'grenade',  value: 1 },
+        { type: 'item',   weight: 14, itemId: 'speedBoost', value: 1 },
+        { type: 'sellable', weight: 12 }
     ],
     rare: [
-        { type: 'coins',  weight: 30, min: 40, max: 80 },
-        { type: 'heal',   weight: 20, min: 40, max: 60 },
-        { type: 'ammo',   weight: 25, min: 30, max: 60 },
-        { type: 'item',   weight: 15, itemId: 'grenade', value: 2 },
-        { type: 'armor',  weight: 10, value: 30 }
+        { type: 'coins',  weight: 26, min: 40, max: 80 },
+        { type: 'heal',   weight: 18, min: 40, max: 60 },
+        { type: 'ammo',   weight: 22, min: 30, max: 60 },
+        { type: 'item',   weight: 13, itemId: 'grenade', value: 2 },
+        { type: 'armor',  weight: 9, value: 30 },
+        { type: 'sellable', weight: 12 }
     ],
     legendary: [
-        { type: 'coins',  weight: 25, min: 100, max: 200 },
-        { type: 'fullHeal', weight: 15 },
-        { type: 'ammo',   weight: 20, min: 80, max: 150, special: true },
-        { type: 'item',   weight: 15, itemId: 'ammoBox', value: 1 },
-        { type: 'item',   weight: 10, itemId: 'medkit', value: 2 },
+        { type: 'coins',  weight: 20, min: 100, max: 200 },
+        { type: 'fullHeal', weight: 13 },
+        { type: 'ammo',   weight: 17, min: 80, max: 150, special: true },
+        { type: 'item',   weight: 13, itemId: 'ammoBox', value: 1 },
+        { type: 'item',   weight: 9, itemId: 'medkit', value: 2 },
         { type: 'mod',    weight: 10 },
-        { type: 'skin',   weight: 5 }
+        { type: 'skin',   weight: 5 },
+        { type: 'sellable', weight: 13 }
     ]
 };
+
+// 摸金变卖物：游戏中拾取，回到仓库后可出售换取金币（非即时消耗品）
+const SELLABLE_TYPES = {
+    goldbar:  { id: 'goldbar',  name: '金条',   icon: '🪙', baseValue: 120, rarity: 'rare' },
+    diamond:  { id: 'diamond',  name: '钻石',   icon: '💎', baseValue: 260, rarity: 'epic' },
+    watch:    { id: 'watch',    name: '名表',   icon: '⌚', baseValue: 180, rarity: 'epic' },
+    antique:  { id: 'antique',  name: '古董',   icon: '🏺', baseValue: 90,  rarity: 'uncommon' },
+    intel:    { id: 'intel',    name: '情报文件', icon: '📜', baseValue: 150, rarity: 'rare' },
+    painting: { id: 'painting', name: '名画',   icon: '🖼️', baseValue: 320, rarity: 'legendary' }
+};
+function getSellableDef(id) { return SELLABLE_TYPES[id] || { id, name: id, icon: '📦', baseValue: 50, rarity: 'common' }; }
 
 // 游戏版本
 const GAME_VERSION = '2.2.0';
@@ -581,7 +595,7 @@ const WEAPON_ICON_MAP = {
 };
 const MOD_ICON_MAP = {
     scope: 'mod-scope', extendedMag: 'mod-extendedMag', suppressor: 'mod-suppressor',
-    grip: 'mod-grip', apRounds: 'mod-apRounds', stock: 'mod-stock'
+    grip: 'mod-grip', apRounds: 'mod-apRounds', stock: 'mod-stock', laser: 'mod-laser'
 };
 function weaponIconHtml(w) {
     const key = w && WEAPON_ICON_MAP[w.id];
@@ -652,6 +666,14 @@ const MODIFICATIONS = {
         effects: { recoilReduction: 0.6, accuracyBonus: 1.15 },
         price: 450,
         description: '大幅减少后坐力'
+    },
+    // 镭射指示器
+    laser: {
+        name: '镭射指示器',
+        icon: '🔦',
+        effects: { trajectory: true, penetrationBonus: true },
+        price: 700,
+        description: '显示弹道线，子弹可穿透1名敌人'
     }
 };
 
@@ -1323,7 +1345,8 @@ let playerData = {
         items: []
     },
     redeemedCodes: [],
-    ownedWeapons: []
+    ownedWeapons: [],
+    sellItems: []
 };
 
 function loadPlayerData() {
@@ -2106,6 +2129,9 @@ function getModifiedWeapon(weapon) {
         if (mod.effects.clipSizeBonus) modified.clipSize = Math.round(modified.clipSize * mod.effects.clipSizeBonus);
         if (mod.effects.fireRateBonus) modified.fireRate = Math.round(modified.fireRate * mod.effects.fireRateBonus);
         if (mod.effects.recoilReduction) modified.recoilReduction = mod.effects.recoilReduction;
+        // 标记类效果（镭射弹道线、穿透等）直接继承到改装结果
+        if (mod.effects.trajectory) modified.trajectory = true;
+        if (mod.effects.penetrationBonus) modified.penetrationBonus = true;
     }
 
     // 缓存计算结果，updateHUD 每帧调用时直接复用（改装/换弹切换时失效）
@@ -3987,10 +4013,13 @@ function update() {
     const screenCenterY = canvas.height / 2;
     player.angle = Math.atan2(mouseY - screenCenterY, mouseX - screenCenterX) + recoilAngle;
 
-    // 更新瞄准方向与镜头缩放（狙击开镜时朝鼠标方向放大）
+    // 更新瞄准方向与镜头缩放
+    // 狙击枪开镜：缩小镜头以观察全图（配合黑色遮罩只露出枪口方向）
+    // 其余枪开镜：保持放大（原行为）
     if (aiming) {
         aimAngle = Math.atan2(mouseY - screenCenterY, mouseX - screenCenterX);
-        viewScale = 2.2;
+        const cw = player.weapons && player.weapons[player.currentWeapon];
+        viewScale = (cw && cw.type === 'sniper') ? 0.5 : 2.2;
     } else {
         viewScale = Math.max(1, viewScale - 0.15); // 平滑回弹
         if (viewScale <= 1.01) viewScale = 1;
@@ -4056,6 +4085,7 @@ function update() {
                 const dxh = bullet.x - enemy.x;
                 const dyh = bullet.y - enemy.y;
                 if (dxh * dxh + dyh * dyh < 1.0) {
+                    if (bullet.hitEnemies && bullet.hitEnemies.indexOf(enemy) !== -1) continue;
                     const ammoType = bullet.type || 'normal';
                     let damage = bullet.damage;
                     if (ammoType === 'ap') {
@@ -4075,6 +4105,7 @@ function update() {
                         poolPushExplosion({ x: enemy.x, y: enemy.y, radius: 4, alpha: 1, color: '#ff0044' });
                     }
                     enemy.health -= damage;
+                    bullet.hitEnemies.push(enemy);
                     enemy.hitFlash = 5; // 受击闪烁帧数
                     // 敌人受击会提醒周围同伴前来协防/调查
                     alertNearbyEnemies(enemy.x, enemy.y, 10);
@@ -4130,7 +4161,9 @@ function update() {
                 }
             }
             if (hit) {
-                bullet.alive = false;
+                // 穿透：仍有剩余穿透次数则继续飞行，否则销毁
+                if (bullet.penetration > 0) bullet.penetration--;
+                else bullet.alive = false;
                 continue;
             }
         } else if (bullet.owner === 'enemy') {
@@ -4928,11 +4961,16 @@ function draw() {
         ctx.translate(shakeX, shakeY);
     }
 
-    // 狙击开镜：放大镜头并朝鼠标方向偏移视点
+    // 镜头缩放：放大（普通开镜）或缩小（狙击开镜看全图）
     if (viewScale > 1) {
         const cx = canvas.width / 2, cy = canvas.height / 2;
         const off = (viewScale - 1) * 240; // 朝瞄准方向推近视点
         ctx.translate(Math.cos(aimAngle) * off, Math.sin(aimAngle) * off);
+        ctx.translate(cx, cy);
+        ctx.scale(viewScale, viewScale);
+        ctx.translate(-cx, -cy);
+    } else if (viewScale < 1) {
+        const cx = canvas.width / 2, cy = canvas.height / 2;
         ctx.translate(cx, cy);
         ctx.scale(viewScale, viewScale);
         ctx.translate(-cx, -cy);
@@ -5160,6 +5198,46 @@ function draw() {
     // 恢复屏幕震动前的绘制状态
     ctx.restore();
 
+    // 狙击开镜：全屏黑遮罩，仅保留枪口正对方向可视区域，并显示弹道线
+    if (aiming && player.weapons && player.weapons[player.currentWeapon] && player.weapons[player.currentWeapon].type === 'sniper') {
+        const cw = canvas.width, ch = canvas.height;
+        const cx = cw / 2, cy = ch / 2;
+        const ang = player.angle;
+        const len = Math.hypot(cw, ch);
+        ctx.save();
+        // 全屏黑遮罩
+        ctx.fillStyle = 'rgba(0,0,0,0.97)';
+        ctx.fillRect(0, 0, cw, ch);
+        // 沿枪口方向挖出可视光束（擦除黑色）
+        ctx.globalCompositeOperation = 'destination-out';
+        ctx.save();
+        ctx.translate(cx, cy);
+        ctx.rotate(ang);
+        const beamHalf = 70;
+        ctx.beginPath();
+        ctx.moveTo(0, -beamHalf * 0.25);
+        ctx.lineTo(len, -beamHalf);
+        ctx.lineTo(len, beamHalf);
+        ctx.lineTo(0, beamHalf * 0.25);
+        ctx.closePath();
+        ctx.fillStyle = '#fff';
+        ctx.fill();
+        ctx.restore();
+        ctx.globalCompositeOperation = 'source-over';
+        ctx.restore();
+        // 弹道线（红色虚线，沿枪口方向贯穿全图）
+        ctx.save();
+        ctx.strokeStyle = 'rgba(255,60,60,0.95)';
+        ctx.lineWidth = 1.5;
+        ctx.setLineDash([10, 8]);
+        ctx.beginPath();
+        ctx.moveTo(cx, cy);
+        ctx.lineTo(cx + Math.cos(ang) * len, cy + Math.sin(ang) * len);
+        ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.restore();
+    }
+
     // 天气色调叠加（覆盖世界，不影响 UI）
     applyWeatherOverlay();
 
@@ -5247,6 +5325,23 @@ function drawPlayer() {
     ctx.fill();
     ctx.shadowBlur = 0;
 
+    // 手持武器：朝向鼠标方向（ctx 已 rotate 到 player.angle，+x 为枪口方向）
+    const u = PLAYER_SIZE * TILE_SIZE;
+    const wlen = u * 1.7;
+    const wwid = u * 0.42;
+    const wx = u * 0.15;
+    ctx.fillStyle = '#2a2f33';
+    ctx.strokeStyle = '#6a7280';
+    ctx.lineWidth = 1;
+    ctx.fillRect(wx, -wwid / 2, wlen, wwid);
+    ctx.strokeRect(wx, -wwid / 2, wlen, wwid);
+    // 枪管/枪口
+    ctx.fillStyle = '#15181b';
+    ctx.fillRect(wx + wlen, -wwid * 0.35, u * 0.28, wwid * 0.7);
+    // 握把
+    ctx.fillStyle = '#3a3f44';
+    ctx.fillRect(wx + wlen * 0.35, wwid / 2, u * 0.28, u * 0.5);
+
     // 枪口闪光
     if (muzzleFlashTime > 0) {
         const flashLen = PLAYER_SIZE * TILE_SIZE * 1.8;
@@ -5268,6 +5363,28 @@ function drawPlayer() {
         ctx.beginPath();
         ctx.arc(PLAYER_SIZE * TILE_SIZE * 1.2, 0, PLAYER_SIZE * TILE_SIZE * 1.5, -Math.PI / 3, Math.PI / 3);
         ctx.stroke();
+    }
+
+    // 装配镭射指示器：显示弹道线（沿枪口 +x 方向贯穿一段距离）
+    const cWeap = player.weapons[player.currentWeapon];
+    const modW = getModifiedWeapon(cWeap);
+    if (modW && modW.trajectory) {
+        const beamLen = 24 * TILE_SIZE;
+        ctx.save();
+        ctx.strokeStyle = 'rgba(255, 50, 50, 0.6)';
+        ctx.lineWidth = 1;
+        ctx.setLineDash([6, 6]);
+        ctx.beginPath();
+        ctx.moveTo(wx + wlen, 0);
+        ctx.lineTo(wx + wlen + beamLen, 0);
+        ctx.stroke();
+        ctx.setLineDash([]);
+        // 激光红点
+        ctx.fillStyle = 'rgba(255, 50, 50, 0.9)';
+        ctx.beginPath();
+        ctx.arc(wx + wlen + beamLen, 0, 2.5, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
     }
 
     ctx.restore();
@@ -5511,6 +5628,9 @@ function shoot() {
 
     for (let i = 0; i < pellets; i++) {
         const spread = pellets > 1 ? (Math.random() - 0.5) * 0.3 : 0;
+        // 穿透：狙击枪自带穿透3个敌人，装配镭射指示器额外穿透1个
+        const isSniper = weapon.type === 'sniper';
+        const penetration = isSniper ? 3 : (modifiedWeapon.penetrationBonus ? 1 : 0);
         poolPushBullet({
             x: player.x + Math.cos(player.angle) * 0.5,
             y: player.y + Math.sin(player.angle) * 0.5,
@@ -5521,7 +5641,9 @@ function shoot() {
             distance: 0,
             owner: 'player',
             type: getWeaponAmmoType(weapon.id) || 'normal',
-            weaponType: weapon.type
+            weaponType: weapon.type,
+            penetration,
+            hitEnemies: []
         });
     }
 
@@ -6518,9 +6640,10 @@ function renderSkinGrid() {
         item.className = 'skin-item' + (equipped ? ' equipped' : (owned ? ' owned' : ''));
 
         const previewBg = skin.color || '#6366f1';
+        const thumbSrc = currentSkinTab === 'weapon' ? 'assets/art/weapon-rifle.jpg' : 'assets/art/npc-reyes.jpg';
         item.innerHTML = `
             <div class="skin-preview" style="background: ${previewBg}; ${skin.pattern === 'metallic' ? 'background: linear-gradient(135deg, ' + previewBg + ', #fff5);' : ''}">
-                ${currentSkinTab === 'weapon' ? '🔫' : '👤'}
+                <img class="skin-thumb" src="${thumbSrc}" alt="${skin.name}">
             </div>
             <span class="skin-name">${skin.name}</span>
             ${equipped ? '<span class="skin-status">已装备 ✓</span>' : (owned ? '<span class="skin-status">已拥有</span>' : `<span class="skin-price">🪙 ${skin.price}</span>`)}
@@ -8687,6 +8810,43 @@ function renderSellMarketGrid() {
         };
         grid.appendChild(div);
     });
+
+    // 摸金变卖物：游戏中拾取，回到仓库出售换取金币
+    const sellables = playerData.sellItems || [];
+    if (sellables.length > 0) {
+        const sep = document.createElement('div');
+        sep.className = 'market-section-label';
+        sep.style.gridColumn = '1 / -1';
+        sep.textContent = `摸金变卖物（${sellables.length}）—— 搜打撤战利品`;
+        grid.appendChild(sep);
+
+        sellables.forEach((entry, index) => {
+            const def = getSellableDef(entry.id);
+            const price = (entry.value || 1) * def.baseValue;
+            const div = document.createElement('div');
+            div.className = 'market-item r-' + def.rarity;
+            div.innerHTML = `
+                <div class="item-icon">${def.icon}</div>
+                <div class="item-info">
+                    <div class="item-name">${def.name}${entry.value > 1 ? ' ×' + entry.value : ''}</div>
+                    <div class="item-desc">搜打撤战利品，可出售换取金币</div>
+                </div>
+                <div class="item-price">出售价: 🪙 ${price}</div>
+                <button class="buy-btn">出售</button>
+            `;
+            div.querySelector('.buy-btn').onclick = () => {
+                sellSellable(index);
+            };
+            grid.appendChild(div);
+        });
+
+        const allBtn = document.createElement('button');
+        allBtn.className = 'buy-btn sell-all-btn';
+        allBtn.style.gridColumn = '1 / -1';
+        allBtn.textContent = '一键全部变卖';
+        allBtn.onclick = sellAllSellables;
+        grid.appendChild(allBtn);
+    }
 }
 
 function selectModNode(modId) {
@@ -8857,6 +9017,37 @@ function sellItem(itemName) {
     showNotification(`出售成功！获得 ${price} 金币`);
     updatePlayerStats();
     updateMarketUI();
+}
+
+// 出售摸金变卖物（按类型基础价值结算）
+function sellSellable(index) {
+    playerData.sellItems = playerData.sellItems || [];
+    if (index < 0 || index >= playerData.sellItems.length) return;
+    const entry = playerData.sellItems[index];
+    const def = getSellableDef(entry.id);
+    const value = (entry.value || 1) * def.baseValue;
+    playerData.sellItems.splice(index, 1);
+    playerData.coins += value;
+    showNotification(`出售${def.name}成功！获得 ${value} 金币`);
+    updatePlayerStats();
+    updateMarketUI();
+    savePlayerData();
+    renderSellMarketGrid();
+}
+
+// 一键出售全部摸金变卖物
+function sellAllSellables() {
+    playerData.sellItems = playerData.sellItems || [];
+    if (playerData.sellItems.length === 0) { showNotification('没有可出售的变卖物'); return; }
+    let total = 0;
+    playerData.sellItems.forEach(e => { total += (e.value || 1) * getSellableDef(e.id).baseValue; });
+    playerData.sellItems = [];
+    playerData.coins += total;
+    showNotification(`全部变卖成功！获得 ${total} 金币`);
+    updatePlayerStats();
+    updateMarketUI();
+    savePlayerData();
+    renderSellMarketGrid();
 }
 
 function getItemPrice(itemName) {
@@ -11275,6 +11466,13 @@ function openLootCrate(crate) {
                 }
                 break;
             }
+            case 'sellable': {
+                const keys = Object.keys(SELLABLE_TYPES);
+                const sid = keys[Math.floor(Math.random() * keys.length)];
+                const def = SELLABLE_TYPES[sid];
+                contents.push({ type: 'sellable', sellableId: sid, value: 1, icon: def.icon, name: def.name, rarity: def.rarity });
+                break;
+            }
             default:
                 contents.push({ type: 'coins', value: 10, icon: '🪙', name: '10 金币', rarity: 'common' });
         }
@@ -11312,6 +11510,11 @@ function applyCrateContents(contents) {
             case 'armor': player.health = Math.min(player.maxHealth, player.health + (c.value || 0)); break;
             case 'mod': playerMods.ownedMods[c.modId] = (playerMods.ownedMods[c.modId] || 0) + 1; break;
             case 'skin': if (!playerMods.ownedSkins.includes(c.skinId)) playerMods.ownedSkins.push(c.skinId); break;
+            case 'sellable': {
+                playerData.sellItems = playerData.sellItems || [];
+                playerData.sellItems.push({ id: c.sellableId, value: c.value || 1 });
+                break;
+            }
         }
     }
 }
@@ -11535,6 +11738,13 @@ function applyRaidLoot() {
                 if (loot.skinId && !playerMods.ownedSkins.includes(loot.skinId)) {
                     playerMods.ownedSkins.push(loot.skinId);
                     summary.skins++;
+                }
+                break;
+            case 'sellable':
+                if (loot.sellableId) {
+                    playerData.sellItems = playerData.sellItems || [];
+                    playerData.sellItems.push({ id: loot.sellableId, value: loot.value || 1 });
+                    summary.items.push(getSellableDef(loot.sellableId).name);
                 }
                 break;
         }
