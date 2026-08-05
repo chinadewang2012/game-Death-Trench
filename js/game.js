@@ -9855,6 +9855,8 @@ function setMissionLanguage(lang) {
     loadMissionSettings();
     // 版本检查（仅正式版开发版检查）
     checkForUpdates();
+    // 首次进入自动弹出更新公告（10 秒后自动关闭）
+    autoShowAnnouncement();
 })();
 
 // 版本检查函数（仅桌面版弹窗提示，网页版跳过自动弹窗）
@@ -9877,14 +9879,35 @@ async function checkForUpdates() {
 // ============================================================
 // 更新公告（常驻入口，点击查看固定公告内容）
 // ============================================================
-function openAnnouncement() {
+var ANNOUNCE_VERSION_KEY = 'deathTrench_announcement_seen';
+var announcementTimer = null;
+
+function openAnnouncement(autoClose) {
     showOverlay('announcementPanel');
+    // 首次自动弹出时记录已读，避免再次自动弹出
+    try { localStorage.setItem(ANNOUNCE_VERSION_KEY, GAME_VERSION); } catch (e) {}
+    if (announcementTimer) { clearTimeout(announcementTimer); announcementTimer = null; }
+    if (autoClose) {
+        announcementTimer = setTimeout(function () {
+            closeAnnouncement();
+        }, 10000);
+    }
 }
 
 function closeAnnouncement() {
+    if (announcementTimer) { clearTimeout(announcementTimer); announcementTimer = null; }
     hideOverlay('announcementPanel');
     var el = document.getElementById('announcementPanel');
     if (el) el.style.display = 'none';
+}
+
+// 首次进入自动弹出公告（仅当未看过当前版本）
+function autoShowAnnouncement() {
+    var seen = null;
+    try { seen = localStorage.getItem(ANNOUNCE_VERSION_KEY); } catch (e) {}
+    if (seen !== GAME_VERSION) {
+        setTimeout(function () { openAnnouncement(true); }, 600);
+    }
 }
 
 function escapeHtml(s) {
