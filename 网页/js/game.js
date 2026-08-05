@@ -477,7 +477,7 @@ const UIAnimator = (() => {
 const TILE_SIZE = 20;
 const PLAYER_SIZE = 1.0;
 const BULLET_SIZE = 0.3;
-const ENEMY_SIZE = 1.2;
+const ENEMY_SIZE = 1.8;
 let MAP_SIZE = 150;
 const VIEW_RANGE_X = 45; // 左右各45格（更大的可见范围）
 const VIEW_RANGE_Y = 30; // 上下各30格
@@ -5632,7 +5632,7 @@ function drawEnemy(enemy) {
     const screenX = worldToScreen(enemy.x, enemy.y).x;
     const screenY = worldToScreen(enemy.x, enemy.y).y;
 
-    const sizeMul = enemy.isBoss ? 1.6 : 1.0;
+    const sizeMul = enemy.isBoss ? 2.2 : 1.0;
     const r = ENEMY_SIZE * TILE_SIZE * sizeMul;
     const now = performance.now();
 
