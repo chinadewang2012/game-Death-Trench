@@ -108,7 +108,7 @@
 
         <!-- 搜打撤局内弹药补充面板 -->
         <div id="raidAmmoPanel" class="raid-ammo-panel" style="display:none;">
-            <div class="raid-ammo-title">🛒 补充弹药</div>
+            <div class="raid-ammo-title">🛒 补充弹药<button class="raid-ammo-close" type="button" onclick="closeRaidAmmoPanel(event)">×</button></div>
             <div class="raid-ammo-row">
                 <label>弹药类型</label>
                 <select id="raidAmmoType" onchange="updateRaidAmmoCost()">

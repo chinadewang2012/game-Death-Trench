@@ -2752,7 +2752,8 @@ const RAID_AMMO_PRICES = {
     fire: 20
 };
 
-function toggleRaidAmmoPanel() {
+function toggleRaidAmmoPanel(e) {
+    if (e) e.stopPropagation();
     const panel = document.getElementById('raidAmmoPanel');
     if (!panel) return;
     raidAmmoPanelOpen = !raidAmmoPanelOpen;
@@ -2762,6 +2763,14 @@ function toggleRaidAmmoPanel() {
         document.getElementById('raidAmmoCount').textContent = raidAmmoSelectedCount;
         updateRaidAmmoCost();
     }
+}
+
+function closeRaidAmmoPanel(e) {
+    if (e) e.stopPropagation();
+    const panel = document.getElementById('raidAmmoPanel');
+    if (!panel) return;
+    raidAmmoPanelOpen = false;
+    panel.style.display = 'none';
 }
 
 function adjustRaidAmmo(delta) {
@@ -2794,6 +2803,7 @@ function buyRaidAmmo() {
     syncAmmoUI();
     updateHUD();
     showNotification(`购买 ${getAmmoName(type)}×${raidAmmoSelectedCount}，花费 ${cost} 🪙`);
+    closeRaidAmmoPanel();
 }
 
 // 拆分弹药
@@ -7827,6 +7837,7 @@ window.updateGameModeUI = updateGameModeUI;
 window.updateRaidLoadoutUI = updateRaidLoadoutUI;
 window.adjustRaidConsumable = adjustRaidConsumable;
 window.toggleRaidAmmoPanel = toggleRaidAmmoPanel;
+window.closeRaidAmmoPanel = closeRaidAmmoPanel;
 window.adjustRaidAmmo = adjustRaidAmmo;
 window.updateRaidAmmoCost = updateRaidAmmoCost;
 window.buyRaidAmmo = buyRaidAmmo;
@@ -8883,14 +8894,28 @@ function closeAllPanels() {
 // ESC 关闭所有遮罩弹窗
 document.addEventListener('keydown', function (e) {
     if (e.key === 'Escape') {
-        ['announcementPanel', 'mapDetailPanel'].forEach(function (id) {
+        ['announcementPanel', 'mapDetailPanel', 'raidAmmoPanel'].forEach(function (id) {
             var el = document.getElementById(id);
-            if (el && (el.classList.contains('active') || el.style.display === 'flex')) {
-                if (id === 'announcementPanel') closeAnnouncement();
-                else if (id === 'mapDetailPanel') closeMapDetail();
+            if (!el) return;
+            if (id === 'announcementPanel' && (el.classList.contains('active') || el.style.display === 'flex')) {
+                closeAnnouncement();
+            } else if (id === 'mapDetailPanel' && (el.classList.contains('active') || el.style.display === 'flex')) {
+                closeMapDetail();
+            } else if (id === 'raidAmmoPanel' && el.style.display === 'block') {
+                closeRaidAmmoPanel();
             }
         });
     }
+});
+
+// 点击补充弹药面板外部时关闭（面板内部点击已 stopPropagation，不会触发）
+document.addEventListener('click', function (e) {
+    if (!raidAmmoPanelOpen) return;
+    const panel = document.getElementById('raidAmmoPanel');
+    const toggle = document.getElementById('raidAmmoToggle');
+    if (!panel) return;
+    if (panel.contains(e.target) || (toggle && toggle.contains(e.target))) return;
+    closeRaidAmmoPanel();
 });
 
 // ===== 意见反馈（纯前端 Web3Forms，发往管理员邮箱）=====
