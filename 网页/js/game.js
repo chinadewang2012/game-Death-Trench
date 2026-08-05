@@ -573,6 +573,27 @@ const DEFAULT_WEAPONS = [
 
 let WEAPONS = JSON.parse(JSON.stringify(DEFAULT_WEAPONS));
 
+// 像素风配图映射（assets/art 下 32px 风格图，冷色主题）
+const WEAPON_ICON_MAP = {
+    pistol: 'weapon-pistol', smg: 'weapon-smg', rifle: 'weapon-rifle', ar: 'weapon-ar',
+    lmg: 'weapon-lmg', shotgun: 'weapon-shotgun', sniper: 'weapon-sniper',
+    knife: 'weapon-knife', machete: 'weapon-machete'
+};
+const MOD_ICON_MAP = {
+    scope: 'mod-scope', extendedMag: 'mod-extendedMag', suppressor: 'mod-suppressor',
+    grip: 'mod-grip', apRounds: 'mod-apRounds', stock: 'mod-stock'
+};
+function weaponIconHtml(w) {
+    const key = w && WEAPON_ICON_MAP[w.id];
+    if (key) return '<img class="px-icon" src="assets/art/' + key + '.jpg" alt="' + (w.name || '武器') + '">';
+    return '<span class="px-icon-fallback">' + (w && w.icon ? w.icon : '🔫') + '</span>';
+}
+function modIconHtml(modId, m) {
+    const key = MOD_ICON_MAP[modId];
+    if (key) return '<img class="px-icon" src="assets/art/' + key + '.jpg" alt="' + (m && m.name ? m.name : '配件') + '">';
+    return '<span class="px-icon-fallback">' + (m && m.icon ? m.icon : '🔧') + '</span>';
+}
+
 const DEFAULT_GAME_PARAMS_SCHEMA = {
     version: 1,
     ENEMY: { health: 80, damage: { easy: 8, normal: 12, hard: 18 }, moveSpeed: 0.35, fireRate: 1500, spawnInterval: 3000, count: 8 },
@@ -5645,7 +5666,7 @@ function renderWeaponButtons() {
         const btn = document.createElement('button');
         btn.className = 'weapon-btn' + (index === player.currentWeapon ? ' active' : '');
         btn.onclick = () => switchWeapon(index);
-        btn.innerHTML = `<span class="weapon-icon">${weapon.icon || '🔫'}</span><span class="weapon-name">${weapon.name || '武器'}</span>`;
+        btn.innerHTML = `<span class="weapon-icon">${weaponIconHtml(weapon)}</span><span class="weapon-name">${weapon.name || '武器'}</span>`;
         selector.appendChild(btn);
     });
 }
@@ -6346,7 +6367,7 @@ function renderModWeaponSelect() {
     weapons.forEach(weapon => {
         const btn = document.createElement('div');
         btn.className = 'mod-weapon-btn' + (weapon.id === selectedWeaponForMod ? ' selected' : '');
-        btn.innerHTML = `<span class="weapon-icon">${weapon.icon}</span><span class="weapon-name">${weapon.name}</span>`;
+        btn.innerHTML = `<span class="weapon-icon">${weaponIconHtml(weapon)}</span><span class="weapon-name">${weapon.name}</span>`;
         btn.onclick = () => {
             selectedWeaponForMod = weapon.id;
             renderModWeaponSelect();
@@ -6373,7 +6394,7 @@ function renderModShop() {
         const item = document.createElement('div');
         item.className = 'mod-item' + (equipped ? ' equipped' : (ownedCount > 0 ? ' owned' : '')) + (isMelee ? ' disabled' : '');
         item.innerHTML = `
-            <span class="mod-icon">${mod.icon}</span>
+            <span class="mod-icon">${modIconHtml(modId, mod)}</span>
             <span class="mod-name">${mod.name}</span>
             <span class="mod-desc">${mod.description}</span>
             <span class="mod-price">库存: ${ownedCount}</span>
@@ -6425,7 +6446,7 @@ function renderModEquipped() {
         const mod = MODIFICATIONS[modId];
         const tag = document.createElement('span');
         tag.className = 'mod-equipped-tag';
-        tag.innerHTML = `${mod.icon} ${mod.name}`;
+        tag.innerHTML = `${modIconHtml(modId, mod)} ${mod.name}`;
         container.appendChild(tag);
     });
 
@@ -7801,7 +7822,7 @@ function openLoadoutWeaponSelector(slot) {
 
         const item = document.createElement('div');
         item.className = 'market-item' + (isEquipped ? ' equipped' : '') + (isOwned ? ' unlocked' : '');
-        item.innerHTML = '<div class="item-icon">' + weapon.icon + '</div>' +
+        item.innerHTML = '<div class="item-icon">' + weaponIconHtml(weapon) + '</div>' +
             '<div class="item-info"><div class="item-name">' + weapon.name + '</div>' +
             '<div class="item-desc">伤害: ' + weapon.damage + ' | 射速: ' + weapon.fireRate + '</div></div>' +
             '<div class="item-price">' + priceText + '</div>' +
@@ -7935,7 +7956,7 @@ function renderWeaponLibrary() {
             }
             
             card.innerHTML = `
-                <div class="wc-icon">${w.icon || '🔫'}</div>
+                <div class="wc-icon">${weaponIconHtml(w)}</div>
                 <div class="wc-name">${w.name}</div>
                 <div class="wc-type">${isMelee ? '近战' : w.type}</div>
                 ${w.unlocked ? '<div style="color:var(--brand-accent);font-size:12px;">✓ 已拥有</div>' : '<div style="font-size:12px;">🔒</div>'}
@@ -8515,7 +8536,7 @@ function renderWeaponMarketGrid() {
         const item = document.createElement('div');
         item.className = 'market-item' + (isOwned ? ' unlocked' : '');
         item.innerHTML = `
-            <div class="item-icon">${weapon.icon}</div>
+            <div class="item-icon">${weaponIconHtml(weapon)}</div>
             <div class="item-info">
                 <div class="item-name">${weapon.name}</div>
                 <div class="item-desc">${weapon.description || '伤害: ' + weapon.damage + ' | 射速: ' + weapon.fireRate}</div>
@@ -8541,7 +8562,7 @@ function renderAttachmentMarketGrid() {
         const item = document.createElement('div');
         item.className = 'market-item';
         item.innerHTML = `
-            <div class="item-icon">${mod.icon}</div>
+            <div class="item-icon">${modIconHtml(modId, mod)}</div>
             <div class="item-info">
                 <div class="item-name">${mod.name}</div>
                 <div class="item-desc">${mod.description}</div>
@@ -10813,7 +10834,7 @@ function updateTeammateLoadoutPreview() {
     const parts = [];
     for (let i = 0; i < count; i++) {
         const loadout = generateRandomTeammateLoadout();
-        parts.push(`队友${i + 1}：${loadout.weapon.icon} ${loadout.weapon.name} · ${armorMap[loadout.armor] || loadout.armor}`);
+        parts.push(`队友${i + 1}：${weaponIconHtml(loadout.weapon)} ${loadout.weapon.name} · ${armorMap[loadout.armor] || loadout.armor}`);
     }
     preview.innerHTML = parts.join('<br>');
 }

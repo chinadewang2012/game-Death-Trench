@@ -6271,6 +6271,21 @@ body {
     border: 2px solid rgba(0,204,102,0.4);
     box-shadow: 0 0 12px rgba(0,204,102,0.15);
 }
+.dialogue-avatar-img {
+    width: 100%; height: 100%;
+    object-fit: cover;
+    border-radius: 50%;
+    image-rendering: pixelated;
+    display: block;
+}
+.px-icon {
+    width: 32px; height: 32px;
+    object-fit: contain;
+    image-rendering: pixelated;
+    display: inline-block;
+    vertical-align: middle;
+}
+.px-icon-fallback { font-size: 24px; }
 .dialogue-speaker-name {
     font-size: 17px; font-weight: 700; color: #e8e8e8;
     font-family: var(--font-display, 'Orbitron', monospace);
