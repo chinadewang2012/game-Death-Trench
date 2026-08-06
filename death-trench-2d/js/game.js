@@ -8829,6 +8829,129 @@ function updateReadyRoomLoadout() {
     if (sName) sName.textContent = secondary ? secondary.name : '副武器';
 }
 
+// 出发位置「一键装配」：给主/副武器装齐所有配件、补足 5 基数弹药、买重型护甲、备购药品
+function autoEquipLoadout() {
+    if (!playerData.equippedWeapons) {
+        playerData.equippedWeapons = { primary: 'rifle', secondary: 'pistol' };
+    }
+    const equipped = playerData.equippedWeapons;
+    const loadoutWeapons = [equipped.primary, equipped.secondary]
+        .map(id => WEAPONS.find(w => w.id === id))
+        .filter(w => w && !w.isMelee);
+
+    let spent = 0;
+    const log = [];
+
+    // 1) 给主/副武器装齐所有配件（购买缺失的并装配）
+    const ALL_MODS = ['scope', 'extendedMag', 'suppressor', 'grip', 'apRounds', 'stock', 'laser', 'flashlight', 'redDot', 'holo', 'drumMag', 'bipod', 'muzzleBrake'];
+    loadoutWeapons.forEach(weapon => {
+        if (weapon.isMelee) return;
+        if (!playerMods.equippedMods[weapon.id]) playerMods.equippedMods[weapon.id] = {};
+        ALL_MODS.forEach(modId => {
+            if (playerMods.equippedMods[weapon.id][modId]) return; // 已装
+            // 霰弹枪/狙击无法装消音器
+            if ((weapon.type === WEAPON_TYPES.SHOTGUN || weapon.type === WEAPON_TYPES.SNIPER) && modId === 'suppressor') return;
+            const mod = MODIFICATIONS[modId];
+            if (!mod) return;
+            // 先确保库存有足够配件
+            if (!playerMods.ownedMods[modId] || playerMods.ownedMods[modId] <= 0) {
+                if (playerData.coins < mod.price) {
+                    log.push('金币不足，跳过购买' + mod.name);
+                    return;
+                }
+                playerData.coins -= mod.price;
+                spent += mod.price;
+                playerMods.ownedMods[modId] = (playerMods.ownedMods[modId] || 0) + 1;
+            }
+            // 装配
+            playerMods.ownedMods[modId]--;
+            playerMods.equippedMods[weapon.id][modId] = true;
+            log.push(weapon.name + ' 装 ' + mod.name);
+        });
+    });
+
+    // 2) 补足 5 个基数弹药（1 基数 = 该武器弹匣容量，按推荐弹药类型购买）
+    loadoutWeapons.forEach(weapon => {
+        if (weapon.isMelee || !weapon.ammoType) return;
+        const ammoType = weapon.ammoType;
+        const needed = weapon.clipSize * 5; // 五个基数
+        const have = ammoInventory[ammoType] || 0;
+        const buyCount = Math.max(0, needed - have);
+        if (buyCount > 0) {
+            const unit = RAID_AMMO_PRICES[ammoType] || 5;
+            const cost = buyCount * unit;
+            if (playerData.coins < cost) {
+                log.push('金币不足，弹药未补满');
+            } else {
+                playerData.coins -= cost;
+                spent += cost;
+                ammoInventory[ammoType] = (ammoInventory[ammoType] || 0) + buyCount;
+                addAmmoToBackpack(ammoType, buyCount);
+                log.push(weapon.name + ' 补足 ' + buyCount + ' 发' + ammoTypeName(ammoType) + '弹药');
+            }
+        }
+    });
+
+    // 3) 购买并装备重型护甲
+    if (playerData.equippedArmor !== 'heavy') {
+        const heavyPrice = getItemPrice('armor_heavy');
+        const needBuy = !playerData.inventory.armor_heavy || playerData.inventory.armor_heavy <= 0;
+        if (needBuy) {
+            if (playerData.coins < heavyPrice) {
+                log.push('金币不足，无法购买重型护甲');
+            } else {
+                playerData.coins -= heavyPrice;
+                spent += heavyPrice;
+                playerData.inventory.armor_heavy = (playerData.inventory.armor_heavy || 0) + 1;
+                BackpackManager.addItem('armor_heavy', 1);
+                log.push('购买重型护甲');
+            }
+        }
+        if (playerData.inventory.armor_heavy && playerData.inventory.armor_heavy > 0) {
+            equipArmor('heavy');
+            log.push('已装备重型护甲');
+        }
+    } else {
+        log.push('重型护甲已装备');
+    }
+
+    // 4) 备购药品（医疗包补足到 5）
+    const medkitTarget = 5;
+    const medkitHave = playerData.inventory.medkits || 0;
+    const medkitBuy = Math.max(0, medkitTarget - medkitHave);
+    if (medkitBuy > 0) {
+        const medkitPrice = getItemPrice('medkit');
+        const cost = medkitBuy * medkitPrice;
+        if (playerData.coins < cost) {
+            log.push('金币不足，药品未备满');
+        } else {
+            playerData.coins -= cost;
+            spent += cost;
+            playerData.inventory.medkits = medkitHave + medkitBuy;
+            for (let i = 0; i < medkitBuy; i++) BackpackManager.addItem('medkit', 1);
+            log.push('备购医疗包 ' + medkitBuy + ' 个');
+        }
+    } else {
+        log.push('医疗包已备足');
+    }
+
+    savePlayerMods();
+    savePlayerData();
+    updatePlayerStats();
+    updateReadyRoomLoadout();
+    updateMarketUI();
+    updateSupplyUI();
+    updateRaidLoadoutUI();
+    showNotification('一键装配完成！花费 🪙' + spent + '\n' + log.slice(0, 4).join('；') + (log.length > 4 ? '…' : ''));
+}
+
+// 弹药类型中文名
+function ammoTypeName(type) {
+    return { normal: '普通', ap: '穿甲', exp: '爆裂', fire: '燃烧' }[type] || '';
+}
+
+window.autoEquipLoadout = autoEquipLoadout;
+
 let _loadoutSelectingSlot = 'primary';
 
 function openLoadoutWeaponSelector(slot) {

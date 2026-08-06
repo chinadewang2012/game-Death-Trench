@@ -11,7 +11,7 @@
     <script>
     // 版本守卫：确保浏览器始终加载最新资源，破除磁盘/代理缓存导致的旧版(?v=6)卡死
     (function () {
-        var LATEST = '17'; // 与下方脚本引用 ?v= 保持一致
+        var LATEST = '18'; // 与下方脚本引用 ?v= 保持一致
         var s = location.search || '';
         var m = s.match(/[?&]v=(\d+)/);
         var cur = m ? m[1] : null;
@@ -588,6 +588,9 @@
                             <button class="menu-btn tertiary" onclick="equipArmor('heavy')">重型护甲</button>
                             <button class="menu-btn tertiary" onclick="equipArmor('none')">无护甲</button>
                         </div>
+                        <button class="menu-btn primary auto-equip-btn" onclick="autoEquipLoadout()" style="width:100%;margin-top:8px;">
+                            ⚡ 一键装配（满配件·5基数弹药·重甲·药品）
+                        </button>
 
                         <div class="section-title">物资补给</div>
                         <div class="supply-list" id="supplyList">
@@ -1624,11 +1627,11 @@
         </div>
     </div>
 
-<script src="js/utils.js?v=17"></script>
-<script src="js/anti-cheat.js?v=17"></script>
-<script src="js/save.js?v=17"></script>
-<script src="js/coord.js?v=17"></script>
-<script src="js/game.js?v=17"></script>
+<script src="js/utils.js?v=18"></script>
+<script src="js/anti-cheat.js?v=18"></script>
+<script src="js/save.js?v=18"></script>
+<script src="js/coord.js?v=18"></script>
+<script src="js/game.js?v=18"></script>
     <script>
         document.addEventListener('DOMContentLoaded', function() {
             if (window.lucide) lucide.createIcons();
