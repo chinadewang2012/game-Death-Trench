@@ -559,7 +559,7 @@ const SELLABLE_TYPES = {
     bone:       { id: 'bone',       name: '史前化石', icon: '🦴', img: 'sell-bone',       baseValue: 210, rarity: 'epic' }
 };
 function getSellableDef(id) { return SELLABLE_TYPES[id] || { id, name: id, icon: '📦', img: null, baseValue: 50, rarity: 'common' }; }
-// 通用：把白底精灵 <img> 在加载后去白底（接近白色像素变透明）
+// 通用：把精灵 <img> 在加载后去背景（白底 + 深色背景均处理）
 window.__txArtIcon = function (img) {
     if (!img || img.dataset.done) return;
     if (!img.complete || !img.naturalWidth) return; // 未完成则等 onload 再触发
@@ -573,10 +573,16 @@ window.__txArtIcon = function (img) {
         const p = out.data, s = src.data;
         for (let i = 0; i < s.length; i += 4) {
             const r = s[i], g = s[i + 1], b = s[i + 2];
-            // 接近白色（背景）的像素按接近度渐变透明，柔化硬边锯齿
             const lum = (r + g + b) / 3;
+            const sat = Math.max(r, g, b) - Math.min(r, g, b); // 色差：背景通常近灰
+            // 白底：>200 按亮度渐变透明
             if (lum > 200) {
-                const t = Math.max(0, (lum - 200) / 55); // 200→不透明, 255→全透明
+                const t = Math.max(0, (lum - 200) / 55);
+                p[i + 3] = Math.round(p[i + 3] * (1 - t));
+            }
+            // 深色背景：低亮度 + 近灰（无色彩倾向），武器配件图多为这种风格
+            else if (lum < 55 && sat < 25) {
+                const t = 1 - Math.max(0, lum / 55); // 0→不透明, 55→全透明
                 p[i + 3] = Math.round(p[i + 3] * (1 - t));
             }
         }
