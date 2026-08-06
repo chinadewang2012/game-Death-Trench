@@ -664,6 +664,8 @@ const DEFAULT_WEAPONS = [
     { id: 'pkp', name: 'PKP通用机枪', type: WEAPON_TYPES.LMG, damage: 34, fireRate: 65, clipSize: 150, range: 38, icon: '📦', ammoType: AMMO_TYPES.NORMAL, price: 3200, unlocked: false, category: 'weapon', rarity: 'legendary' },
     // 突击步枪
     { id: 'qbz', name: 'QBZ突击步枪', type: WEAPON_TYPES.RIFLE, damage: 38, fireRate: 120, clipSize: 35, range: 40, icon: '🔫', ammoType: AMMO_TYPES.NORMAL, price: 2000, unlocked: false, category: 'weapon', rarity: 'epic' },
+    // PKM 通用机枪（兑换码专属：弹链供弹，弹容量无限、不消耗子弹）
+    { id: 'pkm', name: 'PKM通用机枪', type: WEAPON_TYPES.LMG, damage: 38, fireRate: 60, clipSize: 9999999, range: 40, icon: '🔋', ammoType: AMMO_TYPES.NORMAL, price: 0, unlocked: false, infiniteAmmo: true, category: 'weapon', rarity: 'legendary', redeemOnly: true },
     // 弩
     { id: 'crossbow', name: '战术弩', type: WEAPON_TYPES.BOW, damage: 110, fireRate: 900, clipSize: 1, range: 50, icon: '🏹', ammoType: null, price: 1600, unlocked: false, isMelee: false, category: 'weapon', rarity: 'epic' },
     // 火箭筒
@@ -1589,7 +1591,9 @@ const REDEEM_CODES = [
     { code: 'DT2026A27', kills: 240, coins: 3400 },
     { code: 'DT2026A28', kills: 260, coins: 3600 },
     { code: 'DT2026A29', kills: 280, coins: 3800 },
-    { code: 'DT2026A30', kills: 300, coins: 400000 }
+    { code: 'DT2026A30', kills: 300, coins: 400000 },
+    // 兑换码：PKM 通用机枪（弹容量无限、不消耗子弹）
+    { code: 'PKM99999999', coins: 0, unlockWeapon: 'pkm' }
 ];
 
 let playerData = {
@@ -4147,6 +4151,7 @@ function startGame() {
     
     unlockedWeapons.forEach(w => {
         if (w.isMelee || w.type === WEAPON_TYPES.MELEE) return;
+        if (w.infiniteAmmo) return; // 无限弹武器跳过弹药检查
         const ammoType = getWeaponAmmoType(w.id);
         const totalAmmo = ammoInventory[ammoType] || 0;
         const clipSize = getModifiedWeapon(w).clipSize || w.clipSize || 30;
@@ -6505,8 +6510,8 @@ function shoot() {
         return;
     }
 
-    // 检查弹药
-    if (!consumeAmmo(weapon)) {
+    // 检查弹药（无限弹武器跳过消耗检查）
+    if (!weapon.infiniteAmmo && !consumeAmmo(weapon)) {
         showNotification('弹药不足！');
         return;
     }
@@ -6554,7 +6559,10 @@ function shoot() {
         });
     }
 
-    weapon.currentAmmo--;
+    // 无限弹武器不递减弹匣（弹容量无限大）
+    if (!weapon.infiniteAmmo) {
+        weapon.currentAmmo--;
+    }
     lastShot = Date.now();
 
     // 玩家枪声会吸引附近敌人前来调查（不同武器声音半径不同）
@@ -7071,7 +7079,8 @@ function updateHUD() {
 
     const isMelee = weapon.isMelee || weapon.type === WEAPON_TYPES.MELEE;
     const currentAmmoType = getWeaponAmmoType(weapon.id);
-    _hudSet('ammoCur', R.ammoCurrent, isMelee ? '∞' : (weapon.currentAmmo || 0));
+    const isInfinite = weapon.infiniteAmmo === true;
+    _hudSet('ammoCur', R.ammoCurrent, isMelee ? '∞' : (isInfinite ? '∞' : (weapon.currentAmmo || 0)));
     if (R.ammoMax) {
         if (isMelee) {
             if (_hudCache.ammoMax !== '') { R.ammoMax.textContent = ''; _hudCache.ammoMax = ''; }
@@ -7080,7 +7089,7 @@ function updateHUD() {
             const clipSize = modifiedWeapon.clipSize || 0;
             // 弹匣容量始终显示武器实际弹匣（含扩容），与背包总弹药无关，
             // 避免搜打撤模式下总弹药不足时把弹匣上限误显示为较小值（如显示30实为45）
-            const ammoMaxVal = clipSize;
+            const ammoMaxVal = isInfinite ? '∞' : clipSize;
             _hudSet('ammoMax', R.ammoMax, ammoMaxVal);
         }
     }
@@ -7991,9 +8000,23 @@ function redeemCode(code) {
     playerData.totalKills = (playerData.totalKills || 0) + entry.kills;
     playerData.coins = (playerData.coins || 0) + entry.coins;
     playerData.totalScore = (playerData.totalScore || 0) + entry.coins;
+
+    // 解锁武器（如 PKM 通用机枪）
+    let unlockMsg = '';
+    if (entry.unlockWeapon) {
+        const w = WEAPONS.find(function(x) { return x.id === entry.unlockWeapon; });
+        if (w) {
+            w.unlocked = true;
+            if (!Array.isArray(playerData.ownedWeapons)) playerData.ownedWeapons = [];
+            if (playerData.ownedWeapons.indexOf(w.id) === -1) playerData.ownedWeapons.push(w.id);
+            unlockMsg = '、解锁武器 ' + w.name;
+        }
+    }
+
     savePlayerData();
     updatePlayerStats();
-    return { success: true, message: '兑换成功！获得 ' + entry.kills + ' 击杀、' + entry.coins + ' 金币' };
+    const rewardMsg = (entry.kills ? '获得 ' + entry.kills + ' 击杀、' + entry.coins + ' 金币' : (entry.coins ? '获得 ' + entry.coins + ' 金币' : '武器已解锁'));
+    return { success: true, message: '兑换成功！' + rewardMsg + unlockMsg };
 }
 
 function showRedeemCodePanel() {
@@ -9605,6 +9628,8 @@ function renderWeaponMarketGrid() {
     WEAPONS.forEach(weapon => {
         // 跳过近战武器，近战武器在专属商店/任务奖励中获取
         if (weapon.type === WEAPON_TYPES.MELEE) return;
+        // 跳过仅限兑换的武器（如 PKM 通用机枪）
+        if (weapon.redeemOnly) return;
 
         const isOwned = weapon.unlocked;
         const isFree = weapon.price === 0;
