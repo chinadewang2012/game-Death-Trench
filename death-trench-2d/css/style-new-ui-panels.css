@@ -757,6 +757,139 @@
     font-weight: bold;
 }
 
+/* 刀皮抽奖面板样式（模仿三角洲扭蛋） */
+.knife-lottery-banner {
+    text-align: center;
+    padding: 22px;
+    background: linear-gradient(135deg, rgba(245, 158, 11, 0.18), rgba(239, 68, 68, 0.12));
+    border: 1px solid rgba(245, 158, 11, 0.35);
+    border-radius: 8px;
+    margin-bottom: 18px;
+}
+
+.knife-lottery-banner-title {
+    font-size: 22px;
+    font-weight: bold;
+    color: #f59e0b;
+    margin-bottom: 6px;
+    text-shadow: 0 0 12px rgba(245, 158, 11, 0.4);
+}
+
+.knife-lottery-banner-sub {
+    font-size: 13px;
+    color: #8b949e;
+    margin-bottom: 8px;
+}
+
+.knife-lottery-banner-pity {
+    font-size: 12px;
+    color: #f59e0b;
+}
+
+.knife-lottery-actions {
+    display: flex;
+    gap: 16px;
+    margin-bottom: 20px;
+    justify-content: center;
+}
+
+.lottery-draw-btn {
+    flex: 1;
+    max-width: 220px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    padding: 18px;
+    border: 1px solid var(--color-border-subtle);
+    border-radius: 8px;
+    background: linear-gradient(135deg, #1f2937, #111827);
+    color: #fff;
+    cursor: pointer;
+    transition: transform 0.15s, box-shadow 0.15s;
+}
+
+.lottery-draw-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(245, 158, 11, 0.25);
+}
+
+.lottery-draw-btn.ten {
+    background: linear-gradient(135deg, rgba(245, 158, 11, 0.25), rgba(239, 68, 68, 0.2));
+    border-color: rgba(245, 158, 11, 0.5);
+}
+
+.lottery-draw-btn .ld-cost {
+    font-size: 15px;
+    font-weight: bold;
+    color: #f59e0b;
+}
+
+.lottery-draw-btn .ld-label {
+    font-size: 14px;
+}
+
+.knife-lottery-results {
+    min-height: 160px;
+    margin-bottom: 22px;
+}
+
+.panel-section-title {
+    font-size: 14px;
+    font-weight: bold;
+    color: #c9d1d9;
+    margin: 14px 0 12px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid var(--color-border-subtle);
+}
+
+/* 刀皮卡（复用 skin-card） */
+.skin-card {
+    position: relative;
+    background: var(--color-bg-card);
+    border: 2px solid #9ca3af;
+    border-radius: 8px;
+    padding: 16px 10px;
+    text-align: center;
+    cursor: pointer;
+    transition: transform 0.15s, box-shadow 0.15s;
+}
+
+.skin-card:hover {
+    transform: translateY(-3px);
+}
+
+.skin-card.equipped {
+    box-shadow: 0 0 0 2px var(--brand-accent), 0 4px 16px rgba(0, 204, 102, 0.3);
+}
+
+.skin-card.locked {
+    opacity: 0.55;
+    cursor: default;
+}
+
+.skin-card-icon {
+    font-size: 30px;
+    margin-bottom: 8px;
+}
+
+.skin-card-name {
+    font-size: 13px;
+    color: #c9d1d9;
+    margin-bottom: 4px;
+}
+
+.skin-card-rarity {
+    font-size: 11px;
+    font-weight: bold;
+    margin-bottom: 4px;
+}
+
+.skin-card-status {
+    font-size: 11px;
+    color: #8b949e;
+}
+
 /* 武器卡弹药选择器 */
 .wc-ammo-selector {
     margin-top: 8px;

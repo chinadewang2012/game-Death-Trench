@@ -11,7 +11,7 @@
     <script>
     // 版本守卫：确保浏览器始终加载最新资源，破除磁盘/代理缓存导致的旧版(?v=6)卡死
     (function () {
-        var LATEST = '16'; // 与下方脚本引用 ?v= 保持一致
+        var LATEST = '17'; // 与下方脚本引用 ?v= 保持一致
         var s = location.search || '';
         var m = s.match(/[?&]v=(\d+)/);
         var cur = m ? m[1] : null;
@@ -452,6 +452,10 @@
                 <button class="lobby-func-btn" onclick="showLotteryPanel()">
                     <i data-lucide="dices" style="width:24px;height:24px;color:var(--brand-accent);"></i>
                     <span>抽奖</span>
+                </button>
+                <button class="lobby-func-btn" onclick="showKnifeLotteryPanel()">
+                    <i data-lucide="swords" style="width:24px;height:24px;color:var(--brand-accent);"></i>
+                    <span>刀皮抽奖</span>
                 </button>
                 <button class="lobby-func-btn" onclick="showRedeemCodePanel()">
                     <i data-lucide="gift" style="width:24px;height:24px;color:var(--brand-accent);"></i>
@@ -1182,6 +1186,38 @@
                 </div>
             </div>
 
+            <!-- 刀皮抽奖面板 -->
+            <div id="knifeLotteryPanel" class="panel" style="display:none;">
+                <div class="panel-title-bar">
+                    <h2>🗡️ 刀皮抽奖</h2>
+                    <div class="panel-gold">🪙 <span id="knifeLotteryGold">1000</span></div>
+                    <button class="menu-btn tertiary" style="padding:8px 16px; font-size:14px;" onclick="showLobby()">← 返回</button>
+                </div>
+
+                <div class="knife-lottery-banner">
+                    <div class="knife-lottery-banner-title">🗡️ 刀皮扭蛋</div>
+                    <div class="knife-lottery-banner-sub">模仿三角洲行动 · 稀有刀皮等你抽取</div>
+                    <div class="knife-lottery-banner-pity">保底进度：<span id="knifeLotteryPity">0</span> / 10（满必出史诗+）</div>
+                </div>
+
+                <div class="knife-lottery-actions">
+                    <button class="lottery-draw-btn" onclick="drawKnifeLottery(1)">
+                        <span class="ld-cost">🪙 150</span>
+                        <span class="ld-label">单抽</span>
+                    </button>
+                    <button class="lottery-draw-btn ten" onclick="drawKnifeLottery(10)">
+                        <span class="ld-cost">🪙 1350</span>
+                        <span class="ld-label">十连抽</span>
+                    </button>
+                </div>
+
+                <div class="panel-section-title">📜 抽取结果</div>
+                <div id="knifeLotteryResults" class="knife-lottery-results"></div>
+
+                <div class="panel-section-title">🗡️ 我的刀皮（点击装备）</div>
+                <div id="knifeSkinGrid" class="skin-grid"></div>
+            </div>
+
             <!-- 皮肤面板 -->
             <div id="skinPanel" class="panel">
                 <div class="panel-title-bar">
@@ -1588,11 +1624,11 @@
         </div>
     </div>
 
-<script src="js/utils.js?v=16"></script>
-<script src="js/anti-cheat.js?v=16"></script>
-<script src="js/save.js?v=16"></script>
-<script src="js/coord.js?v=16"></script>
-<script src="js/game.js?v=16"></script>
+<script src="js/utils.js?v=17"></script>
+<script src="js/anti-cheat.js?v=17"></script>
+<script src="js/save.js?v=17"></script>
+<script src="js/coord.js?v=17"></script>
+<script src="js/game.js?v=17"></script>
     <script>
         document.addEventListener('DOMContentLoaded', function() {
             if (window.lucide) lucide.createIcons();

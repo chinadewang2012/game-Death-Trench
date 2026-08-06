@@ -965,7 +965,9 @@ let playerMods = {
     ownedSkins: ['skin_default'],  // 已拥有的皮肤
     equippedWeaponSkin: 'skin_default',  // 当前武器皮肤
     equippedPlayerSkin: 'player_default',  // 当前玩家皮肤
-    equippedAmmoTypes: {}  // { weaponId: 'normal'|'ap'|'exp'|'fire' }
+    equippedAmmoTypes: {},  // { weaponId: 'normal'|'ap'|'exp'|'fire' }
+    ownedKnifeSkins: ['default'],  // 已拥有的刀皮
+    equippedKnifeSkin: 'default'  // 当前装备的刀皮
 };
 
 // 弹药库存
@@ -2671,6 +2673,14 @@ function loadPlayerMods() {
 
         loadItemRegistry();
 
+        // 刀皮保底计数恢复
+        if (lotteryData.knifePity !== undefined) {
+            KNIFE_LOTTERY.pityCounter = lotteryData.knifePity;
+        }
+        // 确保刀皮字段存在（旧存档兼容）
+        if (!playerMods.ownedKnifeSkins) playerMods.ownedKnifeSkins = ['default'];
+        if (!playerMods.equippedKnifeSkin) playerMods.equippedKnifeSkin = 'default';
+
         // 背包数据迁移：旧版使用 playerData.inventory 数字字段，新版使用 backpack.items 列表
         if (playerData.inventory && !playerData.backpack) {
             BackpackManager.fromLegacyInventory(playerData.inventory);
@@ -2901,6 +2911,151 @@ function renderLotteryUI() {
     html += '</div>';
     resultsContainer.innerHTML = html;
 }
+
+// ============================================================
+// 刀皮抽奖系统（模仿三角洲扭蛋）
+// ============================================================
+
+// 根据权重抽取一款刀皮；保底逻辑：连续 KNIFE_LOTTERY_PITY 抽无史诗+ 必出史诗及以上
+function rollKnifeSkin() {
+    const pityActive = KNIFE_LOTTERY.pityCounter >= KNIFE_LOTTERY_PITY - 1;
+    let pool = KNIFE_SKINS.filter(s => s.id !== 'default');
+    if (pityActive) {
+        pool = pool.filter(s => s.rarity === 'epic' || s.rarity === 'legendary');
+    }
+    const totalWeight = pool.reduce((sum, s) => sum + s.weight, 0);
+    let r = Math.random() * totalWeight;
+    for (const s of pool) {
+        r -= s.weight;
+        if (r <= 0) return s;
+    }
+    return pool[pool.length - 1];
+}
+
+// 执行刀皮抽奖（count=1 单抽，count=10 十连）
+function drawKnifeLottery(count) {
+    const cost = count >= 10 ? KNIFE_LOTTERY.tenCost : KNIFE_LOTTERY.cost * count;
+    if (playerData.coins < cost) {
+        showNotification('金币不足，无法抽取刀皮');
+        return;
+    }
+    playerData.coins -= cost;
+
+    const results = [];
+    for (let i = 0; i < count; i++) {
+        const skin = rollKnifeSkin();
+        // 更新保底计数
+        if (skin.rarity === 'epic' || skin.rarity === 'legendary') {
+            KNIFE_LOTTERY.pityCounter = 0;
+        } else {
+            KNIFE_LOTTERY.pityCounter++;
+        }
+        // 记录拥有（重复则提示已拥有）
+        const isNew = !playerMods.ownedKnifeSkins.includes(skin.id);
+        if (isNew) playerMods.ownedKnifeSkins.push(skin.id);
+        results.push({ skin, isNew });
+    }
+
+    lotteryData.knifePity = KNIFE_LOTTERY.pityCounter;
+    savePlayerData();
+    savePlayerMods();
+    renderKnifeLottery(results);
+    updatePlayerStats();
+
+    const best = results.reduce((a, b) => (rarityRank(b.skin.rarity) > rarityRank(a.skin.rarity) ? b : a), results[0]);
+    showNotification(`刀皮抽奖完成！最高获得：${best.skin.name}（${getRarityName(best.skin.rarity)}）`);
+}
+
+// 稀有度等级（用于比较）
+function rarityRank(r) {
+    return { common: 0, rare: 1, epic: 2, legendary: 3 }[r] || 0;
+}
+
+// 装备指定刀皮
+function equipKnifeSkin(skinId) {
+    const skin = KNIFE_SKINS.find(s => s.id === skinId);
+    if (!skin) return;
+    if (!playerMods.ownedKnifeSkins.includes(skinId)) {
+        showNotification('尚未拥有该刀皮');
+        return;
+    }
+    playerMods.equippedKnifeSkin = skinId;
+    savePlayerMods();
+    renderKnifeLottery();
+    updatePlayerStats();
+    showNotification(`${skin.name} 已装备`);
+}
+
+// 获取当前装备的刀皮对象
+function getEquippedKnifeSkin() {
+    return KNIFE_SKINS.find(s => s.id === playerMods.equippedKnifeSkin) || KNIFE_SKINS[0];
+}
+
+// 渲染刀皮抽奖面板
+function renderKnifeLottery(lastResults) {
+    const goldEl = document.getElementById('knifeLotteryGold');
+    if (goldEl) goldEl.textContent = playerData.coins;
+    const pityEl = document.getElementById('knifeLotteryPity');
+    if (pityEl) pityEl.textContent = KNIFE_LOTTERY.pityCounter;
+
+    const grid = document.getElementById('knifeSkinGrid');
+    if (grid) {
+        grid.innerHTML = '';
+        KNIFE_SKINS.forEach(skin => {
+            const owned = playerMods.ownedKnifeSkins.includes(skin.id);
+            const equipped = playerMods.equippedKnifeSkin === skin.id;
+            const card = document.createElement('div');
+            card.className = 'skin-card' + (equipped ? ' equipped' : '') + (owned ? '' : ' locked');
+            const rc = RARITY_COLORS[skin.rarity] || RARITY_COLORS.common;
+            card.style.borderColor = rc.border;
+            card.innerHTML = `
+                <div class="skin-card-icon" style="color:${skin.color};${skin.glowColor ? 'text-shadow:0 0 10px ' + skin.glowColor : ''}">🗡️</div>
+                <div class="skin-card-name">${skin.name}</div>
+                <div class="skin-card-rarity" style="color:${rc.text}">${getRarityName(skin.rarity)}</div>
+                <div class="skin-card-status">${equipped ? '✓ 已装备' : (owned ? '已拥有' : '未拥有')}</div>
+            `;
+            if (owned) {
+                card.onclick = () => equipKnifeSkin(skin.id);
+            }
+            grid.appendChild(card);
+        });
+    }
+
+    const resultsEl = document.getElementById('knifeLotteryResults');
+    if (resultsEl) {
+        if (!lastResults || lastResults.length === 0) {
+            resultsEl.innerHTML = '<div style="text-align:center;color:#8b949e;padding:30px;">抽取刀皮以查看结果</div>';
+        } else {
+            let html = '<div class="lottery-results-grid">';
+            lastResults.forEach((r, i) => {
+                const color = (RARITY_COLORS[r.skin.rarity] || RARITY_COLORS.common).border;
+                html += `
+                    <div class="lottery-result-item" style="border-color:${color}; animation-delay:${i * 0.08}s;">
+                        <div class="lottery-result-icon" style="color:${r.skin.color};${r.skin.glowColor ? 'text-shadow:0 0 10px ' + r.skin.glowColor : ''}">🗡️</div>
+                        <div class="lottery-result-name">${r.skin.name}${r.isNew ? '' : '（重复）'}</div>
+                        <div class="lottery-result-rarity" style="color:${color}">${getRarityName(r.skin.rarity)}</div>
+                    </div>
+                `;
+            });
+            html += '</div>';
+            resultsEl.innerHTML = html;
+        }
+    }
+}
+
+// 显示刀皮抽奖面板
+function showKnifeLotteryPanel() {
+    hideAllPanels();
+    const p = document.getElementById('knifeLotteryPanel');
+    if (p) {
+        p.classList.add('active');
+        p.style.display = 'block';
+    }
+    renderKnifeLottery();
+}
+window.showKnifeLotteryPanel = showKnifeLotteryPanel;
+window.drawKnifeLottery = drawKnifeLottery;
+window.equipKnifeSkin = equipKnifeSkin;
 
 async function doLottery(count) {
     const results = await drawLottery(count);
@@ -4141,27 +4296,26 @@ function actuallyStartGame() {
     const armorBonus = playerData.equippedArmor === 'heavy' ? 60 : playerData.equippedArmor === 'light' ? 30 : 0;
     const playerMaxHealth = (gameParams.PLAYER.maxHealth || 100) + armorBonus;
 
-    // 构造出战武器列表：优先使用装备槽，其次取前 4 把已解锁武器，保底给手枪+步枪
-    const unlockedWeapons = WEAPONS.filter(w => w.unlocked);
-    let battleWeapons = [];
+    // 构造出战武器列表：固定三槽 = 主武器 + 副武器 + 刀（刀为常驻近战槽）
     const equipped = playerData.equippedWeapons || {};
-    if (equipped.primary) {
-        const pw = WEAPONS.find(w => w.id === equipped.primary && w.unlocked);
-        if (pw) battleWeapons.push(pw);
-    }
-    if (equipped.secondary) {
-        const sw = WEAPONS.find(w => w.id === equipped.secondary && w.unlocked);
-        if (sw && sw.id !== equipped.primary) battleWeapons.push(sw);
-    }
-    // 补充已解锁武器直到最多 4 把（避免超过 HUD 按钮数量）
-    for (const w of unlockedWeapons) {
-        if (battleWeapons.some(bw => bw.id === w.id)) continue;
-        if (battleWeapons.length >= 4) break;
-        battleWeapons.push(w);
+    const findUnlocked = (id) => WEAPONS.find(w => w.id === id && w.unlocked);
+    const battleWeapons = [];
+    // 槽位0：主武器（默认步枪）
+    const primaryW = findUnlocked(equipped.primary) || findUnlocked('rifle') || WEAPONS.find(w => w.unlocked && w.type !== 'melee');
+    if (primaryW) battleWeapons.push(primaryW);
+    // 槽位1：副武器（默认手枪）
+    const secondaryW = findUnlocked(equipped.secondary) || findUnlocked('pistol') || WEAPONS.find(w => w.unlocked && w.type !== 'melee' && w.id !== primaryW.id);
+    if (secondaryW && secondaryW.id !== primaryW.id) battleWeapons.push(secondaryW);
+    // 槽位2：刀（常驻，带当前刀皮；mp5 等解锁后也可作为副武器）
+    const knifeDef = WEAPONS.find(w => w.id === 'knife') || WEAPONS.find(w => w.type === 'melee' && w.unlocked);
+    if (knifeDef) {
+        const knifeSkinId = playerMods.equippedKnifeSkin || 'default';
+        const knifeSkin = KNIFE_SKINS.find(s => s.id === knifeSkinId) || KNIFE_SKINS[0];
+        battleWeapons.push(Object.assign({}, knifeDef, { knifeSkin: knifeSkin }));
     }
     if (battleWeapons.length === 0) {
-        battleWeapons = WEAPONS.filter(w => w.id === 'pistol' || w.id === 'rifle');
-        console.warn('[START] No unlocked weapons found, using defaults');
+        console.warn('[START] No valid loadout built, fallback to rifle+pistol');
+        battleWeapons.push(findUnlocked('rifle'), findUnlocked('pistol'));
     }
 
     player = {
@@ -5994,17 +6148,47 @@ function drawPlayer() {
     const wlen = u * 1.7;
     const wwid = u * 0.42;
     const wx = u * 0.15;
-    ctx.fillStyle = '#2a2f33';
-    ctx.strokeStyle = '#6a7280';
-    ctx.lineWidth = 1;
-    ctx.fillRect(wx, -wwid / 2, wlen, wwid);
-    ctx.strokeRect(wx, -wwid / 2, wlen, wwid);
-    // 枪管/枪口
-    ctx.fillStyle = '#15181b';
-    ctx.fillRect(wx + wlen, -wwid * 0.35, u * 0.28, wwid * 0.7);
-    // 握把
-    ctx.fillStyle = '#3a3f44';
-    ctx.fillRect(wx + wlen * 0.35, wwid / 2, u * 0.28, u * 0.5);
+    const curW = player.weapons[player.currentWeapon];
+    const isKnife = curW && curW.isMelee;
+
+    if (isKnife) {
+        // 刀：应用当前刀皮颜色与发光
+        const ks = (curW.knifeSkin) || getEquippedKnifeSkin();
+        const bladeColor = ks.color || '#bbb';
+        const glow = ks.glowColor || null;
+        ctx.save();
+        if (glow) { ctx.shadowColor = glow; ctx.shadowBlur = 10; }
+        // 刀刃
+        ctx.fillStyle = bladeColor;
+        ctx.strokeStyle = lightenColor(bladeColor, 40);
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(wx, -wwid * 0.18);
+        ctx.lineTo(wx + wlen * 0.95, -wwid * 0.12);
+        ctx.lineTo(wx + wlen, 0);
+        ctx.lineTo(wx + wlen * 0.95, wwid * 0.12);
+        ctx.lineTo(wx, wwid * 0.18);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+        ctx.shadowBlur = 0;
+        // 刀柄
+        ctx.fillStyle = '#2a2f33';
+        ctx.fillRect(wx - u * 0.22, -wwid * 0.3, u * 0.22, wwid * 0.6);
+        ctx.restore();
+    } else {
+        ctx.fillStyle = '#2a2f33';
+        ctx.strokeStyle = '#6a7280';
+        ctx.lineWidth = 1;
+        ctx.fillRect(wx, -wwid / 2, wlen, wwid);
+        ctx.strokeRect(wx, -wwid / 2, wlen, wwid);
+        // 枪管/枪口
+        ctx.fillStyle = '#15181b';
+        ctx.fillRect(wx + wlen, -wwid * 0.35, u * 0.28, wwid * 0.7);
+        // 握把
+        ctx.fillStyle = '#3a3f44';
+        ctx.fillRect(wx + wlen * 0.35, wwid / 2, u * 0.28, u * 0.5);
+    }
 
     // 枪口闪光
     if (muzzleFlashTime > 0) {
@@ -13069,23 +13253,41 @@ const SKIN_TEMPLATES = [
 
 const SKIN_WEAPON_TYPES = ['手枪','冲锋枪','步枪','突击步枪','轻机枪','霰弹枪','狙击枪','战术刀','火箭筒','激光枪','加特林','双持手枪','猎枪'];
 
+// 刀皮抽奖权重（模仿三角洲：稀有度越高越难抽）
+const KNIFE_SKIN_WEIGHTS = {
+    common: 45,
+    rare: 30,
+    epic: 18,
+    legendary: 7
+};
+
+// 刀皮抽奖保底：连续 N 抽无史诗及以上则必出史诗+
+const KNIFE_LOTTERY_PITY = 10;
+
 const KNIFE_SKINS = [
-    { id: 'default', name: '默认', rarity: 'common', price: 0, color: '#888', glowColor: null },
-    { id: 'carbon', name: '碳纤维', rarity: 'rare', price: 400, color: '#444', glowColor: null },
-    { id: 'gold', name: '黄金', rarity: 'epic', price: 800, color: '#d4a017', glowColor: 'rgba(212,160,23,0.5)' },
-    { id: 'camo', name: '迷彩', rarity: 'rare', price: 600, color: '#5c7230', glowColor: null },
-    { id: 'neon', name: '霓虹', rarity: 'legendary', price: 1000, color: '#00e5ff', glowColor: 'rgba(0,229,255,0.6)' },
-    { id: 'red', name: '赤红', rarity: 'rare', price: 500, color: '#cc3333', glowColor: 'rgba(204,51,51,0.4)' },
-    { id: 'blue', name: '深蓝', rarity: 'rare', price: 500, color: '#1a3a5c', glowColor: null },
-    { id: 'purple', name: '紫晶', rarity: 'legendary', price: 1200, color: '#7b2fbe', glowColor: 'rgba(123,47,190,0.5)' },
-    { id: 'bloodmoon', name: '血月', rarity: 'epic', price: 700, color: '#8b1a1a', glowColor: 'rgba(139,26,26,0.4)' },
-    { id: 'frost', name: '霜冻', rarity: 'rare', price: 600, color: '#a8d4e6', glowColor: null },
-    { id: 'thunder', name: '雷霆', rarity: 'legendary', price: 1100, color: '#6a6aff', glowColor: 'rgba(106,106,255,0.5)' },
-    { id: 'sakura', name: '樱花', rarity: 'epic', price: 800, color: '#d4a0b0', glowColor: 'rgba(212,160,176,0.3)' },
-    { id: 'dragon', name: '龙牙', rarity: 'legendary', price: 1500, color: '#cc4400', glowColor: 'rgba(204,68,0,0.5)' },
-    { id: 'darknight', name: '暗夜', rarity: 'epic', price: 900, color: '#2a2a3a', glowColor: 'rgba(40,40,60,0.3)' },
-    { id: 'phoenix', name: '凤凰', rarity: 'legendary', price: 2000, color: '#ff6600', glowColor: 'rgba(255,102,0,0.6)' }
+    { id: 'default', name: '默认', rarity: 'common', price: 0, color: '#888', glowColor: null, weight: 45 },
+    { id: 'carbon', name: '碳纤维', rarity: 'rare', price: 400, color: '#444', glowColor: null, weight: 30 },
+    { id: 'gold', name: '黄金', rarity: 'epic', price: 800, color: '#d4a017', glowColor: 'rgba(212,160,23,0.5)', weight: 18 },
+    { id: 'camo', name: '迷彩', rarity: 'rare', price: 600, color: '#5c7230', glowColor: null, weight: 30 },
+    { id: 'neon', name: '霓虹', rarity: 'legendary', price: 1000, color: '#00e5ff', glowColor: 'rgba(0,229,255,0.6)', weight: 7 },
+    { id: 'red', name: '赤红', rarity: 'rare', price: 500, color: '#cc3333', glowColor: 'rgba(204,51,51,0.4)', weight: 30 },
+    { id: 'blue', name: '深蓝', rarity: 'rare', price: 500, color: '#1a3a5c', glowColor: null, weight: 30 },
+    { id: 'purple', name: '紫晶', rarity: 'legendary', price: 1200, color: '#7b2fbe', glowColor: 'rgba(123,47,190,0.5)', weight: 7 },
+    { id: 'bloodmoon', name: '血月', rarity: 'epic', price: 700, color: '#8b1a1a', glowColor: 'rgba(139,26,26,0.4)', weight: 18 },
+    { id: 'frost', name: '霜冻', rarity: 'rare', price: 600, color: '#a8d4e6', glowColor: null, weight: 30 },
+    { id: 'thunder', name: '雷霆', rarity: 'legendary', price: 1100, color: '#6a6aff', glowColor: 'rgba(106,106,255,0.5)', weight: 7 },
+    { id: 'sakura', name: '樱花', rarity: 'epic', price: 800, color: '#d4a0b0', glowColor: 'rgba(212,160,176,0.3)', weight: 18 },
+    { id: 'dragon', name: '龙牙', rarity: 'legendary', price: 1500, color: '#cc4400', glowColor: 'rgba(204,68,0,0.5)', weight: 7 },
+    { id: 'darknight', name: '暗夜', rarity: 'epic', price: 900, color: '#2a2a3a', glowColor: 'rgba(40,40,60,0.3)', weight: 18 },
+    { id: 'phoenix', name: '凤凰', rarity: 'legendary', price: 2000, color: '#ff6600', glowColor: 'rgba(255,102,0,0.6)', weight: 7 }
 ];
+
+// 刀皮抽奖配置（独立扭蛋）
+const KNIFE_LOTTERY = {
+    cost: 150,        // 单抽价格
+    tenCost: 1350,    // 十连抽（9折）
+    pityCounter: 0    // 保底计数（持久化为 lotteryData.knifePity）
+};
 
 const RARITY_COLORS = {
     common: { border: '#9ca3af', text: '#9ca3af', bg: 'rgba(156,163,175,0.08)' },
