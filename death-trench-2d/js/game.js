@@ -6131,11 +6131,7 @@ function drawEnemy(enemy) {
     ctx.rotate(enemy.angle);
 
     if (curImg && curImg.complete && curImg.naturalWidth > 0) {
-        ctx.save();
-        ctx.rotate(-enemy.angle);
-        ctx.translate(-r, -r);
-        ctx.drawImage(enemy._imgEl, 0, 0, r * 2, r * 2);
-        ctx.restore();
+        ctx.drawImage(curImg, -r, -r, r * 2, r * 2);
     } else {
         // 回退：纯色三角
         ctx.fillStyle = '#cc3333';
