@@ -3050,11 +3050,13 @@ function renderKnifeLottery(lastResults) {
 // 显示刀皮抽奖面板
 function showKnifeLotteryPanel() {
     hideAllPanels();
+    ensureLobbyPanelsVisible();
     const p = document.getElementById('knifeLotteryPanel');
     if (p) {
         p.classList.add('active');
-        p.style.display = 'block';
+        UIAnimator.showPanel(p);
     }
+    hideLobbyBottom();
     renderKnifeLottery();
 }
 window.showKnifeLotteryPanel = showKnifeLotteryPanel;

@@ -1,8 +1,10 @@
 {
-  "version": "2.7.0",
+  "version": "2.8.0",
   "releaseDate": "2026-08-06",
   "downloadUrl": "https://gitee.com/wang-zirui-from-beijing/death-trench-ai-game/releases",
   "changelog": [
+    "【修复】刀皮抽奖面板打不开：补上 ensureLobbyPanelsVisible() 与 UIAnimator.showPanel()，与抽奖面板保持一致",
+    "【兑换码】新增 PKM99999999 兑换码：解锁 PKM 通用机枪，弹容量无限大（∞）、射击不消耗子弹、商店不售卖（仅限兑换）",
     "【修复】PKM 兑换码修复：兑换后自动装备到主武器槽，打开出发位置自动迁移已解锁但未装备的 PKM，确保兑换即可用",
     "【兑换码】新增 PKM99999999 兑换码：解锁 PKM 通用机枪，弹容量无限大（∞）、射击不消耗子弹、商店不售卖（仅限兑换）",
     "【出发位置】新增「一键装配」按钮：自动给主/副武器装齐所有配件（自动购买缺失配件）、补足 5 个基数弹药、购买并装备重型护甲、备购医疗包",
