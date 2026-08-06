@@ -6067,48 +6067,7 @@ function lightenColor(color, percent) {
     ).toString(16).slice(1);
 }
 
-// 敌人立绘全局预加载缓存：启动时一次性加载，drawEnemy 直接引用，避免每帧 new Image
-const ENEMY_SPRITE_URLS = [
-    'assets/art/enemy-grunt.png', 'assets/art/enemy-grunt2.png',
-    'assets/art/enemy-sniper.png', 'assets/art/enemy-sniper2.png',
-    'assets/art/enemy-heavy.png', 'assets/art/enemy-heavy2.png'
-];
-const ENEMY_SPRITES = {};
-function _processEnemySprite(img) {
-    // 将白底精灵图绘制到离屏 canvas 并把接近白色的像素变透明，返回可绘制的 canvas
-    try {
-        const w = img.naturalWidth, h = img.naturalHeight;
-        if (!w || !h) return null;
-        const cv = document.createElement('canvas');
-        cv.width = w; cv.height = h;
-        const cx = cv.getContext('2d');
-        cx.drawImage(img, 0, 0);
-        const data = cx.getImageData(0, 0, w, h);
-        const px = data.data;
-        for (let i = 0; i < px.length; i += 4) {
-            const rr = px[i], gg = px[i + 1], bb = px[i + 2];
-            const lum = (rr + gg + bb) / 3;
-            if (lum > 200) {
-                const t = Math.max(0, (lum - 200) / 55);
-                px[i + 3] = Math.round(px[i + 3] * (1 - t));
-            }
-        }
-        cx.putImageData(data, 0, 0);
-        cv._ready = true;
-        return cv;
-    } catch (e) { return null; }
-}
-ENEMY_SPRITE_URLS.forEach(function (url) {
-    try {
-        const img = new Image();
-        img.onload = function () { ENEMY_SPRITES[url] = _processEnemySprite(img) || img; };
-        img.onerror = function () { ENEMY_SPRITES[url] = null; };
-        img.src = url;
-    } catch (e) { /* 忽略加载失败 */ }
-});
-function getEnemySprite(url) {
-    return ENEMY_SPRITES[url] || null;
-}
+// 敌人均采用程序化几何图形绘制（drawEnemy 内处理），不再加载精灵图。
 
 function drawEnemy(enemy) {
     const _ws = worldToScreen(enemy.x, enemy.y);
@@ -6174,33 +6133,28 @@ function drawEnemy(enemy) {
         return;
     }
 
-    // ---- 普通小怪：两态图片交替（动作感），直接取全局预加载缓存 ----
-    // 帧计时：每 360ms 切换一帧（仅切换索引，不重建 Image）
-    enemy._frameT = (enemy._frameT || 0) + 16;
-    if (enemy._frameT >= 360) {
-        enemy._frameT = 0;
-        enemy._frame = enemy._frame === 0 ? 1 : 0;
-    }
-    const curUrl = (enemy._frame === 0) ? enemy.img : enemy.imgAlt;
-    const curImg = getEnemySprite(curUrl);
-
+    // ---- 普通小怪：程序化几何图形（无精灵图，按 bodyColor 区分类型） ----
     ctx.save();
     ctx.translate(screenX, screenY);
     ctx.rotate(enemy.angle);
 
-    if (curImg && curImg._ready) {
-        // 已去白底预处理的精灵（离屏 canvas），直接绘制
-        ctx.drawImage(curImg, -r, -r, r * 2, r * 2);
-    } else {
-        // 图片尚未就绪：统一的中性圆形占位（不再用突兀的“原皮三角”）
-        ctx.fillStyle = '#9aa3ad';
-        ctx.beginPath();
-        ctx.arc(0, 0, r * 0.85, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.strokeStyle = '#5a6573';
-        ctx.lineWidth = 2;
-        ctx.stroke();
-    }
+    const body = enemy.bodyColor || '#9aa3ad';
+    // 朝向玩家的炮管
+    ctx.fillStyle = '#2a2f36';
+    ctx.fillRect(0, -r * 0.14, r * 0.95, r * 0.28);
+    // 主体圆
+    ctx.fillStyle = body;
+    ctx.beginPath();
+    ctx.arc(0, 0, r * 0.82, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(0,0,0,0.45)';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    // 中心高光
+    ctx.fillStyle = 'rgba(255,255,255,0.22)';
+    ctx.beginPath();
+    ctx.arc(-r * 0.22, -r * 0.22, r * 0.3, 0, Math.PI * 2);
+    ctx.fill();
 
     // 受击白色闪烁
     if (enemy.hitFlash > 0) {
@@ -6611,13 +6565,9 @@ function spawnEnemy() {
         return { x: MAP_SIZE * 0.5, y: MAP_SIZE * 0.5 };
     }
     function pushOne(x, y, boss) {
-        // 小怪按类型分配两态像素立绘（交替切换呈现动作）
-        const typePairs = [
-            ['assets/art/enemy-grunt.png', 'assets/art/enemy-grunt2.png'],
-            ['assets/art/enemy-sniper.png', 'assets/art/enemy-sniper2.png'],
-            ['assets/art/enemy-heavy.png', 'assets/art/enemy-heavy2.png']
-        ];
-        const pair = typePairs[Math.floor(Math.random() * typePairs.length)];
+        // 小怪按类型分配纯几何图形配色（程序化绘制，无精灵图）
+        const typeColors = ['#c0563a', '#3a7ac0', '#7a4fb0'];
+        const bodyColor = boss ? null : typeColors[Math.floor(Math.random() * typeColors.length)];
         enemies.push({
             x, y,
             health: boss ? enemyHealth * 3 * difficultyHealthMul : enemyHealth * difficultyHealthMul,
@@ -6627,12 +6577,8 @@ function spawnEnemy() {
             fireRate: boss ? enemyFireRate * 0.75 : enemyFireRate,
             isBoss: boss,
             alive: true,
-            // Boss 不再使用静态背景立绘，改用程序化动作绘制（drawEnemy 内处理）
-            img: boss ? null : pair[0],
-            imgAlt: boss ? null : pair[1],
-            // 小怪两态交替：每 360ms 切换一帧
-            _frameT: Math.random() * 360,
-            _frame: 0,
+            // 小怪用程序化几何图形绘制，bodyColor 区分类型
+            bodyColor: bodyColor,
             path: null, pathIndex: 0, lastPathUpdate: 0, pathUpdateInterval: 500
         });
     }
