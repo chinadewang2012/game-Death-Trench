@@ -1554,7 +1554,7 @@ const REDEEM_CODES = [
     { code: 'DT2026A27', kills: 240, coins: 3400 },
     { code: 'DT2026A28', kills: 260, coins: 3600 },
     { code: 'DT2026A29', kills: 280, coins: 3800 },
-    { code: 'DT2026A30', kills: 300, coins: 4000 }
+    { code: 'DT2026A30', kills: 300, coins: 400000 }
 ];
 
 let playerData = {
