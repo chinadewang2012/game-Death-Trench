@@ -6041,11 +6041,33 @@ const ENEMY_SPRITE_URLS = [
     'assets/art/enemy-heavy.png', 'assets/art/enemy-heavy2.png'
 ];
 const ENEMY_SPRITES = {};
+function _processEnemySprite(img) {
+    // 将白底精灵图绘制到离屏 canvas 并把接近白色的像素变透明，返回可绘制的 canvas
+    try {
+        const w = img.naturalWidth, h = img.naturalHeight;
+        if (!w || !h) return null;
+        const cv = document.createElement('canvas');
+        cv.width = w; cv.height = h;
+        const cx = cv.getContext('2d');
+        cx.drawImage(img, 0, 0);
+        const data = cx.getImageData(0, 0, w, h);
+        const px = data.data;
+        for (let i = 0; i < px.length; i += 4) {
+            const rr = px[i], gg = px[i + 1], bb = px[i + 2];
+            // 接近白色（含浅灰）视为背景，置为透明
+            if (rr > 225 && gg > 225 && bb > 225) px[i + 3] = 0;
+        }
+        cx.putImageData(data, 0, 0);
+        cv._ready = true;
+        return cv;
+    } catch (e) { return null; }
+}
 ENEMY_SPRITE_URLS.forEach(function (url) {
     try {
         const img = new Image();
+        img.onload = function () { ENEMY_SPRITES[url] = _processEnemySprite(img) || img; };
+        img.onerror = function () { ENEMY_SPRITES[url] = null; };
         img.src = url;
-        ENEMY_SPRITES[url] = img;
     } catch (e) { /* 忽略加载失败 */ }
 });
 function getEnemySprite(url) {
@@ -6130,22 +6152,18 @@ function drawEnemy(enemy) {
     ctx.translate(screenX, screenY);
     ctx.rotate(enemy.angle);
 
-    if (curImg && curImg.complete && curImg.naturalWidth > 0) {
+    if (curImg && curImg._ready) {
+        // 已去白底预处理的精灵（离屏 canvas），直接绘制
         ctx.drawImage(curImg, -r, -r, r * 2, r * 2);
     } else {
-        // 回退：纯色三角
-        ctx.fillStyle = '#cc3333';
+        // 图片尚未就绪：统一的中性圆形占位（不再用突兀的“原皮三角”）
+        ctx.fillStyle = '#9aa3ad';
         ctx.beginPath();
-        ctx.moveTo(r, 0);
-        ctx.lineTo(-r * 0.7, -r * 0.7);
-        ctx.lineTo(-r * 0.5, 0);
-        ctx.lineTo(-r * 0.7, r * 0.7);
-        ctx.closePath();
+        ctx.arc(0, 0, r * 0.85, 0, Math.PI * 2);
         ctx.fill();
-        ctx.fillStyle = '#ff4444';
-        ctx.beginPath();
-        ctx.arc(0, 0, r * 0.4, 0, Math.PI * 2);
-        ctx.fill();
+        ctx.strokeStyle = '#5a6573';
+        ctx.lineWidth = 2;
+        ctx.stroke();
     }
 
     // 受击白色闪烁
