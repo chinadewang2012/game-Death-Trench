@@ -8009,7 +8009,12 @@ function redeemCode(code) {
             w.unlocked = true;
             if (!Array.isArray(playerData.ownedWeapons)) playerData.ownedWeapons = [];
             if (playerData.ownedWeapons.indexOf(w.id) === -1) playerData.ownedWeapons.push(w.id);
-            unlockMsg = '、解锁武器 ' + w.name;
+            // 自动装备到主武器槽，确保兑换后即可使用（始终替换主武器为兑换武器）
+            if (entry.autoEquip !== false) {
+                if (!playerData.equippedWeapons) playerData.equippedWeapons = {};
+                playerData.equippedWeapons.primary = w.id;
+            }
+            unlockMsg = '、解锁并装备 ' + w.name;
         }
     }
 
@@ -8812,6 +8817,16 @@ function showReadyRoom() {
     renderDifficultyDetail(settings.difficulty || 'standard');
     // 更新任务信息
     updateReadyRoomMission();
+    // 兼容已兑换但未装备 PKM 的存档：自动装备到主武器槽（仅一次）
+    if (Array.isArray(playerData.ownedWeapons) && playerData.ownedWeapons.indexOf('pkm') !== -1) {
+        const eq = playerData.equippedWeapons || {};
+        if (eq.primary !== 'pkm' && eq.secondary !== 'pkm') {
+            if (!playerData.equippedWeapons) playerData.equippedWeapons = {};
+            playerData.equippedWeapons.primary = 'pkm';
+            savePlayerData();
+            showNotification('检测到已解锁的 PKM 通用机枪，已自动装备到主武器槽');
+        }
+    }
     // 更新战备中心武器装备显示
     updateReadyRoomLoadout();
     // 更新搜打撤出战补给面板
