@@ -572,7 +572,13 @@ window.__txArtIcon = function (img) {
         const out = cx.getImageData(0, 0, w, h);
         const p = out.data, s = src.data;
         for (let i = 0; i < s.length; i += 4) {
-            if (s[i] > 225 && s[i + 1] > 225 && s[i + 2] > 225) p[i + 3] = 0; // 白底变透明
+            const r = s[i], g = s[i + 1], b = s[i + 2];
+            // 接近白色（背景）的像素按接近度渐变透明，柔化硬边锯齿
+            const lum = (r + g + b) / 3;
+            if (lum > 200) {
+                const t = Math.max(0, (lum - 200) / 55); // 200→不透明, 255→全透明
+                p[i + 3] = Math.round(p[i + 3] * (1 - t));
+            }
         }
         cx.putImageData(out, 0, 0);
         img.src = cv.toDataURL();
@@ -6075,8 +6081,11 @@ function _processEnemySprite(img) {
         const px = data.data;
         for (let i = 0; i < px.length; i += 4) {
             const rr = px[i], gg = px[i + 1], bb = px[i + 2];
-            // 接近白色（含浅灰）视为背景，置为透明
-            if (rr > 225 && gg > 225 && bb > 225) px[i + 3] = 0;
+            const lum = (rr + gg + bb) / 3;
+            if (lum > 200) {
+                const t = Math.max(0, (lum - 200) / 55);
+                px[i + 3] = Math.round(px[i + 3] * (1 - t));
+            }
         }
         cx.putImageData(data, 0, 0);
         cv._ready = true;
