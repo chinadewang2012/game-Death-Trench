@@ -559,9 +559,30 @@ const SELLABLE_TYPES = {
     bone:       { id: 'bone',       name: '史前化石', icon: '🦴', img: 'sell-bone',       baseValue: 210, rarity: 'epic' }
 };
 function getSellableDef(id) { return SELLABLE_TYPES[id] || { id, name: id, icon: '📦', img: null, baseValue: 50, rarity: 'common' }; }
+// 通用：把白底精灵 <img> 在加载后去白底（接近白色像素变透明）
+window.__txArtIcon = function (img) {
+    if (!img || img.dataset.done) return;
+    if (!img.complete || !img.naturalWidth) return; // 未完成则等 onload 再触发
+    try {
+        const w = img.naturalWidth, h = img.naturalHeight;
+        const cv = document.createElement('canvas'); cv.width = w; cv.height = h;
+        const cx = cv.getContext('2d');
+        cx.drawImage(img, 0, 0);
+        const src = cx.getImageData(0, 0, w, h);
+        const out = cx.getImageData(0, 0, w, h);
+        const p = out.data, s = src.data;
+        for (let i = 0; i < s.length; i += 4) {
+            if (s[i] > 225 && s[i + 1] > 225 && s[i + 2] > 225) p[i + 3] = 0; // 白底变透明
+        }
+        cx.putImageData(out, 0, 0);
+        img.src = cv.toDataURL();
+        img.dataset.done = '1';
+    } catch (e) { /* 跨域或解码异常则保留原图 */ }
+};
+
 // 变卖物图标：优先使用真实精灵图，缺失时回退到 emoji
 function sellableIconHtml(def) {
-    if (def && def.img) return '<img class="px-icon sell-icon" src="assets/art/' + def.img + '.png" alt="' + (def.name || '变卖物') + '">';
+    if (def && def.img) return '<img class="px-icon sell-icon" src="assets/art/' + def.img + '.png" alt="' + (def.name || '变卖物') + '" onload="window.__txArtIcon(this)">';
     return '<span class="px-icon-fallback">' + (def && def.icon ? def.icon : '📦') + '</span>';
 }
 
@@ -656,12 +677,12 @@ const MOD_ICON_MAP = {
 };
 function weaponIconHtml(w) {
     const key = w && WEAPON_ICON_MAP[w.id];
-    if (key) return '<img class="px-icon" src="assets/art/' + key + '.png" alt="' + (w.name || '武器') + '">';
+    if (key) return '<img class="px-icon" src="assets/art/' + key + '.png" alt="' + (w.name || '武器') + '" onload="window.__txArtIcon(this)">';
     return '<span class="px-icon-fallback">' + (w && w.icon ? w.icon : '🔫') + '</span>';
 }
 function modIconHtml(modId, m) {
     const key = MOD_ICON_MAP[modId];
-    if (key) return '<img class="px-icon" src="assets/art/' + key + '.png" alt="' + (m && m.name ? m.name : '配件') + '">';
+    if (key) return '<img class="px-icon" src="assets/art/' + key + '.png" alt="' + (m && m.name ? m.name : '配件') + '" onload="window.__txArtIcon(this)">';
     return '<span class="px-icon-fallback">' + (m && m.icon ? m.icon : '🔧') + '</span>';
 }
 
@@ -7399,7 +7420,7 @@ function renderSkinGrid() {
         const previewBoxClass = currentSkinTab === 'player' ? ' player-skin-preview-box' : '';
         item.innerHTML = `
             <div class="skin-preview${patternClass}${previewBoxClass}" style="${previewStyle}">
-                <img class="${thumbClass}" src="${thumbSrc}" alt="${skin.name}" style="${skin.pattern === 'metallic' ? 'filter: drop-shadow(0 0 4px #fff8) brightness(1.1);' : ''}">
+                <img class="${thumbClass}" src="${thumbSrc}" alt="${skin.name}" onload="window.__txArtIcon(this)" style="${skin.pattern === 'metallic' ? 'filter: drop-shadow(0 0 4px #fff8) brightness(1.1);' : ''}">
             </div>
             <span class="skin-name">${skin.name}</span>
             ${equipped ? '<span class="skin-status">已装备 ✓</span>' : (owned ? '<span class="skin-status">已拥有</span>' : `<span class="skin-price">🪙 ${skin.price}</span>`)}
@@ -13050,6 +13071,10 @@ window.addEventListener('DOMContentLoaded', function() {
     if (verEl) verEl.textContent = 'v' + GAME_VERSION;
     mountAllUIfunctions();
     init();
+    // 兜底：处理初始已渲染且已缓存完成的 art 图标（白底去透明）
+    document.querySelectorAll('img.px-icon, .dialogue-avatar-img, .skin-thumb').forEach(function (img) {
+        if (img.complete && img.naturalWidth) window.__txArtIcon(img);
+    });
 });
 
 // ====================================================================
@@ -13642,7 +13667,7 @@ function renderDialogueLine() {
     if (speakerEl) speakerEl.textContent = currentDialogue.speaker || '???';
     if (avatarEl) {
         if (currentDialogue.avatarImg) {
-            avatarEl.innerHTML = '<img src="' + currentDialogue.avatarImg + '" alt="' + (currentDialogue.speaker || 'NPC') + '" class="dialogue-avatar-img">';
+            avatarEl.innerHTML = '<img src="' + currentDialogue.avatarImg + '" alt="' + (currentDialogue.speaker || 'NPC') + '" class="dialogue-avatar-img" onload="window.__txArtIcon(this)">';
         } else {
             avatarEl.textContent = currentDialogue.avatar || '👤';
         }
