@@ -9225,6 +9225,8 @@ function buyWeapon(weaponId) {
     updatePlayerStats();
     showNotification('解锁了 ' + weapon.name + '！');
     updateMarketUI();
+    // 购买成功后重新渲染武器网格，使卡片立即显示“已拥有”（此前仅刷新价格，不刷新卡片状态）
+    if (document.getElementById('weaponMarketGrid')) renderWeaponMarketGrid();
     return { success: true, message: '解锁成功' };
 }
 
