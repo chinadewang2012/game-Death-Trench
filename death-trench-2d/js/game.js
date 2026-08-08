@@ -2876,14 +2876,7 @@ function getRarityName(rarity) {
 
 function showLotteryPanel() {
     hideAllPanels();
-    ensureLobbyPanelsVisible();
-    const panel = document.getElementById('lotteryPanel');
-    if (panel) {
-        panel.classList.add('active');
-        UIAnimator.showPanel(panel);
-    }
-    hideLobbyBottom();
-    renderLotteryUI();
+    openLobbyPanel('lotteryPanel', renderLotteryUI);
 }
 
 function renderLotteryUI() {
@@ -3052,14 +3045,7 @@ function renderKnifeLottery(lastResults) {
 // 显示刀皮抽奖面板
 function showKnifeLotteryPanel() {
     hideAllPanels();
-    ensureLobbyPanelsVisible();
-    const p = document.getElementById('knifeLotteryPanel');
-    if (p) {
-        p.classList.add('active');
-        UIAnimator.showPanel(p);
-    }
-    hideLobbyBottom();
-    renderKnifeLottery();
+    openLobbyPanel('knifeLotteryPanel', () => renderKnifeLottery());
 }
 window.showKnifeLotteryPanel = showKnifeLotteryPanel;
 window.drawKnifeLottery = drawKnifeLottery;
@@ -7193,7 +7179,7 @@ function hideAllPanels() {
         mep.classList.remove('active');
         mep.style.display = 'none';
     }
-    // 隐藏所有 .panel 并移除 active 类
+    // 隐藏所有 .panel 并移除 active 类（统一收口，避免重复遍历）
     document.querySelectorAll('.panel').forEach(p => {
         p.classList.remove('active');
         p.style.display = 'none';
@@ -7212,6 +7198,45 @@ function ensureLobbyPanelsVisible() {
         lobby.classList.remove('hidden');
         lobby.style.display = 'flex';
     }
+}
+
+// ============================================================
+// 统一的「大厅子面板」打开逻辑
+// 所有大厅功能面板（抽奖/刀皮/改装/皮肤/弹药/个人信息/战备/仓库/黑市/地图/任务）
+// 都遵循同一套流程：清空其他子面板 -> 确保容器可见 -> 激活目标面板
+// -> 取消导航按钮高亮（可选高亮某个功能按钮）-> 渲染内容 -> 隐藏底部导航。
+// 抽离后消除十余处几乎相同的重复代码。
+//   panelId          : 目标面板元素 id
+//   onRender         : 渲染回调（可为函数；或 null 表示不渲染）
+//   highlightBtnIndex: 可选，1-based 的功能按钮序号，打开时点亮对应按钮
+//   keepBottomVisible: 可选，true 时保留底部导航（如个人界面）
+// ============================================================
+function openLobbyPanel(panelId, onRender, highlightBtnIndex, keepBottomVisible) {
+    // 1) 关闭所有大厅子面板，仅保留目标面板
+    document.querySelectorAll('.lobby-panels .panel').forEach(p => {
+        if (p.id !== panelId) {
+            p.classList.remove('active');
+            p.style.display = 'none';
+        }
+    });
+    // 2) 确保 lobby 容器可见
+    ensureLobbyPanelsVisible();
+    // 3) 激活并显示目标面板
+    const panel = document.getElementById(panelId);
+    if (panel) {
+        panel.classList.add('active');
+        panel.style.display = 'block';
+    }
+    // 4) 取消所有功能导航按钮的高亮（再按序号点亮目标）
+    document.querySelectorAll('.func-btn, .lobby-func-btn').forEach(b => b.classList.remove('active'));
+    if (highlightBtnIndex && highlightBtnIndex >= 1) {
+        const btn = document.querySelectorAll('.func-btn')[highlightBtnIndex - 1];
+        if (btn) btn.classList.add('active');
+    }
+    // 5) 渲染面板内容
+    if (typeof onRender === 'function') onRender();
+    // 6) 大厅功能面板默认隐藏底部导航；个别面板（如个人界面）保留
+    if (keepBottomVisible) showLobbyBottom(); else hideLobbyBottom();
 }
 
 function showMenu() {
@@ -7352,17 +7377,14 @@ function getAvailableWeapons() {
 }
 
 function showModification() {
-    document.querySelectorAll('.panel').forEach(p => { p.classList.remove('active'); p.style.display = 'none'; });
-    ensureLobbyPanelsVisible();
-    const panel = document.getElementById('modificationPanel');
-    if (panel) { panel.classList.add('active'); panel.style.display = 'block'; }
-    document.querySelectorAll('.func-btn').forEach(b => b.classList.remove('active'));
-    const weapons = getAvailableWeapons();
-    selectedWeaponForMod = weapons[0]?.id || null;
-    renderModWeaponSelect();
-    renderModShop();
-    renderModEquipped();
-    hideLobbyBottom();
+    hideAllPanels();
+    openLobbyPanel('modificationPanel', () => {
+        const weapons = getAvailableWeapons();
+        selectedWeaponForMod = weapons[0]?.id || null;
+        renderModWeaponSelect();
+        renderModShop();
+        renderModEquipped();
+    });
 }
 
 function renderModWeaponSelect() {
@@ -7528,15 +7550,12 @@ function showSkinTab(tab) {
 }
 
 function showSkins() {
-    document.querySelectorAll('.panel').forEach(p => { p.classList.remove('active'); p.style.display = 'none'; });
-    ensureLobbyPanelsVisible();
-    const panel = document.getElementById('skinPanel');
-    if (panel) { panel.classList.add('active'); panel.style.display = 'block'; }
-    document.querySelectorAll('.func-btn').forEach(b => b.classList.remove('active'));
-    showSkinTab('weapon');
-    renderSkinGrid();
-    updateSkinEquippedInfo();
-    hideLobbyBottom();
+    hideAllPanels();
+    openLobbyPanel('skinPanel', () => {
+        showSkinTab('weapon');
+        renderSkinGrid();
+        updateSkinEquippedInfo();
+    });
 }
 
 function renderSkinGrid() {
@@ -7607,13 +7626,8 @@ function updateSkinEquippedInfo() {
 // ==================== 弹药面板函数 ====================
 
 function showAmmoPanel() {
-    document.querySelectorAll('.panel').forEach(p => { p.classList.remove('active'); p.style.display = 'none'; });
-    ensureLobbyPanelsVisible();
-    const panel = document.getElementById('ammoPanel');
-    if (panel) { panel.classList.add('active'); panel.style.display = 'block'; }
-    document.querySelectorAll('.func-btn').forEach(b => b.classList.remove('active'));
-    renderAmmoGrid();
-    hideLobbyBottom();
+    hideAllPanels();
+    openLobbyPanel('ammoPanel', renderAmmoGrid);
 }
 
 function renderAmmoGrid() {
@@ -7649,19 +7663,8 @@ function showLobby() {
     lobby.classList.remove('lobby-in-ready');
     lobby.style.display = 'flex';
 
-    const lobbyPanels = document.querySelector('.lobby-panels');
-    if (lobbyPanels) {
-        lobbyPanels.classList.add('active');
-        lobbyPanels.style.display = 'block';
-    }
-
-    // 新版UI：大厅默认不显示面板，只显示中央角色和底部导航
-    // 点击战备中心按钮才打开战备中心面板
-    const readyRoom = document.getElementById('readyRoom');
-    if (readyRoom) {
-        readyRoom.classList.remove('active');
-        readyRoom.style.display = 'none';
-    }
+    // 复用容器可见逻辑（与 openLobbyPanel 一致）
+    ensureLobbyPanelsVisible();
 
     document.querySelectorAll('.func-btn').forEach(b => b.classList.remove('active'));
     document.querySelectorAll('.lobby-func-btn').forEach(b => b.classList.remove('active'));
@@ -7688,27 +7691,8 @@ function showLobby() {
 }
 
 function showPersonalInfo() {
-    // 确保 lobby 可见（否则个人界面位于 lobby 内，隐藏会导致黑屏）
-    const lobby = document.getElementById('lobby');
-    if (lobby) {
-        lobby.classList.remove('hidden');
-        lobby.style.display = 'flex';
-    }
-    ensureLobbyPanelsVisible();
-
-    // 隐藏所有子 panel，再显示个人信息
-    document.querySelectorAll('.panel').forEach(p => {
-        p.classList.remove('active');
-        p.style.display = 'none';
-    });
-
-    const panel = document.getElementById('personalInfoPanel');
-    if (panel) {
-        panel.classList.add('active');
-        panel.style.display = 'block';
-    }
-    updatePersonalInfoDisplay();
-    document.querySelectorAll('.func-btn').forEach(b => b.classList.remove('active'));
+    // 个人界面保留底部导航
+    openLobbyPanel('personalInfoPanel', updatePersonalInfoDisplay, null, true);
 }
 
 function updatePersonalInfoDisplay() {
@@ -8779,53 +8763,41 @@ function handleImportFile(event) {
 
 function showReadyRoom() {
     console.log('[READY] Showing ready room');
-    document.querySelectorAll('.panel').forEach(p => {
-        p.classList.remove('active');
-        p.style.display = 'none';
-    });
-    ensureLobbyPanelsVisible();
-    const readyRoom = document.getElementById('readyRoom');
-    if (readyRoom) {
-        readyRoom.classList.add('active');
-        readyRoom.style.display = 'block';
-    }
-    document.querySelectorAll('.func-btn').forEach(b => b.classList.remove('active'));
-    const firstBtn = document.querySelector('.func-btn:nth-child(1)');
-    if (firstBtn) {
-        firstBtn.classList.add('active');
-    }
-    // 进入战备模式：隐藏底部导航，集中显示
-    const lobby = document.getElementById('lobby');
-    if (lobby) lobby.classList.add('lobby-in-ready');
+    openLobbyPanel('readyRoom', () => {
+        // 进入战备模式：隐藏底部导航，集中显示
+        const lobby = document.getElementById('lobby');
+        if (lobby) lobby.classList.add('lobby-in-ready');
 
-    // 渲染备战内的地图预览卡片
-    renderReadyRoomMapPreviews();
-    // 渲染物资数据
-    updateSupplyUI();
-    // 更新模式选择按钮
-    updateGameModeUI();
-    // 渲染难度档位说明
-    renderDifficultyDetail(settings.difficulty || 'standard');
-    // 更新任务信息
-    updateReadyRoomMission();
-    // 兼容已兑换但未装备 PKM 的存档：自动装备到主武器槽（仅一次）
-    if (Array.isArray(playerData.ownedWeapons) && playerData.ownedWeapons.indexOf('pkm') !== -1) {
-        const eq = playerData.equippedWeapons || {};
-        if (eq.primary !== 'pkm' && eq.secondary !== 'pkm') {
-            if (!playerData.equippedWeapons) playerData.equippedWeapons = {};
-            playerData.equippedWeapons.primary = 'pkm';
-            savePlayerData();
-            showNotification('检测到已解锁的 PKM 通用机枪，已自动装备到主武器槽');
+        // 兼容已兑换但未装备 PKM 的存档：自动装备到主武器槽（仅一次）
+        if (Array.isArray(playerData.ownedWeapons) && playerData.ownedWeapons.indexOf('pkm') !== -1) {
+            const eq = playerData.equippedWeapons || {};
+            if (eq.primary !== 'pkm' && eq.secondary !== 'pkm') {
+                if (!playerData.equippedWeapons) playerData.equippedWeapons = {};
+                playerData.equippedWeapons.primary = 'pkm';
+                savePlayerData();
+                showNotification('检测到已解锁的 PKM 通用机枪，已自动装备到主武器槽');
+            }
         }
-    }
-    // 更新战备中心武器装备显示
-    updateReadyRoomLoadout();
-    // 更新搜打撤出战补给面板
-    updateRaidLoadoutUI();
-    // 更新队友配置显示
-    updateTeammateCountUI();
-    updateTeammateLoadoutPreview();
-    // 根据当前地图高亮地图卡
+        // 渲染备战内的地图预览卡片
+        renderReadyRoomMapPreviews();
+        // 渲染物资数据
+        updateSupplyUI();
+        // 更新模式选择按钮
+        updateGameModeUI();
+        // 渲染难度档位说明
+        renderDifficultyDetail(settings.difficulty || 'standard');
+        // 更新任务信息
+        updateReadyRoomMission();
+        // 更新战备中心武器装备显示
+        updateReadyRoomLoadout();
+        // 更新搜打撤出战补给面板
+        updateRaidLoadoutUI();
+        // 更新队友配置显示
+        updateTeammateCountUI();
+        updateTeammateLoadoutPreview();
+    }, 1);
+
+    // 战备房间特有：按当前地图高亮地图卡
     if (playerData.selectedMap) {
         document.querySelectorAll('#readyPresetMapGrid .map-card, #readyCustomMapGrid .map-card').forEach(c => c.classList.remove('selected'));
         const card = document.querySelector(`#readyPresetMapGrid .map-card[data-map="${playerData.selectedMap}"]`) ||
@@ -9477,21 +9449,14 @@ function toggleMinimap(show) {
 
 function showInventory() {
     console.log('[INVENTORY] Showing inventory');
-    document.querySelectorAll('.panel').forEach(p => { p.classList.remove('active'); p.style.display = 'none'; });
-    ensureLobbyPanelsVisible();
-    const panel = document.getElementById('inventoryPanel');
-    if (panel) { panel.classList.add('active'); panel.style.display = 'block'; }
-    document.querySelectorAll('.func-btn').forEach(b => b.classList.remove('active'));
-    const secondBtn = document.querySelector('.func-btn:nth-child(2)');
-    if (secondBtn) secondBtn.classList.add('active');
-    hideLobbyBottom();
-    
-    // 渲染仓库内容
-    renderWeaponLibrary();
-    renderAmmoBackpack();
-    renderAmmoSlots();
-    updateInventoryWeaponInfo();
-    renderBackpackGrid();
+    openLobbyPanel('inventoryPanel', () => {
+        // 渲染仓库内容
+        renderWeaponLibrary();
+        renderAmmoBackpack();
+        renderAmmoSlots();
+        updateInventoryWeaponInfo();
+        renderBackpackGrid();
+    }, 2);
 }
 
 function renderBackpackGrid() {
@@ -9523,17 +9488,11 @@ function renderBackpackGrid() {
 
 function showBlackMarket() {
     console.log('[MARKET] Showing black market');
-    document.querySelectorAll('.panel').forEach(p => { p.classList.remove('active'); p.style.display = 'none'; });
-    ensureLobbyPanelsVisible();
-    const panel = document.getElementById('blackMarketPanel');
-    if (panel) { panel.classList.add('active'); panel.style.display = 'block'; }
-    document.querySelectorAll('.func-btn').forEach(b => b.classList.remove('active'));
-    const thirdBtn = document.querySelector('.func-btn:nth-child(3)');
-    if (thirdBtn) thirdBtn.classList.add('active');
-    updateMarketUI();
-    if (typeof updateModTreeDisplay === 'function') updateModTreeDisplay();
-    if (typeof updateMarketGold === 'function') updateMarketGold();
-    hideLobbyBottom();
+    openLobbyPanel('blackMarketPanel', () => {
+        updateMarketUI();
+        if (typeof updateModTreeDisplay === 'function') updateModTreeDisplay();
+        if (typeof updateMarketGold === 'function') updateMarketGold();
+    }, 3);
 }
 
 function buyAttachment(modId) {
@@ -9954,13 +9913,7 @@ function updateModTreeDisplay() {
 
 function showMapSelect() {
     console.log('[MAP] Showing map select');
-    document.querySelectorAll('.panel').forEach(p => { p.classList.remove('active'); p.style.display = 'none'; });
-    ensureLobbyPanelsVisible();
-    const panel = document.getElementById('mapSelectPanel');
-    if (panel) { panel.classList.add('active'); panel.style.display = 'block'; }
-    document.querySelectorAll('.func-btn').forEach(b => b.classList.remove('active'));
-    const fourthBtn = document.querySelector('.func-btn:nth-child(4)');
-    if (fourthBtn) fourthBtn.classList.add('active');
+    openLobbyPanel('mapSelectPanel', null, 4);
 }
 
 function buyItem(itemName) {
@@ -11412,18 +11365,7 @@ function setMissionLineFilter(mapId) {
 }
 
 function showMissionPanel() {
-    document.querySelectorAll('.panel').forEach(p => { p.classList.remove('active'); p.style.display = 'none'; });
-    ensureLobbyPanelsVisible();
-    const panel = document.getElementById('missionLinePanel');
-    if (panel) {
-        panel.classList.add('active');
-        panel.style.display = 'block';
-    }
-    document.querySelectorAll('.func-btn').forEach(b => b.classList.remove('active'));
-    const fifthBtn = document.querySelectorAll('.func-btn')[4];
-    if (fifthBtn) fifthBtn.classList.add('active');
-    renderMissionLineList();
-    hideLobbyBottom();
+    openLobbyPanel('missionLinePanel', renderMissionLineList, 5);
 }
 
 function setMissionLanguage(lang) {
