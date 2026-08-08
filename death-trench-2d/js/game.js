@@ -2925,7 +2925,9 @@ function rollKnifeSkin() {
     const pityActive = KNIFE_LOTTERY.pityCounter >= KNIFE_LOTTERY_PITY - 1;
     let pool = KNIFE_SKINS.filter(s => s.id !== 'default');
     if (pityActive) {
-        pool = pool.filter(s => s.rarity === 'epic' || s.rarity === 'legendary');
+        const epicPool = pool.filter(s => s.rarity === 'epic' || s.rarity === 'legendary');
+        // 防御性兜底：保底池为空时回退到全池，避免崩溃
+        pool = epicPool.length ? epicPool : pool;
     }
     const totalWeight = pool.reduce((sum, s) => sum + s.weight, 0);
     let r = Math.random() * totalWeight;
@@ -3996,20 +3998,21 @@ function hasLineOfSight(x1, y1, x2, y2) {
 }
 
 // 判断两点连线是否被任一烟雾区遮挡（用于敌人失去视野）
+// 采用「圆到线段最短距离」几何判定，避免逐点采样（性能更优且等价）
 function lineBlockedBySmoke(x1, y1, x2, y2) {
     if (!smokeZones.length) return false;
     const dx = x2 - x1, dy = y2 - y1;
-    const dist = Math.sqrt(dx * dx + dy * dy);
-    if (dist < 0.1) return false;
-    const steps = Math.ceil(dist * 2);
+    const lenSq = dx * dx + dy * dy;
     for (let i = 0; i < smokeZones.length; i++) {
         const z = smokeZones[i];
-        for (let s = 1; s < steps; s++) {
-            const t = s / steps;
-            const px = x1 + dx * t, py = y1 + dy * t;
-            const ddx = px - z.x, ddy = py - z.y;
-            if (ddx * ddx + ddy * ddy <= z.radius * z.radius) return true;
+        let t = 0;
+        if (lenSq > 1e-6) {
+            t = ((z.x - x1) * dx + (z.y - y1) * dy) / lenSq;
+            if (t < 0) t = 0; else if (t > 1) t = 1;
         }
+        const cx = x1 + dx * t, cy = y1 + dy * t;
+        const ddx = cx - z.x, ddy = cy - z.y;
+        if (ddx * ddx + ddy * ddy <= z.radius * z.radius) return true;
     }
     return false;
 }
@@ -5086,6 +5089,26 @@ function update() {
         return null;
     }
 
+    // 统一处理敌人被击杀：统计、得分、掉落、Boss 奖励（消除重复代码）
+    function killEnemy(enemy) {
+        if (!enemy || !enemy.alive) return;
+        enemy.alive = false;
+        player.kills++;
+        if (enemy.isBoss) {
+            player.score += 500;
+            playerData.coins += 50;
+            spawnDrop(enemy.x, enemy.y);
+            spawnDrop(enemy.x, enemy.y);
+            spawnDrop(enemy.x, enemy.y);
+            showNotification('Boss 被消灭！奖励 +50 金币', 'success');
+        } else {
+            player.score += 100;
+            spawnDrop(enemy.x, enemy.y);
+        }
+        updateMissionProgress('kill', player.kills);
+        updateMissionProgress('score', player.score);
+    }
+
     // ==================== 更新敌人 AI ====================
     const baseEnemyDamage = typeof gameParams.ENEMY.damage === 'object'
         ? (gameParams.ENEMY.damage[settings.difficulty] || 12)
@@ -5439,8 +5462,8 @@ function update() {
             }
         }
 
-        // 6. 在 3~12 格范围内射击（需要视线）
-        if (dist >= 3 && dist <= 12 && now - enemy.lastShot > enemy.fireRate && hasVisibleTarget) {
+        // 6. 在 3~12 格范围内射击（需要视线）；逃跑状态下不开火
+        if (dist >= 3 && dist <= 12 && now - enemy.lastShot > enemy.fireRate && hasVisibleTarget && enemy.aiState !== 'flee') {
             poolPushBullet({
                 x: enemy.x + Math.cos(enemy.angle) * 0.5,
                 y: enemy.y + Math.sin(enemy.angle) * 0.5,
@@ -5472,21 +5495,7 @@ function update() {
             enemy.lastBurn = now;
             poolPushExplosion({ x: enemy.x, y: enemy.y, radius: 2, alpha: 0.8, color: '#ff6600' });
             if (enemy.health <= 0) {
-                enemy.alive = false;
-                player.kills++;
-                if (enemy.isBoss) {
-                    player.score += 500;
-                    playerData.coins += 50;
-                    spawnDrop(enemy.x, enemy.y);
-                    spawnDrop(enemy.x, enemy.y);
-                    spawnDrop(enemy.x, enemy.y);
-                    showNotification('Boss 被消灭！奖励 +50 金币', 'success');
-                } else {
-                    player.score += 100;
-                    spawnDrop(enemy.x, enemy.y);
-                }
-                updateMissionProgress('kill', player.kills);
-                updateMissionProgress('score', player.score);
+                killEnemy(enemy);
             }
         } else if (now >= enemy.burnUntil) {
             enemy.burnUntil = 0;
@@ -5549,19 +5558,7 @@ function explodeGrenade(x, y) {
             enemy.health -= blastDamage;
             poolPushExplosion({ x: enemy.x, y: enemy.y, radius: 3, alpha: 1, color: '#ff0044' });
             if (enemy.health <= 0) {
-                enemy.alive = false;
-                player.kills++;
-                if (enemy.isBoss) {
-                    player.score += 500;
-                    playerData.coins += 50;
-                    spawnDrop(enemy.x, enemy.y);
-                    spawnDrop(enemy.x, enemy.y);
-                    spawnDrop(enemy.x, enemy.y);
-                    showNotification('Boss 被消灭！奖励 +50 金币', 'success');
-                } else {
-                    player.score += 100;
-                    spawnDrop(enemy.x, enemy.y);
-                }
+                killEnemy(enemy);
             }
         }
     }
@@ -5592,15 +5589,7 @@ function detonateRocket(x, y, baseDamage) {
             enemy.health -= Math.floor(dmg * falloff);
             poolPushExplosion({ x: enemy.x, y: enemy.y, radius: 3, alpha: 1, color: '#ff0044' });
             if (enemy.health <= 0) {
-                enemy.alive = false;
-                player.kills++;
-                if (enemy.isBoss) {
-                    player.score += 500; playerData.coins += 50;
-                    spawnDrop(enemy.x, enemy.y); spawnDrop(enemy.x, enemy.y); spawnDrop(enemy.x, enemy.y);
-                    showNotification('Boss 被消灭！奖励 +50 金币', 'success');
-                } else {
-                    player.score += 100; spawnDrop(enemy.x, enemy.y);
-                }
+                killEnemy(enemy);
             }
         }
     }
