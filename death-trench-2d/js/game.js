@@ -11503,7 +11503,31 @@ function setMissionLanguage(lang) {
     autoShowAnnouncement();
 })();
 
-// 版本检查函数（仅桌面版弹窗提示，网页版跳过自动弹窗）
+// ============================================================
+// 版本检查 + 自更新（合并重复的 version.json 请求：缓存一次）
+// ============================================================
+// 缓存 version.json 数据，checkForUpdates 与 loadAnnouncementContent 共用
+var _cachedVersionInfo = null;
+var _versionInfoFetching = false;
+async function fetchVersionInfo(force) {
+    if (_cachedVersionInfo && !force) return _cachedVersionInfo;
+    if (_versionInfoFetching) return _cachedVersionInfo;
+    _versionInfoFetching = true;
+    try {
+        const res = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' });
+        if (res.ok) {
+            const data = await res.json();
+            if (data && data.version) _cachedVersionInfo = data;
+        }
+    } catch (fe) {
+        console.warn('[UPDATE] 读取 version.json 失败：', fe.message);
+    } finally {
+        _versionInfoFetching = false;
+    }
+    return _cachedVersionInfo;
+}
+
+// 版本检查函数（网页版检测新版本，提供「立即更新」自更新闭环）
 async function checkForUpdates() {
     try {
         let latest = null;
@@ -11511,24 +11535,29 @@ async function checkForUpdates() {
             const result = await window.electronAPI.checkVersion();
             if (result.success && result.data && result.data.version) latest = result.data.version;
         } else {
-            // 网页版：同源 fetch version.json 检测新版本（GitHub Pages 同目录）
-            try {
-                const res = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' });
-                if (res.ok) {
-                    const data = await res.json();
-                    if (data && data.version) latest = data.version;
-                }
-            } catch (fe) { /* 网络失败静默 */ }
+            const data = await fetchVersionInfo();
+            if (data && data.version) latest = data.version;
         }
         if (latest && compareVersions(latest, GAME_VERSION) > 0) {
-            showNotification(`发现新版本 ${latest}！`, 'success');
+            showNotification('发现新版本 ' + latest + '！点击公告可立即更新');
             // 高亮公告入口，引导玩家查看更新内容
             const ab = document.getElementById('announcementBtn');
             if (ab) { ab.classList.add('has-update'); ab.title = '发现新版本 ' + latest; }
+            // 记录待更新版本，公告面板打开时显示更新条
+            _pendingUpdateVersion = latest;
+        } else {
+            _pendingUpdateVersion = null;
         }
     } catch (e) {
         console.warn('[UPDATE] Version check failed:', e.message);
     }
+}
+var _pendingUpdateVersion = null;
+
+// 自更新：刷新页面以重新加载 index.html 中已随版本号更新的脚本引用（game.js?v=N）
+function applyGameUpdate() {
+    showNotification('正在更新到最新版本…');
+    setTimeout(function () { location.reload(true); }, 400);
 }
 
 // ============================================================
@@ -11540,11 +11569,8 @@ var announcementTimer = null;
 // 从 version.json 动态读取 changelog 填充公告面板（失败则保留 HTML 静态内容作为兜底）
 async function loadAnnouncementContent() {
     try {
-        const res = await fetch('version.json?t=' + Date.now(), { cache: 'no-store' });
-        if (!res.ok) return false;
-        const data = await res.json();
+        const data = await fetchVersionInfo();
         if (!data) return false;
-        const titleEl = document.querySelector('#announcementPanel .un-title');
         const dateEl = document.querySelector('#announcementPanel .un-date');
         const listEl = document.querySelector('#announcementPanel .un-list');
         if (dateEl && data.version) {
@@ -11554,6 +11580,17 @@ async function loadAnnouncementContent() {
             listEl.innerHTML = data.changelog.map(function (line) {
                 return '<li>' + escapeHtml(line) + '</li>';
             }).join('');
+        }
+        // 若检测到新版本，在公告面板显示「立即更新」条
+        const bar = document.getElementById('announcementUpdateBar');
+        const txt = bar ? bar.querySelector('.un-update-text') : null;
+        if (bar && txt) {
+            if (_pendingUpdateVersion) {
+                txt.textContent = '🆕 发现新版本 v' + _pendingUpdateVersion + '，建议更新后再继续';
+                bar.style.display = 'flex';
+            } else {
+                bar.style.display = 'none';
+            }
         }
         return true;
     } catch (e) {
