@@ -840,16 +840,16 @@ const SKINS = {
         { id: 'skin_thunder', name: '雷霆步枪', weaponId: null, color: '#6a6aff', price: 1400, unlocked: false, pattern: 'thunder' },
         { id: 'skin_dragon', name: '龙鳞突击', weaponId: null, color: '#cc2200', price: 2500, unlocked: false, pattern: 'dragon' },
         { id: 'skin_phoenix', name: '凤凰之刃', weaponId: null, color: '#ff6600', price: 2000, unlocked: false, pattern: 'phoenix' },
-        { id: 'skin_stellar', name: '星辰猎手', weaponId: null, color: '#6a6aff', price: 2000, unlocked: false, pattern: 'stellar' },
+        { id: 'skin_stellar', name: '星辰猎手', weaponId: null, color: '#9b59b6', price: 2000, unlocked: false, pattern: 'stellar' },
         { id: 'skin_obsidian', name: '黑曜毁灭', weaponId: null, color: '#1a1a1a', price: 3000, unlocked: false, pattern: 'obsidian' },
-        { id: 'skin_rainbow', name: '彩虹传说', weaponId: null, color: 'linear-gradient(90deg,#ff0000,#ffa500,#ffff00,#00ff00,#00ffff,#0000ff,#ff00ff)', price: 5000, unlocked: false, pattern: 'rainbow' },
+        { id: 'skin_rainbow', name: '彩虹传说', weaponId: null, color: '#ff66cc', price: 5000, unlocked: false, pattern: 'rainbow' },
         { id: 'skin_inferno', name: '炽焰霰弹', weaponId: null, color: '#ff4400', price: 900, unlocked: false, pattern: 'inferno' },
         { id: 'skin_viper', name: '毒蛇狙击', weaponId: null, color: '#2d8c2d', price: 1100, unlocked: false, pattern: 'viper' },
         { id: 'skin_platinum', name: '白金手枪', weaponId: null, color: '#e8e8e8', price: 1300, unlocked: false, pattern: 'platinum' },
         { id: 'skin_arctic', name: '极地步枪', weaponId: null, color: '#c8d8e4', price: 700, unlocked: false, pattern: 'arctic' },
-        { id: 'skin_void', name: '虚空行者', weaponId: null, color: '#2a0a3a', price: 1600, unlocked: false, pattern: 'crystal' },
-        { id: 'skin_frost', name: '霜冻之刃', weaponId: null, color: '#7fd8ff', price: 1000, unlocked: false, pattern: 'arctic' },
-        { id: 'skin_ember', name: '余烬狙击', weaponId: null, color: '#b5532a', price: 1200, unlocked: false, pattern: 'inferno' }
+        { id: 'skin_void', name: '虚空行者', weaponId: null, color: '#2a0a3a', price: 1600, unlocked: false, pattern: 'void' },
+        { id: 'skin_frost', name: '霜冻之刃', weaponId: null, color: '#9fe8ff', price: 1000, unlocked: false, pattern: 'frost' },
+        { id: 'skin_ember', name: '余烬狙击', weaponId: null, color: '#b5532a', price: 1200, unlocked: false, pattern: 'ember' }
     ],
     players: [
         { id: 'player_default', name: '默认', color: '#00AA55', price: 0, unlocked: true, portrait: 'npc-reyes' },
@@ -3045,7 +3045,12 @@ function renderKnifeLottery(lastResults) {
 // 显示刀皮抽奖面板
 function showKnifeLotteryPanel() {
     hideAllPanels();
-    openLobbyPanel('knifeLotteryPanel', () => renderKnifeLottery());
+    openLobbyPanel('knifeLotteryPanel', () => {
+        renderKnifeLottery();
+        if (!isDialogueCompleted('guide_knife_lottery')) {
+            setTimeout(() => { if (!currentDialogueId) showDialogue('guide_knife_lottery'); }, 600);
+        }
+    });
 }
 window.showKnifeLotteryPanel = showKnifeLotteryPanel;
 window.drawKnifeLottery = drawKnifeLottery;
@@ -7139,6 +7144,30 @@ function pauseGame() {
     }
 }
 
+// 打开浏览器控制台（开发者工具）即停止运行：停止主循环并锁定操作
+function stopGameForDevTools() {
+    if (!gameRunning) return;
+    if (animationId) { cancelAnimationFrame(animationId); animationId = null; }
+    gamePaused = true;
+    showOverlay('🔧 已打开控制台', '游戏已停止运行。关闭开发者工具并刷新页面后可继续。');
+}
+window.addEventListener('dt:devtools-opened', stopGameForDevTools);
+
+// 通用遮罩提示（标题 + 内容）
+function showOverlay(title, content) {
+    let ov = document.getElementById('sysOverlay');
+    if (!ov) {
+        ov = document.createElement('div');
+        ov.id = 'sysOverlay';
+        ov.style.cssText = 'position:fixed;inset:0;z-index:99999;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.82);color:#fff;font-family:sans-serif;text-align:center;';
+        document.body.appendChild(ov);
+    }
+    ov.innerHTML = '<div style="max-width:80%;padding:24px;border:1px solid #555;border-radius:12px;background:#1a1a1a;">' +
+        '<div style="font-size:24px;margin-bottom:12px;">' + title + '</div>' +
+        '<div style="font-size:15px;opacity:.85;line-height:1.6;">' + content + '</div></div>';
+    ov.style.display = 'flex';
+}
+
 // ============================================================
 // 菜单与面板
 // ============================================================
@@ -7384,6 +7413,9 @@ function showModification() {
         renderModWeaponSelect();
         renderModShop();
         renderModEquipped();
+        if (!isDialogueCompleted('guide_modification')) {
+            setTimeout(() => { if (!currentDialogueId) showDialogue('guide_modification'); }, 600);
+        }
     });
 }
 
@@ -7574,17 +7606,19 @@ function renderSkinGrid() {
         const item = document.createElement('div');
         item.className = 'skin-item' + (equipped ? ' equipped' : (owned ? ' owned' : ''));
 
-        const previewBg = skin.color || '#6366f1';
+        // 背景不再用纯色块（避免「只是背景不一样」），改为透明深色卡片 + 枪形缩略图
         const thumbSrc = currentSkinTab === 'weapon' ? 'assets/art/weapon-rifle.png' : 'assets/art/' + (skin.portrait || 'npc-reyes') + '.png';
         const patternClass = skin.pattern ? ' skin-pattern-' + skin.pattern : '';
-        const previewStyle = currentSkinTab === 'weapon'
-            ? `background: ${previewBg};`
-            : `background: ${previewBg};`;
         const thumbClass = currentSkinTab === 'player' ? 'skin-thumb skin-thumb-portrait' : 'skin-thumb';
         const previewBoxClass = currentSkinTab === 'player' ? ' player-skin-preview-box' : '';
+        // 缩略图叠加一层皮肤主色描边，体现配色差异但不占用整块背景
+        const accent = skin.color || '#6366f1';
+        const thumbFilter = (skin.pattern === 'metallic') ? 'drop-shadow(0 0 4px #fff8) brightness(1.1)'
+                            : (skin.pattern === 'neon' || skin.pattern === 'rainbow') ? 'drop-shadow(0 0 5px ' + accent + ')'
+                            : 'drop-shadow(0 0 2px ' + accent + ')';
         item.innerHTML = `
-            <div class="skin-preview${patternClass}${previewBoxClass}" style="${previewStyle}">
-                <img class="${thumbClass}" src="${thumbSrc}" alt="${skin.name}" onload="window.__txArtIcon(this)" style="${skin.pattern === 'metallic' ? 'filter: drop-shadow(0 0 4px #fff8) brightness(1.1);' : ''}">
+            <div class="skin-preview${patternClass}${previewBoxClass}" style="background:rgba(0,0,0,0.35);">
+                <img class="${thumbClass}" src="${thumbSrc}" alt="${skin.name}" onload="window.__txArtIcon(this)" style="filter:${thumbFilter};">
             </div>
             <span class="skin-name">${skin.name}</span>
             ${equipped ? '<span class="skin-status">已装备 ✓</span>' : (owned ? '<span class="skin-status">已拥有</span>' : `<span class="skin-price">🪙 ${skin.price}</span>`)}
@@ -7656,6 +7690,60 @@ function renderAmmoGrid() {
     });
 }
 
+// ============================================================
+// 主菜单入口：枪战 / 搜打撤 / 剧情模式
+// ============================================================
+function enterMode(mode) {
+    // 设置并持久化玩家选择的模式，进入大厅战备中心
+    playerData.selectedMode = mode;
+    savePlayerData();
+    showLobby();
+}
+
+// 剧情模式：按引导走，不能跳关
+// 线性章节序列，每章含引导对话 + 战斗任务；只能推进到已解锁的最高章节。
+function enterStoryMode() {
+    playerData.selectedMode = 'mission';
+    savePlayerData();
+    // 确保剧情进度已加载
+    loadStoryState();
+    // 进入大厅后自动跳到当前章节的剧情战备（引导由 showReadyRoom 触发）
+    showLobby();
+    // 剧情模式强制落到当前章节任务，禁止跳关
+    setTimeout(() => {
+        const ch = STORY_CHAPTERS[storyState.chapter - 1];
+        if (ch) {
+            selectStoryChapter(ch);
+            // 播放本章引导对话（未完成则触发，作为关卡引导）
+            if (!isDialogueCompleted(ch.dialogue)) {
+                showDialogue(ch.dialogue);
+            } else {
+                showReadyRoom();
+            }
+        }
+        showNotification('📖 剧情模式：第 ' + (storyState.chapter || 1) + ' 章（不能跳关）');
+    }, 400);
+}
+
+function selectStoryChapter(ch) {
+    // 选取该章节对应的地图与任务，作为本局 currentMission，避免自由跳关
+    currentMission = {
+        id: ch.id,
+        nameZh: ch.nameZh,
+        nameEn: ch.nameEn,
+        descZh: ch.descZh,
+        descEn: ch.descEn,
+        target: ch.target,
+        reward: ch.reward,
+        map: ch.map,
+        isStory: true,
+        chapter: storyState.chapter
+    };
+    playerData.selectedMap = ch.map;
+    savePlayerData();
+    selectMissionForMap(ch.map);
+}
+
 function showLobby() {
     hideAllPanels();
     const lobby = document.getElementById('lobby');
@@ -7682,6 +7770,15 @@ function showLobby() {
     // 首次进入大厅触发剧情对话
     if (storyState.chapter === 1 && !isDialogueCompleted('intro_price')) {
         showDialogue('intro_price');
+    }
+
+    // 补充支线对话：每次进入大厅按序弹出一条「尚未看过」的，逐步呈现更多人物互动
+    if (!currentDialogueId) {
+        const sideDialogues = ['price_intel', 'ghost_tactics', 'eileen_med', 'merchant_deal', 'eileen_lore', 'merchant_intro', 'raid_treasure_tip'];
+        for (const id of sideDialogues) {
+            if (!isDialogueCompleted(id) && !isDialogueCompleted('intro_price')) continue; // 先看主线开场
+            if (!isDialogueCompleted(id)) { showDialogue(id); break; }
+        }
     }
 
     if (typeof showItemWheel === 'function') showItemWheel(false);
@@ -7993,6 +8090,11 @@ function redeemCode(code) {
         }
     }
 
+    // 兑换码合法增加的数据（金币/击杀/积分/解锁武器）刷新反作弊基线快照，
+    // 使 detectAnomaly 不会把"兑换产生的增量"误判为异常/作弊。
+    if (AntiCheat && typeof AntiCheat.recordPlayerSnapshot === 'function') {
+        AntiCheat.recordPlayerSnapshot(playerData);
+    }
     savePlayerData();
     updatePlayerStats();
     const rewardMsg = (entry.kills ? '获得 ' + entry.kills + ' 击杀、' + entry.coins + ' 金币' : (entry.coins ? '获得 ' + entry.coins + ' 金币' : '武器已解锁'));
@@ -8795,6 +8897,11 @@ function showReadyRoom() {
         // 更新队友配置显示
         updateTeammateCountUI();
         updateTeammateLoadoutPreview();
+
+        // 首次进入战备中心时弹出引导对话（仅一次）
+        if (!isDialogueCompleted('guide_ready')) {
+            setTimeout(() => { if (!currentDialogueId) showDialogue('guide_ready'); }, 600);
+        }
     }, 1);
 
     // 战备房间特有：按当前地图高亮地图卡
@@ -9456,6 +9563,9 @@ function showInventory() {
         renderAmmoSlots();
         updateInventoryWeaponInfo();
         renderBackpackGrid();
+        if (!isDialogueCompleted('guide_inventory')) {
+            setTimeout(() => { if (!currentDialogueId) showDialogue('guide_inventory'); }, 600);
+        }
     }, 2);
 }
 
@@ -9913,7 +10023,11 @@ function updateModTreeDisplay() {
 
 function showMapSelect() {
     console.log('[MAP] Showing map select');
-    openLobbyPanel('mapSelectPanel', null, 4);
+    openLobbyPanel('mapSelectPanel', () => {
+        if (!isDialogueCompleted('guide_map_select')) {
+            setTimeout(() => { if (!currentDialogueId) showDialogue('guide_map_select'); }, 600);
+        }
+    }, 4);
 }
 
 function buyItem(itemName) {
@@ -11014,6 +11128,11 @@ function finishCurrentMission() {
         }
         if (finishedId === 'task_kill3' && storyState.branch === 'truth' && storyState.chapter < 3) {
             advanceChapter();
+        }
+        // 剧情模式关卡完成：推进到下一章（线性，不能跳关）
+        if (finishing.isStory) {
+            advanceChapter();
+            showNotification('📖 剧情推进：解锁第 ' + (storyState.chapter || 1) + ' 章');
         }
         if (finishedId === 'task_truth_lab') scheduleStory('ch4_truth_confront', 'ch4_truth_meeting', 800);
         if (finishedId === 'task_loyalty_convoy') scheduleStory('ch4_loyalty_order', 'ch4_loyalty_directive', 800);
@@ -13596,6 +13715,18 @@ let storyState = {
     affinity: {}
 };
 
+// 剧情模式线性关卡序列：按引导逐章推进，不能跳关。
+// 每章含引导对话（dialogue）与战斗任务（map / target / reward）。
+const STORY_CHAPTERS = [
+    { id: 'story_ch1', dialogue: 'intro_price', nameZh: '第一章 · 新兵报到', nameEn: 'Ch.1 Boot Camp', descZh: '在普莱斯带领下熟悉战壕，完成首次清剿', descEn: 'Train under Price and clear your first trench', target: 15, reward: 300, map: 'desert' },
+    { id: 'story_ch2', dialogue: 'guide_ready', nameZh: '第二章 · 战备整备', nameEn: 'Ch.2 Gearing Up', descZh: '进入战备中心，整理装备后出击', descEn: 'Enter the ready room and sort your loadout', target: 25, reward: 500, map: 'city' },
+    { id: 'story_ch3', dialogue: 'ghost_tactics', nameZh: '第三章 · 战术渗透', nameEn: 'Ch.3 Tactical Infiltration', descZh: '跟随幽灵学习战术，渗透黑潮前哨', descEn: 'Learn tactics with Ghost and infiltrate the outpost', target: 35, reward: 700, map: 'jungle' },
+    { id: 'story_ch4', dialogue: 'eileen_med', nameZh: '第四章 · 火线救援', nameEn: 'Ch.4 Frontline Rescue', descZh: '配合艾琳的医疗支援，守住撤离点', descEn: 'Hold the extraction with Eileen’s med support', target: 45, reward: 900, map: 'ruins' },
+    { id: 'story_ch5', dialogue: 'price_intel', nameZh: '第五章 · 真相逼近', nameEn: 'Ch.5 Closing In', descZh: '解读普莱斯的情报，直捣黑潮核心', descEn: 'Decipher Price’s intel and strike the core', target: 60, reward: 1200, map: 'base' },
+    { id: 'story_ch6', dialogue: 'merchant_deal', nameZh: '第六章 · 终局之战', nameEn: 'Ch.6 The Final Stand', descZh: '在商人的补给下，终结黑潮威胁', descEn: 'With the merchant’s supply, end the Black Tide', target: 80, reward: 2000, map: 'volcano' }
+];
+function getStoryChapter(n) { return STORY_CHAPTERS[n - 1] || null; }
+
 function loadStoryState() {
     try {
         const raw = localStorage.getItem(STORY_STATE_KEY);
@@ -13888,6 +14019,131 @@ const DIALOGUES = {
             { text: '钻石、名画、加密硬盘——这些才是让金币滚动的硬通货。' },
             { text: '带上镭射指示器，弹道可循，穿透掩体，效率翻倍。去吧，淘金者。', choices: [
                 { text: '这就出发。', action: () => { setStoryFlag('treasure_tip_seen'); } }
+            ]}
+        ]
+    },
+
+    // ===== 场景引导对话（首次进入对应界面时触发，承担新手指引） =====
+    'guide_ready': {
+        speaker: '指挥官 · 普莱斯',
+        avatar: '🎖️',
+        avatarImg: 'assets/art/npc-price.png',
+        tag: 'Death Trench 特遣队',
+        lines: [
+            { text: '欢迎来到战备中心。这里是你出任务前最后能整理装备的地方。' },
+            { text: '左边选地图和难度，中间是仓库、改装、皮肤；右边挑模式和队友。' },
+            { text: '别嫌麻烦——上一个没检查弹药就冲进战壕的兵，只活了三分钟。', choices: [
+                { text: '我先去仓库看看。', action: () => { setStoryFlag('guide_ready_seen'); if (typeof showInventory === 'function') showInventory(); } },
+                { text: '先选张地图。', action: () => { setStoryFlag('guide_ready_seen'); if (typeof showMapSelect === 'function') showMapSelect(); } },
+                { text: '我自己逛逛。', action: () => { setStoryFlag('guide_ready_seen'); } }
+            ]}
+        ]
+    },
+    'guide_inventory': {
+        speaker: '医疗兵 · 艾琳',
+        avatar: '💊',
+        avatarImg: 'assets/art/npc-eileen.png',
+        tag: '战地医疗',
+        lines: [
+            { text: '这是你的仓库。武器库、弹药、背包都在这里。' },
+            { text: '背包按格子算，同种道具能叠到 999。搜打撤里捡到的战利品，得有空位才带得走。' },
+            { text: '药品和医疗包记得备够——战场上没人会替你包扎。', choices: [
+                { text: '记下了。', action: () => { setStoryFlag('guide_inventory_seen'); } }
+            ]}
+        ]
+    },
+    'guide_modification': {
+        speaker: '幽灵',
+        avatar: '👻',
+        avatarImg: 'assets/art/npc-ghost.png',
+        tag: '战术支援',
+        lines: [
+            { text: '改装台。给枪加配件，比换枪更实在。' },
+            { text: '红点瞄准提升命中，弹鼓加容量，脚架压后坐，镭射指示器让弹道可循、穿透掩体。' },
+            { text: '没有最好的配件，只有最适合你打法的组合。', choices: [
+                { text: '我去试试。', action: () => { setStoryFlag('guide_modification_seen'); } }
+            ]}
+        ]
+    },
+    'guide_knife_lottery': {
+        speaker: '幽灵',
+        avatar: '👻',
+        avatarImg: 'assets/art/npc-ghost.png',
+        tag: '战术支援',
+        lines: [
+            { text: '刀皮抽奖？说我推荐也不为过。近身一击，刀刃的成色很重要，对吧。' },
+            { text: '单抽 150、十连 1350 金币。每 10 抽必出史诗以上，运气好能出传说。' },
+            { text: '抽到的刀皮在仓库里点一下就能装备，局内刀刃会跟着变样。', choices: [
+                { text: '抽一发试试。', action: () => { setStoryFlag('guide_knife_lottery_seen'); } },
+                { text: '以后再说。', action: () => { setStoryFlag('guide_knife_lottery_seen'); } }
+            ]}
+        ]
+    },
+    'guide_map_select': {
+        speaker: '指挥官 · 普莱斯',
+        avatar: '🎖️',
+        avatarImg: 'assets/art/npc-price.png',
+        tag: 'Death Trench 特遣队',
+        lines: [
+            { text: '地图决定了你面对什么。沙漠视野开阔，城市巷战凶险，丛林毒雾弥漫。' },
+            { text: '难度越高，敌人越强、奖励越肥。新手先从「标准」开始，别逞能。' },
+            { text: '选定后回到战备中心，点「出发」就上战场。', choices: [
+                { text: '明白了。', action: () => { setStoryFlag('guide_map_select_seen'); } }
+            ]}
+        ]
+    },
+
+    // ===== 补充支线对话（丰满世界观 + 人物好感） =====
+    'price_intel': {
+        speaker: '指挥官 · 普莱斯',
+        avatar: '🎖️',
+        avatarImg: 'assets/art/npc-price.png',
+        tag: 'Death Trench 特遣队',
+        lines: [
+            { text: '情报室刚破译了一段黑潮通信。他们在收集「旧世界」的冷冻技术。' },
+            { text: '这解释了为什么战场上总能看到重复的面孔——它们不是新造的，是被唤醒的。' },
+            { text: '记住：你打死的每一个黑潮兵，可能都曾是和我们一样的人。', choices: [
+                { text: '这仗不好打。', action: () => { setStoryFlag('price_intel_seen'); addNpcAffinity('price', 5); } },
+                { text: '我会让他们安息。', action: () => { setStoryFlag('price_intel_seen'); addNpcAffinity('price', 10); } }
+            ]}
+        ]
+    },
+    'ghost_tactics': {
+        speaker: '幽灵',
+        avatar: '👻',
+        avatarImg: 'assets/art/npc-ghost.png',
+        tag: '战术支援',
+        lines: [
+            { text: '烟雾弹不是用来逃跑的，是用来重排战场。丢出去，视线归零，他们就瞎了。' },
+            { text: '低血量的敌人会撤退——别追太深，那是陷阱。让他们跑，你守点位。' },
+            { text: '还有，镭射指示器穿透掩体，躲在墙后的敌人也躲不过你的弹道。', choices: [
+                { text: '战术我记下了。', action: () => { setStoryFlag('ghost_tactics_seen'); addNpcAffinity('ghost', 5); } }
+            ]}
+        ]
+    },
+    'eileen_med': {
+        speaker: '医疗兵 · 艾琳',
+        avatar: '💊',
+        avatarImg: 'assets/art/npc-eileen.png',
+        tag: '战地医疗',
+        lines: [
+            { text: '背包里永远留一格给医疗包。重型护甲能扛两枪，但扛不住失血。' },
+            { text: '撤离点有我的人接应，残血也别放弃——跑出去就还有救。' },
+            { text: '……说实话，我最怕的不是敌人，是接到「全员阵亡」的回报。', choices: [
+                { text: '我会活着回来。', action: () => { setStoryFlag('eileen_med_seen'); addNpcAffinity('eileen', 10); } }
+            ]}
+        ]
+    },
+    'merchant_deal': {
+        speaker: '商人',
+        avatar: '🧳',
+        avatarImg: 'assets/art/npc-merchant.png',
+        tag: '后勤补给',
+        lines: [
+            { text: '老主顾了，给你透个底：变卖物价格随行情浮动，传奇货别急着全卖。' },
+            { text: '黑市里有「兑换码」渠道——据说官方偶尔发福利码，能解锁特殊装备。' },
+            { text: '比如一把叫 PKM 的通用机枪，弹链无限。这种好事，碰上了别错过。', choices: [
+                { text: '有码我一定试。', action: () => { setStoryFlag('merchant_deal_seen'); addNpcAffinity('merchant', 5); } }
             ]}
         ]
     }

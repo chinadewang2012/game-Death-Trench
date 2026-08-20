@@ -11,7 +11,7 @@
     <script>
     // 版本守卫：确保浏览器始终加载最新资源，破除磁盘/代理缓存导致的旧版(?v=6)卡死
     (function () {
-        var LATEST = '23'; // 与下方脚本引用 ?v= 保持一致
+        var LATEST = '24'; // 与下方脚本引用 ?v= 保持一致
         var s = location.search || '';
         var m = s.match(/[?&]v=(\d+)/);
         var cur = m ? m[1] : null;
@@ -316,7 +316,9 @@
                 </div>
             </div>
             <div class="menu-button-stack">
-                <button class="menu-btn-primary" onclick="showLobby()">进入大厅</button>
+                <button class="menu-btn-primary" onclick="enterMode('mission')">枪战模式</button>
+                <button class="menu-btn-primary menu-btn-raid" onclick="enterMode('raid')">搜打撤</button>
+                <button class="menu-btn-secondary" onclick="enterStoryMode()">剧情模式</button>
                 <button class="menu-btn-secondary" onclick="showTutorial()">新手教程</button>
                 <button class="menu-btn-tertiary" onclick="showSettings()">
                     <i data-lucide="settings" style="width:18px;height:18px;"></i>
@@ -1631,7 +1633,7 @@
 <script src="js/anti-cheat.js?v=22"></script>
 <script src="js/save.js?v=22"></script>
 <script src="js/coord.js?v=22"></script>
-<script src="js/game.js?v=23"></script>
+<script src="js/game.js?v=24"></script>
     <script>
         document.addEventListener('DOMContentLoaded', function() {
             if (window.lucide) lucide.createIcons();

@@ -1,8 +1,14 @@
 {
-  "version": "2.10.0",
-  "releaseDate": "2026-08-08",
+  "version": "2.11.0",
+  "releaseDate": "2026-08-20",
   "downloadUrl": "https://gitee.com/wang-zirui-from-beijing/death-trench-ai-game/releases",
   "changelog": [
+    "【存档】存档系统改为 cookie 存储（透明替换 localStorage，带分片与 1 年过期，兼容老存档迁移）",
+    "【反作弊】仅检测真正作弊插件（注入脚本/作弊全局/油猴篡改），打开浏览器控制台即停止游戏运行；去除误伤正常游玩/扩展的 DevTools 阻断与 console 误判；兑换码合法增量刷新基线不再误报",
+    "【入口】主菜单改为两个入口：枪战模式（原玩法）与搜打撤；新增「剧情模式」入口",
+    "【剧情】新增线性章节 STORY_CHAPTERS，剧情模式按引导逐章推进，不能跳关，每章含引导对话",
+    "【枪皮】修正重复配色/图案（星辰猎手/虚空/霜冻/余烬等），渲染去除纯色背景块改用枪形缩略图+描边，购买后持久化显示修复",
+    "【对话】新增场景引导对话（战备/仓库/改装/刀皮/地图）+ 补充支线对话（普莱斯/幽灵/艾琳/商人），首次进入对应界面与大厅时触发",
     "【UI重构】新增 openLobbyPanel() 统一抽象，合并抽奖/刀皮/改装/皮肤/弹药/个人信息/战备/仓库/黑市/地图/任务共 11 个面板函数的重复打开逻辑（清理后接受 panelId / onRender / 高亮按钮序号 / 是否保留底部导航 4 个参数）",
     "【UI重构】hideAllPanels() 去除重复的 .panel 清理循环，统一收口",
     "【UI重构】showLobby() 复用 ensureLobbyPanelsVisible()，去除内嵌的 lobby-panels 显隐重复代码",

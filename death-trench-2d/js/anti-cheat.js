@@ -3,6 +3,86 @@
  * 客户端反作弊与数据完整性保护
  * 注意：网页端无法 100% 阻止作弊，本模块仅提高门槛并检测常见异常。
  */
+
+// ============================================================
+// Cookie 存档层（最先安装，确保后续 localStorage 访问都走 cookie）
+// 透明替换 window.localStorage 为基于 cookie 的实现；
+// 业务代码（loadPlayerData / loadPlayerMods / safeSetItem 等）零改动。
+// cookie 单条约 4KB，故对大 value 做分片存储（key__0/key__1/...）。
+// ============================================================
+(function installCookieStorage() {
+    const COOKIE_PREFIX = 'dt_';
+    const SHARD_BYTES = 3000;
+    const EXPIRE_DAYS = 365;
+
+    function enc(str) {
+        return encodeURIComponent(str).replace(/[!'()*~]/g, c => '%' + c.charCodeAt(0).toString(16).toUpperCase());
+    }
+    function dec(str) {
+        try { return decodeURIComponent(str); } catch (e) { return str; }
+    }
+    function writeCookie(name, value, days) {
+        const d = new Date();
+        d.setTime(d.getTime() + (days || EXPIRE_DAYS) * 24 * 60 * 60 * 1000);
+        document.cookie = COOKIE_PREFIX + enc(name) + '=' + enc(value) + ';expires=' + d.toUTCString() + ';path=/;SameSite=Lax';
+    }
+    function readAllCookies() {
+        const map = {};
+        (document.cookie || '').split(';').forEach(pair => {
+            const idx = pair.indexOf('=');
+            if (idx < 0) return;
+            map[pair.slice(0, idx).trim()] = pair.slice(idx + 1).trim();
+        });
+        return map;
+    }
+
+    const CookieStorage = {
+        getItem(key) {
+            const all = readAllCookies();
+            const base = COOKIE_PREFIX + enc(key);
+            if (all[base] === undefined) {
+                if (all[key] !== undefined) return dec(all[key]); // 旧版无前缀兼容
+                return null;
+            }
+            let out = '', i = 0;
+            while (all[base + '__' + i] !== undefined) { out += dec(all[base + '__' + i]); i++; }
+            return out || null;
+        },
+        setItem(key, value) {
+            const str = String(value);
+            const base = COOKIE_PREFIX + enc(key);
+            const all = readAllCookies();
+            let i = 0;
+            while (all[base + '__' + i] !== undefined) { writeCookie(base + '__' + i, '', -1); i++; }
+            if (str.length <= SHARD_BYTES) { writeCookie(base, str); return; }
+            for (let s = 0; s < str.length; s += SHARD_BYTES) {
+                writeCookie(base + '__' + (s / SHARD_BYTES), str.slice(s, s + SHARD_BYTES));
+            }
+        },
+        removeItem(key) {
+            const base = COOKIE_PREFIX + enc(key);
+            const all = readAllCookies();
+            writeCookie(base, '', -1);
+            let i = 0;
+            while (all[base + '__' + i] !== undefined) { writeCookie(base + '__' + i, '', -1); i++; }
+        },
+        clear() {
+            const all = readAllCookies();
+            Object.keys(all).forEach(k => { if (k.indexOf(COOKIE_PREFIX) === 0) writeCookie(k.replace(COOKIE_PREFIX, ''), '', -1); });
+        },
+        key() { return null; },
+        get length() { return 0; }
+    };
+
+    try {
+        Object.defineProperty(window, 'localStorage', { configurable: true, get() { return CookieStorage; } });
+        window.__cookieStorage = CookieStorage;
+        console.log('[STORAGE] localStorage 已透明替换为 cookie 存储');
+    } catch (e) {
+        console.warn('[STORAGE] 无法覆盖 localStorage，回退原生', e);
+    }
+})();
+
 const AntiCheat = (() => {
     // 通过简单编码隐藏关键字符串，避免明文搜索即可定位
     const _b64 = (s) => btoa(unescape(encodeURIComponent(s)));
@@ -120,28 +200,19 @@ const AntiCheat = (() => {
     }
 
     function _checkConsoleTampering() {
+        // 浏览器扩展（React/Vue DevTools 等）或开发者工具打开时，console 方法常被
+        // 正常包装，属常规行为，不应判为作弊。仅在方法被重写为明显作弊代码时报警。
         try {
             const methods = ['log', 'warn', 'error', 'info', 'debug'];
-            let missing = 0;
-            let nonNative = 0;
-            const nonNativeMethods = [];
             for (const method of methods) {
-                if (typeof console[method] !== 'function') {
-                    missing++;
-                } else {
-                    const str = console[method].toString();
-                    if (str.indexOf('[native code]') === -1 && str.indexOf('native code') === -1) {
-                        nonNative++;
-                        nonNativeMethods.push(method);
-                    }
+                if (typeof console[method] !== 'function') continue;
+                const str = console[method].toString();
+                if (str.indexOf('cheat') !== -1 || str.indexOf('hack') !== -1 ||
+                    str.indexOf('modmenu') !== -1 || str.indexOf('trainer') !== -1) {
+                    _verboseLog('console method contains cheat code', method);
+                    return true;
                 }
             }
-            // 多个方法同时缺失或被替换才判定为篡改；单个方法被扩展覆盖属于常见情况
-            const detected = missing >= 2 || nonNative >= 4;
-            if (detected) {
-                _verboseLog('console tampering', { missing, nonNative, nonNativeMethods });
-            }
-            return detected;
         } catch (e) {}
         return false;
     }
@@ -283,26 +354,9 @@ const AntiCheat = (() => {
     }
 
     function _blockShortcuts() {
-        document.addEventListener('keydown', (e) => {
-            const key = e.key.toLowerCase();
-            const ctrl = e.ctrlKey;
-            const shift = e.shiftKey;
-            const alt = e.altKey;
-
-            if (
-                key === 'f12' ||
-                (ctrl && shift && (key === 'i' || key === 'j' || key === 'c')) ||
-                (ctrl && key === 'u') ||
-                (ctrl && shift && key === 'k') ||
-                (ctrl && alt && key === 'j')
-            ) {
-                e.preventDefault();
-                e.stopPropagation();
-                // 阻断快捷键本身不直接加分，仅记录；避免误触导致误报
-                console.warn('[AntiCheat] blocked dev shortcut:', key);
-                return false;
-            }
-        }, true);
+        // 不再拦截 F12 / Ctrl+Shift+I / Ctrl+U 等开发者快捷键：
+        // 正常玩家打开浏览器控制台不应被阻断或判为作弊。
+        // 反作弊仅聚焦于真正的作弊插件（注入脚本、作弊全局对象、油猴篡改等）。
     }
 
     function _blockContextMenu() {
@@ -314,14 +368,20 @@ const AntiCheat = (() => {
     }
 
     function _startDevToolsWatcher() {
+        // 需求：游戏中打开浏览器控制台（开发者工具）即停止运行。
+        // 仅在真正检测到 DevTools 打开时派发事件，由游戏侧暂停主循环。
+        let wasOpen = false;
         setInterval(() => {
-            if (_checkDevTools()) {
-                if (!_devtoolsOpen) {
-                    _devtoolsOpen = true;
-                    _flagSuspicious('devtools_opened');
+            const open = _checkDevTools();
+            if (open && !wasOpen) {
+                wasOpen = true;
+                _verboseLog('devtools panel open -> request game stop');
+                try { window.dispatchEvent(new CustomEvent('dt:devtools-opened')); } catch (e) {}
+                if (typeof window.onDevToolsOpened === 'function') {
+                    try { window.onDevToolsOpened(); } catch (e) {}
                 }
-            } else {
-                _devtoolsOpen = false;
+            } else if (!open) {
+                wasOpen = false;
             }
         }, 1000);
     }
