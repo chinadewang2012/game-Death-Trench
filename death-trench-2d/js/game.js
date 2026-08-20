@@ -1030,7 +1030,8 @@ let settings = {
     difficulty: 'advanced',
     playerSpeed: 100, // 百分比，100为默认速度
     fireRate: 100, // 射速调整，100为默认，数值越小射速越快
-    mobileMode: false // 移动端适配开关，默认关闭（实验性功能）
+    mobileMode: false, // 移动端适配开关，默认关闭（实验性功能）
+    defaultEntry: 'story' // 默认进入模式：'story'(剧情) | 'mission'(枪战) | 'raid'(搜打撤)
 };
 window.settings = settings;
 
@@ -1758,6 +1759,11 @@ function loadSettings() {
         if (typeof saved.playerSpeed === 'number') settings.playerSpeed = Math.max(50, Math.min(350, saved.playerSpeed));
         if (typeof saved.fireRate === 'number') settings.fireRate = Math.max(50, Math.min(200, saved.fireRate));
         if (typeof saved.mobileMode === 'boolean') settings.mobileMode = saved.mobileMode;
+        if (saved.defaultEntry === 'story' || saved.defaultEntry === 'mission' || saved.defaultEntry === 'raid') {
+            settings.defaultEntry = saved.defaultEntry;
+        } else {
+            settings.defaultEntry = 'story';
+        }
     } catch (e) { console.warn('[SETTINGS] 读取失败:', e.message); }
 }
 
@@ -1767,7 +1773,8 @@ function saveSettings() {
             difficulty: settings.difficulty,
             playerSpeed: settings.playerSpeed,
             fireRate: settings.fireRate,
-            mobileMode: settings.mobileMode
+            mobileMode: settings.mobileMode,
+            defaultEntry: settings.defaultEntry
         }));
     } catch (e) { console.warn('[SETTINGS] 保存失败:', e.message); }
 }
@@ -7273,6 +7280,7 @@ function showMenu() {
     hideGameUI();
     const menu = document.getElementById('menu');
     if (menu) menu.style.display = 'flex';
+    updateDefaultEntryHint();
 }
 
 function backToMenu() {
@@ -7291,8 +7299,34 @@ function showSettings() {
     hideAllPanels();
     const panel = document.getElementById('settingsPanel');
     if (panel) UIAnimator.showPanel(panel);
+    // 同步「默认进入模式」选择框
+    const sel = document.getElementById('defaultEntrySelect');
+    if (sel) sel.value = settings.defaultEntry || 'story';
 }
+
+// 设置默认进入模式，并立即持久化 + 同步所有相关 UI
+function setDefaultEntry(entry) {
+    if (entry !== 'story' && entry !== 'mission' && entry !== 'raid') entry = 'story';
+    settings.defaultEntry = entry;
+    saveSettings();
+    const sb = document.getElementById('sidebarDefaultEntrySelect');
+    if (sb) sb.value = entry;
+    const pop = document.getElementById('defaultEntrySelect');
+    if (pop) pop.value = entry;
+    updateDefaultEntryHint();
+    showNotification('默认进入模式已设为：' + ({ story: '剧情模式', mission: '枪战模式', raid: '搜打撤' }[entry] || '剧情模式'));
+}
+window.setDefaultEntry = setDefaultEntry;
 window.showSettings = showSettings;
+
+// 更新主菜单底部「默认进入」提示文字
+function updateDefaultEntryHint() {
+    const txt = document.getElementById('menuDefaultEntryText');
+    if (txt) {
+        const map = { story: '剧情模式', mission: '枪战模式', raid: '搜打撤' };
+        txt.textContent = map[settings.defaultEntry] || '剧情模式';
+    }
+}
 
 function hideSettings() {
     const panel = document.getElementById('settingsPanel');
@@ -7339,6 +7373,10 @@ function switchSidebarTab(tabName) {
     // 刷新数据
     if (tabName === 'stats') updateSidebarStats();
     if (tabName === 'items') updateSidebarItems();
+    if (tabName === 'settings') {
+        const sb = document.getElementById('sidebarDefaultEntrySelect');
+        if (sb) sb.value = settings.defaultEntry || 'story';
+    }
 }
 window.switchSidebarTab = switchSidebarTab;
 
@@ -7693,6 +7731,19 @@ function renderAmmoGrid() {
 // ============================================================
 // 主菜单入口：枪战 / 搜打撤 / 剧情模式
 // ============================================================
+// 统一入口：按设置中的「默认进入模式」进入对应玩法
+// entry: 'story'(剧情) | 'mission'(枪战) | 'raid'(搜打撤)
+function enterDefault() {
+    const entry = (settings && settings.defaultEntry) || 'story';
+    if (entry === 'raid') {
+        enterMode('raid');
+    } else if (entry === 'mission') {
+        enterMode('mission');
+    } else {
+        enterStoryMode();
+    }
+}
+
 function enterMode(mode) {
     // 设置并持久化玩家选择的模式，进入大厅战备中心
     playerData.selectedMode = mode;

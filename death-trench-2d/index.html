@@ -11,7 +11,7 @@
     <script>
     // 版本守卫：确保浏览器始终加载最新资源，破除磁盘/代理缓存导致的旧版(?v=6)卡死
     (function () {
-        var LATEST = '24'; // 与下方脚本引用 ?v= 保持一致
+        var LATEST = '25'; // 与下方脚本引用 ?v= 保持一致
         var s = location.search || '';
         var m = s.match(/[?&]v=(\d+)/);
         var cur = m ? m[1] : null;
@@ -316,9 +316,10 @@
                 </div>
             </div>
             <div class="menu-button-stack">
+                <button class="menu-btn-primary menu-btn-default-entry" onclick="enterDefault()">开始游戏</button>
+                <button class="menu-btn-primary" onclick="enterStoryMode()">剧情模式（默认）</button>
                 <button class="menu-btn-primary" onclick="enterMode('mission')">枪战模式</button>
                 <button class="menu-btn-primary menu-btn-raid" onclick="enterMode('raid')">搜打撤</button>
-                <button class="menu-btn-secondary" onclick="enterStoryMode()">剧情模式</button>
                 <button class="menu-btn-secondary" onclick="showTutorial()">新手教程</button>
                 <button class="menu-btn-tertiary" onclick="showSettings()">
                     <i data-lucide="settings" style="width:18px;height:18px;"></i>
@@ -332,6 +333,7 @@
                     <i data-lucide="terminal" style="width:18px;height:18px;"></i>
                     开发者工具
                 </button>
+                <p class="menu-default-hint">默认进入：<span id="menuDefaultEntryText">剧情模式</span> · 可在「设置」中修改</p>
             </div>
         </div>
         <div class="menu-footer">
@@ -1303,6 +1305,15 @@
                     </select>
                 </div>
                 <div class="setting-group">
+                    <label class="setting-label">默认进入模式</label>
+                    <select id="sidebarDefaultEntrySelect" onchange="setDefaultEntry(this.value)">
+                        <option value="story">📖 剧情模式</option>
+                        <option value="mission">🔫 枪战模式</option>
+                        <option value="raid">🎒 搜打撤</option>
+                    </select>
+                    <div style="color:#666; font-size:11px; margin-top:4px;">打开游戏或点击「开始游戏」时自动进入该模式</div>
+                </div>
+                <div class="setting-group">
                     <label class="setting-label">玩家速度: <span id="sidebarSpeedValue">100%</span></label>
                     <input type="range" min="50" max="350" value="100" oninput="settings.playerSpeed = this.value; document.getElementById('sidebarSpeedValue').textContent = this.value + '%'">
                 </div>
@@ -1385,6 +1396,15 @@
                 <option value="confidential">★★★ 机密</option>
                 <option value="topsecret">★★★★ 绝密</option>
             </select>
+        </div>
+        <div class="setting-group">
+            <label class="setting-label">默认进入模式</label>
+            <select id="defaultEntrySelect" onchange="setDefaultEntry(this.value)">
+                <option value="story">📖 剧情模式</option>
+                <option value="mission">🔫 枪战模式</option>
+                <option value="raid">🎒 搜打撤</option>
+            </select>
+            <div style="color:#666; font-size:11px; margin-top:4px;">打开游戏或点击「开始游戏」时自动进入该模式</div>
         </div>
         <div class="setting-group">
             <label class="setting-label">玩家速度: <span id="speedValue">100%</span></label>
@@ -1637,7 +1657,7 @@
 <script src="js/anti-cheat.js?v=22"></script>
 <script src="js/save.js?v=22"></script>
 <script src="js/coord.js?v=22"></script>
-<script src="js/game.js?v=24"></script>
+<script src="js/game.js?v=25"></script>
     <script>
         document.addEventListener('DOMContentLoaded', function() {
             if (window.lucide) lucide.createIcons();
