@@ -10197,6 +10197,14 @@ function showMapSelect() {
     }, 4);
 }
 
+// 退出地图选择面板，返回战备中心（恢复底部导航）
+function exitMapSelect() {
+    const p = document.getElementById('mapSelectPanel');
+    if (p) p.style.display = 'none';
+    showReadyRoom();
+}
+window.exitMapSelect = exitMapSelect;
+
 function buyItem(itemName) {
     const price = getItemPrice(itemName);
     if (playerData.coins < price) {
@@ -13609,7 +13617,10 @@ function mountAllUIfunctions() {
         'closeConfirm', 'closeWarmTip', 'selectModNode', 'renderWeaponLibrary',
         'renderMissionLineList', 'disableAllMods', 'saveSettings', 'loadSettings', 'syncSettingsUI',
         'showRedeemCodePanel', 'closeRedeemCodePanel', 'submitRedeemCode', 'redeemCode',
-        'selectMissionById', 'completeMission', 'updateMissionProgress', 'finishCurrentMission', 'loadMissions', 'updateReadyRoomMission'
+        'selectMissionById', 'completeMission', 'updateMissionProgress', 'finishCurrentMission', 'loadMissions', 'updateReadyRoomMission',
+        'openMapDetail', 'closeMapDetail', 'selectMapFromDetail', 'exitMapSelect',
+        'enterDefault', 'enterStoryMode', 'enterMode', 'setDefaultEntry',
+        'showProfilePanel', 'hideProfilePanel', 'upgradeProfileLevel', 'showComplaintPanel', 'hideComplaintPanel', 'submitComplaint'
     ];
     let mounted = 0;
     let missing = [];
@@ -14391,7 +14402,14 @@ function renderDialogueLine() {
     if (speakerEl) speakerEl.textContent = currentDialogue.speaker || '???';
     if (avatarEl) {
         if (currentDialogue.avatarImg) {
-            avatarEl.innerHTML = '<img src="' + currentDialogue.avatarImg + '" alt="' + (currentDialogue.speaker || 'NPC') + '" class="dialogue-avatar-img" onload="window.__txArtIcon(this)">';
+            // 根据台词状态选择 RPG 动作动画：关键抉择->强调前倾，否则按奇偶在说话/待机间切换
+            let animState = 'talk';
+            if (line && line.choices && line.choices.length) {
+                animState = 'emphasize';
+            } else if ((currentDialogueLineIndex || 0) % 2 === 0) {
+                animState = 'idle';
+            }
+            avatarEl.innerHTML = '<img src="' + currentDialogue.avatarImg + '" alt="' + (currentDialogue.speaker || 'NPC') + '" class="dialogue-avatar-img dlg-anim-' + animState + '" onload="window.__txArtIcon(this)">';
         } else {
             avatarEl.textContent = currentDialogue.avatar || '👤';
         }

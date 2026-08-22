@@ -2056,6 +2056,25 @@ body {
     cursor: pointer;
 }
 .map-detail-close:hover { color: #fff; }
+.panel-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 16px;
+}
+.panel-header h2 {
+    margin: 0;
+}
+.panel-close-btn {
+    background: rgba(0,204,102,0.12);
+    border: 1px solid #00cc66;
+    color: #00cc66;
+    border-radius: 8px;
+    padding: 6px 14px;
+    font-size: 14px;
+    cursor: pointer;
+}
+.panel-close-btn:hover { background: rgba(0,204,102,0.25); color: #fff; }
 .md-head {
     display: flex;
     align-items: center;
@@ -6422,6 +6441,51 @@ body {
     border-radius: 50%;
     image-rendering: pixelated;
     display: block;
+    transform-origin: center bottom;
+    animation: dialogueAvatarAppear 0.35s ease-out 1;
+}
+.dialogue-avatar-img.dlg-anim-idle {
+    animation: dialogueAvatarAppear 0.35s ease-out 1, dialogueAvatarIdle 2.4s ease-in-out 0.35s infinite;
+}
+.dialogue-avatar-img.dlg-anim-talk {
+    animation: dialogueAvatarAppear 0.35s ease-out 1, dialogueAvatarTalk 0.9s ease-in-out 0.35s infinite;
+}
+.dialogue-avatar-img.dlg-anim-emphasize {
+    animation: dialogueAvatarAppear 0.35s ease-out 1, dialogueAvatarEmphasize 1.2s ease-in-out 0.35s infinite;
+}
+.dialogue-avatar-img.dlg-anim-appear {
+    animation: dialogueAvatarAppear 0.5s cubic-bezier(.34,1.56,.64,1) 1;
+}
+/* 4 帧待机呼吸：4 个关键帧（0/33/66/100），模拟老式 RPG 精灵待机 */
+@keyframes dialogueAvatarIdle {
+    0%   { transform: translateY(0)    scale(1); }
+    25%  { transform: translateY(-1px) scale(1.01); }
+    50%  { transform: translateY(-2px) scale(1.02); }
+    75%  { transform: translateY(-1px) scale(1.01); }
+    100% { transform: translateY(0)    scale(1); }
+}
+/* 说话点头：4 帧上下点头 */
+@keyframes dialogueAvatarTalk {
+    0%   { transform: translateY(0)    rotate(0deg); }
+    25%  { transform: translateY(-1px) rotate(-1.2deg); }
+    50%  { transform: translateY(0)    rotate(0deg); }
+    75%  { transform: translateY(-1px) rotate(1.2deg); }
+    100% { transform: translateY(0)    rotate(0deg); }
+}
+/* 强调/抉择：4 帧前倾+轻微放大 */
+@keyframes dialogueAvatarEmphasize {
+    0%   { transform: translateY(0)    scale(1)   translateX(0); }
+    25%  { transform: translateY(-1px) scale(1.04) translateX(0.5px); }
+    50%  { transform: translateY(-2px) scale(1.08) translateX(1px); }
+    75%  { transform: translateY(-1px) scale(1.04) translateX(0.5px); }
+    100% { transform: translateY(0)    scale(1)   translateX(0); }
+}
+/* 出场弹入：4 帧缩放回弹 */
+@keyframes dialogueAvatarAppear {
+    0%   { transform: scale(0.3) translateY(8px); opacity: 0; }
+    40%  { transform: scale(1.12) translateY(-2px); opacity: 1; }
+    70%  { transform: scale(0.96) translateY(1px); }
+    100% { transform: scale(1) translateY(0); opacity: 1; }
 }
 .px-icon {
     width: 32px; height: 32px;

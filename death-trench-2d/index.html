@@ -11,7 +11,7 @@
     <script>
     // 版本守卫：确保浏览器始终加载最新资源，破除磁盘/代理缓存导致的旧版(?v=6)卡死
     (function () {
-        var LATEST = '26'; // 与下方脚本引用 ?v= 保持一致
+        var LATEST = '27'; // 与下方脚本引用 ?v= 保持一致
         var s = location.search || '';
         var m = s.match(/[?&]v=(\d+)/);
         var cur = m ? m[1] : null;
@@ -896,7 +896,10 @@
             </div>
 
             <div id="mapSelectPanel" class="panel">
-                <h2>🗺️ 地图选择</h2>
+                <div class="panel-header">
+                    <h2>🗺️ 地图选择</h2>
+                    <button class="panel-close-btn" onclick="exitMapSelect()">✕ 返回</button>
+                </div>
                 <div class="map-content">
                     <div class="map-grid" id="presetMapGrid">
                         <div class="map-card selected" data-map="desert" onclick="openMapDetail('desert')">
@@ -1706,7 +1709,7 @@
 <script src="js/anti-cheat.js?v=22"></script>
 <script src="js/save.js?v=22"></script>
 <script src="js/coord.js?v=22"></script>
-<script src="js/game.js?v=26"></script>
+<script src="js/game.js?v=27"></script>
     <script>
         document.addEventListener('DOMContentLoaded', function() {
             if (window.lucide) lucide.createIcons();
