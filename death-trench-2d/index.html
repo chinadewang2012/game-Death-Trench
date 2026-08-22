@@ -11,7 +11,7 @@
     <script>
     // 版本守卫：确保浏览器始终加载最新资源，破除磁盘/代理缓存导致的旧版(?v=6)卡死
     (function () {
-        var LATEST = '25'; // 与下方脚本引用 ?v= 保持一致
+        var LATEST = '26'; // 与下方脚本引用 ?v= 保持一致
         var s = location.search || '';
         var m = s.match(/[?&]v=(\d+)/);
         var cur = m ? m[1] : null;
@@ -435,7 +435,7 @@
             <div class="lobby-func-grid">
                 <button class="lobby-func-btn" onclick="showReadyRoom()">
                     <i data-lucide="crosshair" style="width:24px;height:24px;color:var(--brand-accent);"></i>
-                    <span>战备中心</span>
+                    <span>开始行动</span>
                 </button>
                 <button class="lobby-func-btn" onclick="showInventory()">
                     <i data-lucide="package" style="width:24px;height:24px;color:var(--brand-accent);"></i>
@@ -449,29 +449,41 @@
                     <i data-lucide="wrench" style="width:24px;height:24px;color:var(--brand-accent);"></i>
                     <span>改装处</span>
                 </button>
-                <button class="lobby-func-btn" onclick="showSkins()">
+                <button class="lobby-func-btn" data-story-hide onclick="showSkins()">
                     <i data-lucide="palette" style="width:24px;height:24px;color:var(--brand-accent);"></i>
                     <span>皮肤商店</span>
                 </button>
-                <button class="lobby-func-btn" onclick="showLotteryPanel()">
+                <button class="lobby-func-btn" data-story-hide onclick="showLotteryPanel()">
                     <i data-lucide="dices" style="width:24px;height:24px;color:var(--brand-accent);"></i>
                     <span>抽奖</span>
                 </button>
-                <button class="lobby-func-btn" onclick="showKnifeLotteryPanel()">
+                <button class="lobby-func-btn" data-story-hide onclick="showKnifeLotteryPanel()">
                     <i data-lucide="swords" style="width:24px;height:24px;color:var(--brand-accent);"></i>
                     <span>刀皮抽奖</span>
                 </button>
-                <button class="lobby-func-btn" onclick="showRedeemCodePanel()">
+                <button class="lobby-func-btn" data-story-hide onclick="showRedeemCodePanel()">
                     <i data-lucide="gift" style="width:24px;height:24px;color:var(--brand-accent);"></i>
                     <span>兑换码</span>
                 </button>
-                <button class="lobby-func-btn" onclick="showAmmoPanel()">
+                <button class="lobby-func-btn" data-story-hide onclick="showAmmoPanel()">
                     <i data-lucide="box" style="width:24px;height:24px;color:var(--brand-accent);"></i>
                     <span>弹药库</span>
                 </button>
                 <button class="lobby-func-btn" onclick="showMissionPanel()">
                     <i data-lucide="clipboard-list" style="width:24px;height:24px;color:var(--brand-accent);"></i>
                     <span>任务线</span>
+                </button>
+                <button class="lobby-func-btn lobby-func-extra" data-story-show onclick="showSettings()">
+                    <i data-lucide="settings" style="width:24px;height:24px;color:var(--brand-accent);"></i>
+                    <span>设置</span>
+                </button>
+                <button class="lobby-func-btn lobby-func-extra" data-story-show onclick="showProfilePanel()">
+                    <i data-lucide="user" style="width:24px;height:24px;color:var(--brand-accent);"></i>
+                    <span>个人信息</span>
+                </button>
+                <button class="lobby-func-btn lobby-func-extra" data-story-show onclick="showComplaintPanel()">
+                    <i data-lucide="message-square-warning" style="width:24px;height:24px;color:var(--brand-accent);"></i>
+                    <span>投诉</span>
                 </button>
             </div>
             <div class="lobby-back-wrap">
@@ -1447,6 +1459,43 @@
         <button class="menu-btn secondary" onclick="hideSettings()">返回</button>
     </div>
 
+    <div id="profilePanel">
+        <h2>👤 个人信息</h2>
+        <div class="setting-group">
+            <div class="profile-row"><span>玩家等级</span><span id="profileLevel">1</span></div>
+            <div class="profile-row"><span>持有金币</span><span id="profileCoins">0</span></div>
+            <div class="profile-row"><span>当前章节</span><span id="profileChapter">第 1 章</span></div>
+            <div class="profile-row"><span>已解锁武器</span><span id="profileWeapons">--</span></div>
+        </div>
+        <div class="setting-group" style="margin-top: 15px; padding-top: 15px; border-top: 1px solid rgba(0,204,102,0.2);">
+            <label class="setting-label">单独升级（消耗金币提升等级）</label>
+            <div style="color:#666; font-size:11px; margin-bottom:8px;">个人信息等级独立于战斗等级，可在此单独投入资源成长。</div>
+            <button class="menu-btn secondary" style="width:100%;" onclick="upgradeProfileLevel()">⬆️ 升级（消耗 500 金币）</button>
+            <div id="profileUpgradeHint" style="color:#00cc66; font-size:12px; text-align:center; margin-top:6px;"></div>
+        </div>
+        <button class="menu-btn secondary" onclick="hideProfilePanel()">返回</button>
+    </div>
+
+    <div id="complaintPanel">
+        <h2>📝 投诉</h2>
+        <div class="setting-group">
+            <label class="setting-label">反馈类型</label>
+            <select id="complaintType">
+                <option value="bug">游戏 BUG / 异常</option>
+                <option value="cheat">作弊举报</option>
+                <option value="balance">平衡性建议</option>
+                <option value="other">其他</option>
+            </select>
+        </div>
+        <div class="setting-group">
+            <label class="setting-label">详细描述</label>
+            <textarea id="complaintText" rows="5" style="width:100%; background:rgba(0,0,0,0.4); color:#e6edf3; border:1px solid #333; border-radius:8px; padding:10px; font-family:inherit; resize:vertical;" placeholder="请详细描述你遇到的问题或建议…"></textarea>
+        </div>
+        <button class="menu-btn secondary" style="width:100%;" onclick="submitComplaint()">提交投诉</button>
+        <div id="complaintHint" style="color:#00cc66; font-size:12px; text-align:center; margin-top:8px;"></div>
+        <button class="menu-btn secondary" style="width:100%; margin-top:10px;" onclick="hideComplaintPanel()">返回</button>
+    </div>
+
     <div id="gameOver">
         <h2>💀 战斗结束</h2>
         <div class="score-display">
@@ -1657,7 +1706,7 @@
 <script src="js/anti-cheat.js?v=22"></script>
 <script src="js/save.js?v=22"></script>
 <script src="js/coord.js?v=22"></script>
-<script src="js/game.js?v=25"></script>
+<script src="js/game.js?v=26"></script>
     <script>
         document.addEventListener('DOMContentLoaded', function() {
             if (window.lucide) lucide.createIcons();

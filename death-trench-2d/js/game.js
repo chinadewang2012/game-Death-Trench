@@ -285,6 +285,9 @@ const UIAnimator = (() => {
             setTimeout(() => {
                 element.style.pointerEvents = '';
                 element.style.transition = '';
+                // 恢复原始 transform（如居中面板依赖 CSS 的 translate(-50%,-50%)），
+                // 避免覆盖掉元素本来的定位 transform 导致向右下偏移
+                element.style.transform = '';
                 if (options.onComplete) options.onComplete();
                 resolve();
             }, config.panelEnterDuration + 20);
@@ -1639,7 +1642,9 @@ let playerData = {
     },
     redeemedCodes: [],
     ownedWeapons: [],
-    sellItems: []
+    sellItems: [],
+    profileLevel: 1, // 个人信息单独等级（与战斗等级独立，可单独升级）
+    coins: 0 // 通用货币，用于个人信息升级等
 };
 
 function loadPlayerData() {
@@ -7200,6 +7205,10 @@ function hideAllPanels() {
         sp.classList.remove('active');
         sp.style.display = 'none';
     }
+    const pp = document.getElementById('profilePanel');
+    if (pp) { pp.classList.remove('active'); pp.style.display = 'none'; }
+    const cp = document.getElementById('complaintPanel');
+    if (cp) { cp.classList.remove('active'); cp.style.display = 'none'; }
     const go = document.getElementById('gameOver');
     if (go) {
         go.classList.remove('active');
@@ -7337,6 +7346,102 @@ function hideSettings() {
     }
 }
 window.hideSettings = hideSettings;
+
+// ===== 个人信息面板（含单独升级） =====
+function showProfilePanel() {
+    hideAllPanels();
+    const panel = document.getElementById('profilePanel');
+    if (panel) {
+        const lvl = document.getElementById('profileLevel');
+        if (lvl) lvl.textContent = (playerData.profileLevel || 1);
+        const coins = document.getElementById('profileCoins');
+        if (coins) coins.textContent = (playerData.coins || 0);
+        const ch = document.getElementById('profileChapter');
+        if (ch) ch.textContent = '第 ' + (storyState.chapter || 1) + ' 章';
+        const wp = document.getElementById('profileWeapons');
+        if (wp) {
+            const rank = _rankFromScore(playerData.totalScore || 0);
+            const skins = (playerMods && playerMods.ownedSkins ? playerMods.ownedSkins.length : 0);
+            wp.textContent = (rank ? rank.name : '新兵') + ' · 皮肤' + skins;
+        }
+        const hint = document.getElementById('profileUpgradeHint');
+        if (hint) hint.textContent = '';
+        UIAnimator.showPanel(panel);
+    }
+}
+function hideProfilePanel() {
+    const panel = document.getElementById('profilePanel');
+    if (panel) UIAnimator.hidePanel(panel);
+    showLobby();
+}
+// 个人信息单独升级：消耗金币提升 profileLevel
+function upgradeProfileLevel() {
+    const cost = 500;
+    if ((playerData.coins || 0) < cost) {
+        const hint = document.getElementById('profileUpgradeHint');
+        if (hint) { hint.style.color = '#ff5555'; hint.textContent = '金币不足，需要 ' + cost + ' 金币'; }
+        return;
+    }
+    playerData.coins -= cost;
+    playerData.profileLevel = (playerData.profileLevel || 1) + 1;
+    savePlayerData();
+    const lvl = document.getElementById('profileLevel');
+    if (lvl) lvl.textContent = playerData.profileLevel;
+    const coins = document.getElementById('profileCoins');
+    if (coins) coins.textContent = playerData.coins;
+    const hint = document.getElementById('profileUpgradeHint');
+    if (hint) { hint.style.color = '#00cc66'; hint.textContent = '升级成功！当前等级 ' + playerData.profileLevel; }
+    showNotification('个人信息已升级至 Lv.' + playerData.profileLevel);
+}
+window.showProfilePanel = showProfilePanel;
+window.hideProfilePanel = hideProfilePanel;
+window.upgradeProfileLevel = upgradeProfileLevel;
+
+// ===== 投诉面板 =====
+function showComplaintPanel() {
+    hideAllPanels();
+    const panel = document.getElementById('complaintPanel');
+    if (panel) {
+        const hint = document.getElementById('complaintHint');
+        if (hint) hint.textContent = '';
+        const txt = document.getElementById('complaintText');
+        if (txt) txt.value = '';
+        UIAnimator.showPanel(panel);
+    }
+}
+function hideComplaintPanel() {
+    const panel = document.getElementById('complaintPanel');
+    if (panel) UIAnimator.hidePanel(panel);
+    showLobby();
+}
+function submitComplaint() {
+    const type = document.getElementById('complaintType');
+    const text = document.getElementById('complaintText');
+    const hint = document.getElementById('complaintHint');
+    const content = text ? text.value.trim() : '';
+    if (!content) {
+        if (hint) { hint.style.color = '#ff5555'; hint.textContent = '请先填写描述内容'; }
+        return;
+    }
+    const payload = {
+        type: type ? type.value : 'other',
+        content: content,
+        time: new Date().toISOString(),
+        chapter: storyState.chapter || 1
+    };
+    // 本地留存投诉记录（隐私优先，不上传敏感信息）
+    try {
+        const logs = JSON.parse(localStorage.getItem('deathTrench_complaints') || '[]');
+        logs.push(payload);
+        localStorage.setItem('deathTrench_complaints', JSON.stringify(logs));
+    } catch (e) { /* 忽略存储异常 */ }
+    if (hint) { hint.style.color = '#00cc66'; hint.textContent = '投诉已提交，感谢你的反馈！'; }
+    if (text) text.value = '';
+    showNotification('投诉已提交');
+}
+window.showComplaintPanel = showComplaintPanel;
+window.hideComplaintPanel = hideComplaintPanel;
+window.submitComplaint = submitComplaint;
 
 // 右侧侧边栏控制
 let sidebarOpen = false;
@@ -7746,6 +7851,7 @@ function enterDefault() {
 
 function enterMode(mode) {
     // 设置并持久化玩家选择的模式，进入大厅战备中心
+    inStoryMode = false;
     playerData.selectedMode = mode;
     savePlayerData();
     showLobby();
@@ -7754,6 +7860,7 @@ function enterMode(mode) {
 // 剧情模式：按引导走，不能跳关
 // 线性章节序列，每章含引导对话 + 战斗任务；只能推进到已解锁的最高章节。
 function enterStoryMode() {
+    inStoryMode = true;
     playerData.selectedMode = 'mission';
     savePlayerData();
     // 确保剧情进度已加载
@@ -7811,6 +7918,15 @@ function showLobby() {
     // 确保游戏容器完全隐藏，防止遮挡大厅按钮
     hideGameUI();
     showLobbyBottom();
+    // 剧情模式精简底部导航：仅保留开始行动/仓库/黑市/改装处/任务线，
+    // 隐藏皮肤商店/抽奖/刀皮抽奖/兑换码/弹药库；并保留设置/个人信息/投诉。
+    if (typeof inStoryMode !== 'undefined' && inStoryMode) {
+        document.querySelectorAll('.lobby-func-btn[data-story-hide]').forEach(b => b.style.display = 'none');
+        document.querySelectorAll('.lobby-func-btn[data-story-show]').forEach(b => b.style.display = '');
+    } else {
+        document.querySelectorAll('.lobby-func-btn[data-story-hide]').forEach(b => b.style.display = '');
+        document.querySelectorAll('.lobby-func-btn[data-story-show]').forEach(b => b.style.display = 'none');
+    }
     updatePlayerStats();
     renderMapPreviews();
     if (!currentMission) {
@@ -13793,6 +13909,9 @@ function skipTutorial() {
 // 剧情状态与分线系统
 // ====================================================================
 const STORY_STATE_KEY = 'deathTrench_story_state';
+
+// 标记当前是否处于剧情模式大厅（用于精简底部导航）
+let inStoryMode = false;
 
 let storyState = {
     chapter: 1,

@@ -2389,6 +2389,48 @@ body {
     z-index: 1000;
 }
 
+#profilePanel,
+#complaintPanel {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: rgba(0, 0, 0, 0.98);
+    border: 2px solid #00cc66;
+    border-radius: 15px;
+    padding: 35px;
+    width: 450px;
+    max-width: 92vw;
+    z-index: 1000;
+    display: none;
+}
+
+#profilePanel h2,
+#complaintPanel h2 {
+    color: #00cc66;
+    font-size: 26px;
+    margin-bottom: 25px;
+    text-align: center;
+}
+
+/* 非剧情模式下默认隐藏「设置/个人信息/投诉」入口，由 JS 按模式切换显示 */
+.lobby-func-btn[data-story-show] {
+    display: none;
+}
+
+.profile-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 8px 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    color: #e6edf3;
+    font-size: 15px;
+}
+.profile-row span:last-child {
+    color: #00cc66;
+    font-weight: bold;
+}
+
 #settingsPanel h2 {
     color: #00cc66;
     font-size: 26px;
