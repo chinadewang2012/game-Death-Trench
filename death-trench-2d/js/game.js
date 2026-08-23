@@ -14164,6 +14164,10 @@ const DIALOGUES = {
                     { text: '（普莱斯背过身去。）任务完成了，新兵。有时候完成，就是全部代价。' }
                 ];
             }
+            d.lines.push({ text: '（街角一个叼着烟的身影朝你招手——是这一带出了名的军火商人。）', choices: [
+                { text: '去见见他。', action: () => { showDialogue('merchant_intro'); } },
+                { text: '没空，赶路。', action: () => {} }
+            ]});
         }
     },
     'ghost_warning': {
@@ -14294,7 +14298,7 @@ const DIALOGUES = {
             { text: '我们在废墟里找到了三具友军尸体。他们被关在里面，没来得及出来。其中一个，口袋里有张阿雅的照片。' },
             { text: '总部说这是「可接受的损失」。你立了功，会升职。' },
             { text: '（普莱斯把那张照片收进胸口袋。）……也许吧。但你得记住这张脸，别让它变成你下一个「可接受的损失」。', choices: [
-                { text: '结束了吗？', action: () => { setStoryFlag('game_completed'); sendStoryMail('ch5_ending_mail'); showEndingScreen(); } }
+                { text: '结束了吗？', action: () => { setStoryFlag('game_completed'); sendStoryMail('ch5_ending_mail'); sendStoryMail('ch5_aftermath_mail'); showEndingScreen(); } }
             ]}
         ]
     },
@@ -14308,7 +14312,7 @@ const DIALOGUES = {
             { text: '节点最后还是炸了——你先撤出平民，再补了那一锤。普莱斯说「迟到的胜利也是胜利」。' },
             { text: '（艾琳把你的手按在阿雅头上。）记住这种温度。以后每次想扣扳机前，想想它值不值。' },
             { text: '……至少今天，有一个人因为你的选择，活着走到了明天。', choices: [
-                { text: '这就够了。', action: () => { setStoryFlag('game_completed'); sendStoryMail('ch5_ending_mail'); showEndingScreen(); } }
+                { text: '这就够了。', action: () => { setStoryFlag('game_completed'); sendStoryMail('ch5_ending_mail'); sendStoryMail('ch5_aftermath_mail'); showEndingScreen(); } }
             ]}
         ]
     },
@@ -14322,7 +14326,7 @@ const DIALOGUES = {
             { text: '仓里的人穿着黑潮军服，但脸……是我们的失踪人员。普莱斯的旧频道权限，一直被用来把这些人「唤醒」成士兵。' },
             { text: '你没炸节点，你把数据全上传了总部。三天后，普莱斯被停职调查，旧频道被封。' },
             { text: '（幽灵的声音第一次有点像笑。）你选了最难的那条路——既没杀他，也没放了他。战争还没结束，但谎言，到此为止。', choices: [
-                { text: '我做了对的事。', action: () => { setStoryFlag('game_completed'); sendStoryMail('ch5_ending_mail'); showEndingScreen(); } }
+                { text: '我做了对的事。', action: () => { setStoryFlag('game_completed'); sendStoryMail('ch5_ending_mail'); sendStoryMail('ch5_aftermath_mail'); showEndingScreen(); } }
             ]}
         ]
     },
@@ -14336,7 +14340,8 @@ const DIALOGUES = {
             { text: '战场上的战利品——金条、钻石、名画——带回来找我，金币管够。在这条战壕里，金币比子弹更能保命。' },
             { text: '记住：背包按格算，同种可叠到 999。把空间留给最值钱的，别捡一袋子破铜烂铁——我可不想看你拿半块砖头来跟我换口粮。', choices: [
                 { text: '明白，老规矩。', action: () => { setStoryFlag('met_merchant'); } },
-                { text: '你这人真现实。', action: () => { setStoryFlag('met_merchant'); addNpcAffinity('merchant', 5); } }
+                { text: '你这人真现实。', action: () => { setStoryFlag('met_merchant'); addNpcAffinity('merchant', 5); } },
+                { text: '你这有什么门道？', action: () => { setStoryFlag('met_merchant'); showDialogue('raid_treasure_tip'); } }
             ]}
         ]
     },
@@ -14854,13 +14859,36 @@ function sendStoryMail(mailId) {
             body: '无论你今天选了什么，死亡战壕都会记住。\n\n战争没有赢家。只有活下来的人，替死去的人记住这一切。\n\n——下一章，即将开始。',
             date: '2026-06-26 00:00',
             unread: true
+        },
+        'ch5_aftermath_mail': {
+            id: 'ch5_aftermath_mail',
+            sender: '死亡战壕 · 战地记录',
+            subject: '战后余波',
+            body: '__AFTERMATH__',
+            date: '2026-06-27 06:00',
+            unread: true,
+            dynamic: function(mail) {
+                const branch = storyState.branch || 'neutral';
+                if (branch === 'truth') {
+                    mail.body = '节点没炸，数据公开了。\n\n普莱斯接受调查，旧频道被封。黑潮的「唤醒」舱一台台断电，那些脸，终于能安睡。\n\n但战争没结束——失去指挥的黑潮化整为零，巷战会更脏。你揭开了谎言，也撕开了口子。\n\n阿雅画的小人，被收进了档案室。她说，要替你留着。';
+                } else if (branch === 'mercy') {
+                    mail.body = '节点最后还是炸了，但你在爆炸前拖出了那批人。\n\n阿雅活了下来，她哥哥的照片，你交还给了艾琳。\n\n普莱斯在报告里只写了一句：「平民零伤亡，任务达成。」他没提你绕的路，但他记下了。\n\n有些胜利迟到，但有人因此活着见到明天——这就够了。';
+                } else if (branch === 'loyalty') {
+                    mail.body = '节点已摧毁，黑潮指挥链断裂。\n\n你升了职，指挥部给你发了奖章。那三具没能撤出的友军尸体，被记为「可接受的损失」。\n\n普莱斯把那张阿雅的照片收进了胸口袋。他没多说，但你看见他敬礼时，手顿了一下。\n\n仗是赢了。只是赢的代价，有些要很久才看得清。';
+                } else {
+                    mail.body = '节点的事，你没选边。战争仍在继续，死亡战壕的风，还是那股铁锈味。\n\n总有一天，你会明白自己想要哪条路。在那之前，先活着。';
+                }
+            }
         }
     };
     const mail = storyMails[mailId];
     if (!mail) return;
+    // 深拷贝避免 dynamic 修改污染原邮件定义（保证重播时重新生成）
+    const mailCopy = JSON.parse(JSON.stringify(mail));
+    if (typeof mailCopy.dynamic === 'function') { try { mailCopy.dynamic(mailCopy); } catch (e) { console.error('[Mail] dynamic failed', e); } delete mailCopy.dynamic; }
     if (!_mailListCache) _mailListCache = getDefaultMails();
     if (_mailListCache.some(m => m.id === mailId)) return;
-    _mailListCache.unshift(mail);
+    _mailListCache.unshift(mailCopy);
     saveMailsToStorage();
 }
 
