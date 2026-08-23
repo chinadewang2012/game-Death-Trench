@@ -7926,9 +7926,11 @@ function showLobby() {
     // 用 !important 覆盖 .lobby-func-btn 的 display:flex（否则其 CSS 优先级高于内联 none）
     if (typeof inStoryMode !== 'undefined' && inStoryMode) {
         document.querySelectorAll('.lobby-func-btn[data-story-hide]').forEach(b => b.style.setProperty('display', 'none', 'important'));
+        document.querySelectorAll('.lobby-icon-btn[data-story-hide]').forEach(b => b.style.setProperty('display', 'none', 'important'));
         document.querySelectorAll('.lobby-func-btn[data-story-show]').forEach(b => b.style.removeProperty('display'));
     } else {
         document.querySelectorAll('.lobby-func-btn[data-story-hide]').forEach(b => b.style.removeProperty('display'));
+        document.querySelectorAll('.lobby-icon-btn[data-story-hide]').forEach(b => b.style.removeProperty('display'));
         document.querySelectorAll('.lobby-func-btn[data-story-show]').forEach(b => b.style.setProperty('display', 'none', 'important'));
     }
     updatePlayerStats();
