@@ -7257,6 +7257,9 @@ function ensureLobbyPanelsVisible() {
 //   keepBottomVisible: 可选，true 时保留底部导航（如个人界面）
 // ============================================================
 function openLobbyPanel(panelId, onRender, highlightBtnIndex, keepBottomVisible) {
+    // 0) 关闭对话遮罩，避免其全屏 backdrop 遮挡大厅面板交互（地图选择等按钮失效的根因）
+    const dlg = document.getElementById('dialogueOverlay');
+    if (dlg) { dlg.style.display = 'none'; dlg.classList.remove('active'); }
     // 1) 关闭所有大厅子面板，仅保留目标面板
     document.querySelectorAll('.lobby-panels .panel').forEach(p => {
         if (p.id !== panelId) {
@@ -10191,8 +10194,9 @@ function updateModTreeDisplay() {
 function showMapSelect() {
     console.log('[MAP] Showing map select');
     openLobbyPanel('mapSelectPanel', () => {
+        // 轻量引导：用 toast 提示，不弹模态对话（模态遮罩会拦截地图选择交互）
         if (!isDialogueCompleted('guide_map_select')) {
-            setTimeout(() => { if (!currentDialogueId) showDialogue('guide_map_select'); }, 600);
+            setTimeout(() => { if (!currentDialogueId) showToast('选择一张地图即可开始任务'); }, 400);
         }
     }, 4);
 }
@@ -10398,7 +10402,16 @@ function refreshMarketPriceDisplays() {
 // ===== Panel / Overlay Helper =====
 function hideOverlay(id) { const el = document.getElementById(id); if (el) el.classList.remove('active'); }
 function closeOverlay(id) { hideOverlay(id); }
-function showOverlay(id) { const el = document.getElementById(id); if (el) el.classList.add('active'); }
+function showOverlay(id) {
+    const el = document.getElementById(id);
+    if (el) {
+        // 地图详情等浮层脱离 #lobby 的层叠上下文，确保 z-index 真正盖过 lobby 内元素
+        if (id === 'mapDetailPanel' && el.parentNode !== document.body) {
+            document.body.appendChild(el);
+        }
+        el.classList.add('active');
+    }
+}
 function closeAllPanels() {
     hideOverlay('saveManagerPanel');
     hideOverlay('mailPanel');

@@ -1927,6 +1927,7 @@ body {
     height: 80px;
     border-radius: 8px 8px 0 0;
     display: block;
+    pointer-events: none;
 }
 .map-card {
     position: relative;
@@ -2028,7 +2029,7 @@ body {
     display: none;
     align-items: center;
     justify-content: center;
-    z-index: 1500;
+    z-index: 9000;
 }
 .overlay-panel.active {
     display: flex;
