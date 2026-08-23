@@ -13952,12 +13952,12 @@ let storyState = {
 // 剧情模式线性关卡序列：按引导逐章推进，不能跳关。
 // 每章含引导对话（dialogue）与战斗任务（map / target / reward）。
 const STORY_CHAPTERS = [
-    { id: 'story_ch1', dialogue: 'intro_price', nameZh: '第一章 · 新兵报到', nameEn: 'Ch.1 Boot Camp', descZh: '在普莱斯带领下熟悉战壕，完成首次清剿', descEn: 'Train under Price and clear your first trench', target: 15, reward: 300, map: 'desert' },
-    { id: 'story_ch2', dialogue: 'guide_ready', nameZh: '第二章 · 战备整备', nameEn: 'Ch.2 Gearing Up', descZh: '进入战备中心，整理装备后出击', descEn: 'Enter the ready room and sort your loadout', target: 25, reward: 500, map: 'city' },
-    { id: 'story_ch3', dialogue: 'ghost_tactics', nameZh: '第三章 · 战术渗透', nameEn: 'Ch.3 Tactical Infiltration', descZh: '跟随幽灵学习战术，渗透黑潮前哨', descEn: 'Learn tactics with Ghost and infiltrate the outpost', target: 35, reward: 700, map: 'jungle' },
-    { id: 'story_ch4', dialogue: 'eileen_med', nameZh: '第四章 · 火线救援', nameEn: 'Ch.4 Frontline Rescue', descZh: '配合艾琳的医疗支援，守住撤离点', descEn: 'Hold the extraction with Eileen’s med support', target: 45, reward: 900, map: 'ruins' },
-    { id: 'story_ch5', dialogue: 'price_intel', nameZh: '第五章 · 真相逼近', nameEn: 'Ch.5 Closing In', descZh: '解读普莱斯的情报，直捣黑潮核心', descEn: 'Decipher Price’s intel and strike the core', target: 60, reward: 1200, map: 'base' },
-    { id: 'story_ch6', dialogue: 'merchant_deal', nameZh: '第六章 · 终局之战', nameEn: 'Ch.6 The Final Stand', descZh: '在商人的补给下，终结黑潮威胁', descEn: 'With the merchant’s supply, end the Black Tide', target: 80, reward: 2000, map: 'volcano' }
+    { id: 'story_ch1', dialogue: 'intro_price', nameZh: '第一章 · 沙漠前哨', nameEn: 'Ch.1 Desert Outpost', descZh: '黑潮在沙漠边缘建立前哨，监视补给线。普莱斯带你剪掉这根指甲，也第一次让你听见那个旧频道……', descEn: 'The Black Tide built a desert outpost. Price cuts the string — and you first hear that old channel...', target: 15, reward: 300, map: 'desert' },
+    { id: 'story_ch2', dialogue: 'city_choice', nameZh: '第二章 · 断壁城', nameEn: 'Ch.2 Broken Wall City', descZh: '断壁城曾是自由贸易港，现为黑潮军火中转站。地下弹药库是切断补给的关键——但城里还有没撤走的平民。', descEn: 'A free port turned Black Tide arsenal. The cache is the key — but civilians still hide in the ruins.', target: 25, reward: 500, map: 'city' },
+    { id: 'story_ch3', dialogue: 'ghost_tactics', nameZh: '第三章 · 断壁城猎杀', nameEn: 'Ch.3 Broken Wall Hunt', descZh: '断壁城深处，幽灵教信徒游荡。他们在等一个人——也许是你。幽灵知道普莱斯不想让你知道的事。', descEn: 'Deep in the city, Ghost Cultists wait. The Ghost knows what Price hides.', target: 35, reward: 700, map: 'city' },
+    { id: 'story_ch4', dialogue: 'ch4_hub', nameZh: '第四章 · 分歧之路', nameEn: 'Ch.4 The Fork', descZh: '你的选择在此分叉：追问真相、服从命令，还是先救眼前的人。这一段，由你走过的路决定。', descEn: 'Your path forks here: the truth, the order, or the life in front of you.', target: 45, reward: 900, map: 'lab' },
+    { id: 'story_ch5', dialogue: 'ch5_final_choice', nameZh: '第五章 · 核心节点', nameEn: 'Ch.5 Core Node', descZh: '黑潮指挥核心。摧毁它，或揭开它——你的选择决定结局。', descEn: 'The Black Tide core. Destroy it, or expose it — your choice ends the war.', target: 60, reward: 1200, map: 'lab' },
+    { id: 'story_ch6', dialogue: 'final_stand', nameZh: '第六章 · 终局之战', nameEn: 'Ch.6 The Final Stand', descZh: '在商人的补给与队友的信任下，你走向那条战壕的尽头。', descEn: 'With the merchant’s supply and your team’s trust, you walk to the trench’s end.', target: 80, reward: 2000, map: 'lab' }
 ];
 function getStoryChapter(n) { return STORY_CHAPTERS[n - 1] || null; }
 
@@ -14079,12 +14079,14 @@ const DIALOGUES = {
         tag: 'Death Trench 特遣队',
         lines: [
             { text: '欢迎来到死亡战壕，新兵。这里没有军衔，只有活人和死人。' },
-            { text: '黑潮军团占领了东部资源带，我们的任务很简单：打乱他们的节奏，然后把情报带回来。' },
-            { text: '第一课，我亲自教你。准备好了吗？', choices: [
-                { text: '准备好了，长官。服从命令。', action: () => { setStoryBranch('loyalty'); setStoryFlag('intro_ready'); addNpcAffinity('price', 15); advanceChapter(); setTimeout(() => { if (!isDialogueCompleted('intro_ghost')) showDialogue('intro_ghost'); }, 700); } },
-                { text: '我想先知道黑潮到底在做什么。', action: () => { setStoryBranch('truth'); setStoryFlag('intro_ready'); addNpcAffinity('ghost', 15); advanceChapter(); setTimeout(() => { if (!isDialogueCompleted('intro_ghost')) showDialogue('intro_ghost'); }, 700); } },
-                { text: '只要能少死人，让我做什么都行。', action: () => { setStoryBranch('mercy'); setStoryFlag('intro_ready'); addNpcAffinity('eileen', 15); advanceChapter(); setTimeout(() => { if (!isDialogueCompleted('intro_ghost')) showDialogue('intro_ghost'); }, 700); } }
-            ]}
+            { text: '黑潮军团占领了东部资源带，把村庄烧成灰，把人编进他们的频道——你也听见了吧，那个半夜响起的旧频道？' },
+            { text: '别问我是谁放出来的。我只问你：你为什么扛枪？' },
+            { text: '第一课，我亲自教你。但在开火之前，我要知道你打算为谁扣下扳机。', choices: [
+                { text: '为命令。长官让我打哪，我就打哪。', action: () => { setStoryBranch('loyalty'); setStoryFlag('intro_ready'); addNpcAffinity('price', 15); } },
+                { text: '为真相。黑潮在掩盖什么，我要挖出来。', action: () => { setStoryBranch('truth'); setStoryFlag('intro_ready'); addNpcAffinity('ghost', 15); } },
+                { text: '为活人。只要能少死几个，让我做什么都行。', action: () => { setStoryBranch('mercy'); setStoryFlag('intro_ready'); addNpcAffinity('eileen', 15); } }
+            ]},
+            { text: '（普莱斯盯着你看了三秒，把一张皱巴巴的地图拍在桌上。）记住——在死亡战壕，信任是奢侈品。走吧，第一课开始了。', action: () => { advanceChapter(); setTimeout(() => { if (!isDialogueCompleted('intro_ghost')) showDialogue('intro_ghost'); }, 700); } }
         ]
     },
     'intro_ghost': {
@@ -14095,8 +14097,24 @@ const DIALOGUES = {
         lines: [
             { text: '规则很简单：不要相信任何人，包括我。但你可以相信数据。' },
             { text: '普通任务模式弹药无限，完成目标即可；搜打撤模式自带装备，活着撤离才能带走战利品。' },
-            { text: '去战备中心吧，普莱斯在等你。', choices: [
-                { text: '明白。', action: () => { setStoryFlag('intro_ready'); advanceChapter(); } }
+            { text: '顺便问一句——你刚才选了什么？忠诚、真相，还是仁慈？' },
+            { text: '……无所谓。普莱斯培养的人，最后都会面对同一个岔路口。我只是想让你提前知道，那不是巧合。' },
+            { text: '去战备中心吧。普莱斯在等你，而他等的人，往往等不到善终。', choices: [
+                { text: '我会小心的。', action: () => { setStoryFlag('intro_ready'); } },
+                { text: '你这话什么意思？', action: () => { setStoryFlag('ghost_doubt'); addNpcAffinity('ghost', 5); showDialogue('ghost_ominous'); } }
+            ]}
+        ]
+    },
+    'ghost_ominous': {
+        speaker: '幽灵',
+        avatar: '👻',
+        avatarImg: 'assets/art/npc-ghost.png',
+        tag: '战术支援',
+        lines: [
+            { text: '旧频道。你半夜听见的那个。它用的加密方式，和我们指挥部的旧系统一模一样。' },
+            { text: '我不是在指控普莱斯。我只是说：有人用他的身份在发号施令。等你证据够了，自然会懂。' },
+            { text: '现在——去战备中心。第一课不等人。', choices: [
+                { text: '记下了。', action: () => { setStoryFlag('intro_ready'); } }
             ]}
         ]
     },
@@ -14106,12 +14124,47 @@ const DIALOGUES = {
         avatarImg: 'assets/art/npc-price.png',
         tag: 'Death Trench 特遣队',
         lines: [
-            { text: '断壁城地下有一座黑潮军火库。上级想让我们直接炸平它。' },
-            { text: '但城里还有平民。你选：快速完成任务，还是优先搜救？', choices: [
-                { text: '炸掉军火库，任务第一。', action: () => { setStoryFlag('city_destroyed'); setStoryBranch('loyalty'); } },
-                { text: '先确认平民撤离。', action: () => { setStoryFlag('city_saved'); setStoryBranch('mercy'); } }
+            { text: '断壁城地下有一座黑潮军火库。上级的订单很干净：炸平它，切断补给。' },
+            { text: '但侦察兵说，城里还有没撤走的平民——老人、孩子，躲在塌陷的地铁站里。' },
+            { text: '无人机拍到军火库上方就是他们的藏身处。一颗雷下去，任务完成，人也没了。' },
+            { text: '我不替你决定。你打算怎么打这一仗？', choices: [
+                { text: '炸掉军火库，任务第一。', action: () => { setStoryFlag('city_destroyed'); setStoryBranch('loyalty'); showDialogue('city_after'); } },
+                { text: '先确认平民撤离，再动手。', action: () => { setStoryFlag('city_saved'); setStoryBranch('mercy'); showDialogue('city_after'); } },
+                { text: '给我十分钟，我想先摸清军火库结构。', action: () => { setStoryFlag('city_scout'); setStoryBranch('truth'); showDialogue('city_after'); } }
             ]}
         ]
+    },
+    'city_after': {
+        speaker: '指挥官 · 普莱斯',
+        avatar: '🎖️',
+        avatarImg: 'assets/art/npc-price.png',
+        tag: 'Death Trench 特遣队',
+        lines: [
+            { text: '（conditional）' },
+            { text: '__CITY_RESULT__' }
+        ],
+        dynamic: function(d) {
+            // 根据玩家在断壁城的选择生成差异化结局台词
+            if (hasStoryFlag('city_saved')) {
+                d.lines = [
+                    { text: '你花了三小时把那群人从地铁站里抠出来。军火库最后还是炸了——晚了一点，但够本。' },
+                    { text: '艾琳后来告诉我，里面有个女孩叫阿雅，一直抱着你的腿不肯松手。' },
+                    { text: '（普莱斯把一张皱巴巴的纸条塞给你，上面是阿雅画的小人。）留着。这种战利品，商人换不来。' }
+                ];
+            } else if (hasStoryFlag('city_scout')) {
+                d.lines = [
+                    { text: '你摸清了结构：军火库有备用通风道，能绕开平民层。总部骂你拖延，但你的方案零伤亡。' },
+                    { text: '幽灵在频道里罕见地冒了一句：「这才像话。」' },
+                    { text: '（普莱斯点头。）下次别让我替你扛总部的雷——但这次，干得漂亮。' }
+                ];
+            } else {
+                d.lines = [
+                    { text: '军火库炸了，黑潮的补给线断了三天。总部通电嘉奖，说这是「教科书式的果断」。' },
+                    { text: '可那三天里，我再没收到地铁站那边的信号。艾琳问我是不是早就知道，我没回答。' },
+                    { text: '（普莱斯背过身去。）任务完成了，新兵。有时候完成，就是全部代价。' }
+                ];
+            }
+        }
     },
     'ghost_warning': {
         speaker: '幽灵',
@@ -14119,9 +14172,13 @@ const DIALOGUES = {
         avatarImg: 'assets/art/npc-ghost.png',
         tag: '战术支援',
         lines: [
-            { text: '我截获了一段录音。普莱斯一年前和黑潮有过接触。' },
-            { text: '不要问他。先完成任务，证据越多，越能搞清楚他站在哪一边。', choices: [
-                { text: '我会自己查。', action: () => { setStoryFlag('ghost_trust'); setStoryBranch('truth'); } }
+            { text: '我截获了一段录音。普莱斯一年前和黑潮有过接触——用他的旧频道权限，换回了三个人质。' },
+            { text: '按军规，这叫通敌。但换作是我，我也会换。问题不在这里。' },
+            { text: '问题是：最近有人在用同一个旧频道发令。普莱斯说不是他。我信他，但我信数据更多。' },
+            { text: '别去质问他。先完成任务，把证据攒够——到那天，你就能看清他到底站在哪一边。', choices: [
+                { text: '我会自己查清楚。', action: () => { setStoryFlag('ghost_trust'); setStoryBranch('truth'); addNpcAffinity('ghost', 10); } },
+                { text: '我信普莱斯。', action: () => { setStoryFlag('price_defended'); addNpcAffinity('price', 5); } },
+                { text: '先打完了再说。', action: () => { setStoryFlag('ghost_trust'); } }
             ]}
         ]
     },
@@ -14132,10 +14189,12 @@ const DIALOGUES = {
         tag: 'Death Trench 特遣队',
         lines: [
             { text: '幽灵给你看了那段录音？……我没打算一直瞒你。' },
-            { text: '一年前我确实和黑潮接触过——为了换回三个人质。这笔交易我从不后悔。' },
-            { text: '但最近他们的信号变了，有人在黑潮内部用我的旧频道发指令。', choices: [
-                { text: '我信你，长官。', action: () => { setStoryFlag('price_trusted'); advanceChapter(); } },
-                { text: '录音里还有谁？', action: () => { setStoryFlag('price_pressed'); advanceChapter(); } }
+            { text: '一年前我确实和黑潮接触过——为了换回三个人质。那三个人里，有艾琳的哥哥。这笔交易我从不后悔。' },
+            { text: '但最近他们的信号变了。有人在黑潮内部，用我的旧频道权限发指令。语气、用词，连停顿都像我。' },
+            { text: '实验室里的「唤醒」舱，就是用这套权限批量启动的。所以你明白了吗——有人复制了我，从频道开始。', choices: [
+                { text: '我信你，长官。我们一起查。', action: () => { setStoryFlag('price_trusted'); addNpcAffinity('price', 10); advanceChapter(); } },
+                { text: '录音里还有谁？我要名字。', action: () => { setStoryFlag('price_pressed'); addNpcAffinity('ghost', 5); advanceChapter(); } },
+                { text: '如果「那个你」就在实验室呢？', action: () => { setStoryFlag('price_doubt'); setStoryBranch('truth'); advanceChapter(); } }
             ]}
         ]
     },
@@ -14145,9 +14204,11 @@ const DIALOGUES = {
         avatarImg: 'assets/art/npc-price.png',
         tag: 'Death Trench 特遣队',
         lines: [
-            { text: '总部嘉奖了你在断壁城的决断。但任务还没结束。' },
-            { text: '黑潮的补给线必须切断。这是命令，不是商量。', choices: [
-                { text: '收到，执行。', action: () => { setStoryFlag('convoy_ordered'); advanceChapter(); } }
+            { text: '总部嘉奖了你在断壁城的决断。他们说，你终于像个士兵了。' },
+            { text: '但我看得出来——你扣扳机的时候，多想了一秒。别想。黑潮的补给线必须切断，这是命令，不是商量。' },
+            { text: '车队里满载唤醒舱。每放过去一车，前线的鬼就多一批。所以这一次，我希望你干脆。', choices: [
+                { text: '收到，执行。', action: () => { setStoryFlag('convoy_ordered'); addNpcAffinity('price', 10); advanceChapter(); } },
+                { text: '如果车里也有平民呢？', action: () => { setStoryFlag('convoy_doubt'); advanceChapter(); } }
             ]}
         ]
     },
@@ -14157,11 +14218,55 @@ const DIALOGUES = {
         avatarImg: 'assets/art/npc-eileen.png',
         tag: '战地医疗',
         lines: [
-            { text: '断壁城的平民大多撤离了，但有个孩子还没找到。' },
-            { text: '如果你能在森林撤离点拖住敌人，我就能带她出来。', choices: [
-                { text: '我掩护你们。', action: () => { setStoryFlag('civilian_promise'); advanceChapter(); } }
+            { text: '断壁城的平民大多撤离了，但有个孩子还没找到——阿雅，就是地铁站那个抱着你腿的小姑娘。' },
+            { text: '她哥哥把最后半瓶水塞给我，让我带她走。我没能带他一起。', choices: [
+                { text: '我掩护你们。这次不会落下任何人。', action: () => { setStoryFlag('civilian_promise'); addNpcAffinity('eileen', 10); advanceChapter(); } },
+                { text: '告诉我她在哪，我去背她出来。', action: () => { setStoryFlag('civilian_direct'); addNpcAffinity('eileen', 5); advanceChapter(); } }
             ]}
         ]
+    },
+    'ch4_hub': {
+        speaker: '指挥官 · 普莱斯',
+        avatar: '🎖️',
+        avatarImg: 'assets/art/npc-price.png',
+        tag: 'Death Trench 特遣队',
+        lines: [
+            { text: '第四章。你的路走到这儿，已经和别人不一样了。' },
+            { text: '__CH4_INTRO__' }
+        ],
+        dynamic: function(d) {
+            const branch = storyState.branch || 'neutral';
+            if (branch === 'truth') {
+                d.lines = [
+                    { text: '第四章。你认定普莱斯藏着真相，那我们就去把它挖出来。' },
+                    { text: '黑潮在废墟里藏了一座实验室，专门研究「唤醒」技术。你想亲眼看看那些被唤醒的脸。' },
+                    { text: '（普莱斯把实验室坐标推过来，手指在桌面上停了一瞬。）进去之后……别指望我替你解释。' }
+                ];
+            } else if (branch === 'mercy') {
+                d.lines = [
+                    { text: '第四章。你总想着先救人，那这次，救一个真正重要的。' },
+                    { text: '艾琳的消息：一个女孩困在火线和黑潮之间，没人敢去。她说只有你肯听她。' },
+                    { text: '（普莱斯沉默良久。）去吧。但我不会为这次绕路写进报告。' }
+                ];
+            } else if (branch === 'loyalty') {
+                d.lines = [
+                    { text: '第四章。你选了命令，那我们就把命令执行到底。' },
+                    { text: '总部截获一支黑潮车队，满载唤醒舱。这是切断他们复活链的关键一击。' },
+                    { text: '（普莱斯把作战图摊开。）没有疑问，没有犹豫。这是你想要的干脆。' }
+                ];
+            } else {
+                d.lines = [
+                    { text: '第四章。你还没选边，但战争不会等你。' },
+                    { text: '前线的火光里，三条路同时摆在你面前：追问真相、服从命令、还是先救眼前的人。' },
+                    { text: '（普莱斯看着你。）迟早要选的，新兵。不如现在。' }
+                ];
+            }
+            d.lines.push({ text: '（深呼吸，做出你的选择。）', choices: [
+                { text: '追问真相：潜入实验室。', action: () => { setStoryBranch('truth'); showDialogue('ch4_truth_confront'); } },
+                { text: '服从命令：拦截车队。', action: () => { setStoryBranch('loyalty'); showDialogue('ch4_loyalty_order'); } },
+                { text: '先救人：救出那个女孩。', action: () => { setStoryBranch('mercy'); showDialogue('ch4_mercy_civilian'); } }
+            ]});
+        }
     },
     'ch5_final_choice': {
         speaker: '指挥官 · 普莱斯',
@@ -14169,11 +14274,12 @@ const DIALOGUES = {
         avatarImg: 'assets/art/npc-price.png',
         tag: 'Death Trench 特遣队',
         lines: [
-            { text: '最后一步。黑潮的核心节点就在前面。' },
-            { text: '炸掉它，战争结束；但那里面……可能有我们的人。', choices: [
-                { text: '任务第一，炸掉。', action: () => { setStoryBranch('loyalty'); setStoryFlag('ending_sacrifice'); advanceChapter(); setTimeout(() => showDialogue('ending_loyalty'), 500); } },
-                { text: '先救人再炸。', action: () => { setStoryBranch('mercy'); setStoryFlag('ending_rescue'); advanceChapter(); setTimeout(() => showDialogue('ending_mercy'), 500); } },
-                { text: '我要进去看真相。', action: () => { setStoryBranch('truth'); setStoryFlag('ending_truth'); advanceChapter(); setTimeout(() => showDialogue('ending_truth'), 500); } }
+            { text: '最后一步。黑潮的核心节点就在前面——那个用旧频道指挥一切的地方。' },
+            { text: '炸掉它，战争结束；但那里面……可能有我们的人，被「唤醒」后关在冷冻仓里。' },
+            { text: '我不会替你选。这一锤子，落在谁头上，以后的仗就怎么打。', choices: [
+                { text: '任务第一，炸掉它。', action: () => { setStoryBranch('loyalty'); setStoryFlag('ending_sacrifice'); advanceChapter(); setTimeout(() => showDialogue('ending_loyalty'), 500); } },
+                { text: '先救人，再炸。', action: () => { setStoryBranch('mercy'); setStoryFlag('ending_rescue'); advanceChapter(); setTimeout(() => showDialogue('ending_mercy'), 500); } },
+                { text: '我要进去，看清真相。', action: () => { setStoryBranch('truth'); setStoryFlag('ending_truth'); advanceChapter(); setTimeout(() => showDialogue('ending_truth'), 500); } }
             ]}
         ]
     },
@@ -14183,9 +14289,10 @@ const DIALOGUES = {
         avatarImg: 'assets/art/npc-price.png',
         tag: 'Death Trench 特遣队',
         lines: [
-            { text: '节点已摧毁。黑潮的指挥链断了。' },
-            { text: '我们在废墟里找到了三具友军尸体。他们被关在里面，没来得及出来。' },
-            { text: '总部说这是「可接受的损失」。……也许吧。', choices: [
+            { text: '节点已摧毁。黑潮的指挥链断了，旧频道的信号消失在雪地里。' },
+            { text: '我们在废墟里找到了三具友军尸体。他们被关在里面，没来得及出来。其中一个，口袋里有张阿雅的照片。' },
+            { text: '总部说这是「可接受的损失」。你立了功，会升职。' },
+            { text: '（普莱斯把那张照片收进胸口袋。）……也许吧。但你得记住这张脸，别让它变成你下一个「可接受的损失」。', choices: [
                 { text: '结束了吗？', action: () => { setStoryFlag('game_completed'); sendStoryMail('ch5_ending_mail'); showEndingScreen(); } }
             ]}
         ]
@@ -14196,9 +14303,10 @@ const DIALOGUES = {
         avatarImg: 'assets/art/npc-eileen.png',
         tag: '战地医疗',
         lines: [
-            { text: '阿雅出来了。她抱着一个布娃娃，浑身是灰，但还活着。' },
-            { text: '节点最后还是炸了。普莱斯说「迟到的胜利也是胜利」。' },
-            { text: '……至少今天，有一个人因为你的选择活了下来。', choices: [
+            { text: '阿雅出来了。她抱着一个布娃娃，浑身是灰，但还活着，还在叫你的名字。' },
+            { text: '节点最后还是炸了——你先撤出平民，再补了那一锤。普莱斯说「迟到的胜利也是胜利」。' },
+            { text: '（艾琳把你的手按在阿雅头上。）记住这种温度。以后每次想扣扳机前，想想它值不值。' },
+            { text: '……至少今天，有一个人因为你的选择，活着走到了明天。', choices: [
                 { text: '这就够了。', action: () => { setStoryFlag('game_completed'); sendStoryMail('ch5_ending_mail'); showEndingScreen(); } }
             ]}
         ]
@@ -14209,9 +14317,10 @@ const DIALOGUES = {
         avatarImg: 'assets/art/npc-ghost.png',
         tag: '战术支援',
         lines: [
-            { text: '你进去了。核心节点里没有武器，只有一排冷冻仓。' },
-            { text: '仓里的人穿着黑潮军服，但脸……是我们的失踪人员。普莱斯的旧频道一直被用来控制他们。' },
-            { text: '真相已经上传到总部。普莱斯被停职调查。战争还没结束，但谎言到此为止。', choices: [
+            { text: '你进去了。核心节点里没有武器，只有一排冷冻仓，安静得像停尸房。' },
+            { text: '仓里的人穿着黑潮军服，但脸……是我们的失踪人员。普莱斯的旧频道权限，一直被用来把这些人「唤醒」成士兵。' },
+            { text: '你没炸节点，你把数据全上传了总部。三天后，普莱斯被停职调查，旧频道被封。' },
+            { text: '（幽灵的声音第一次有点像笑。）你选了最难的那条路——既没杀他，也没放了他。战争还没结束，但谎言，到此为止。', choices: [
                 { text: '我做了对的事。', action: () => { setStoryFlag('game_completed'); sendStoryMail('ch5_ending_mail'); showEndingScreen(); } }
             ]}
         ]
@@ -14223,8 +14332,8 @@ const DIALOGUES = {
         tag: '后勤补给',
         lines: [
             { text: '嘿，幸存者。看到你还活着，我的货又好卖了。' },
-            { text: '战场上的战利品——金条、钻石、名画——带回来找我，金币管够。' },
-            { text: '记住：背包按格算，同种可叠到 999。把空间留给最值钱的，别捡一袋子破铜烂铁。', choices: [
+            { text: '战场上的战利品——金条、钻石、名画——带回来找我，金币管够。在这条战壕里，金币比子弹更能保命。' },
+            { text: '记住：背包按格算，同种可叠到 999。把空间留给最值钱的，别捡一袋子破铜烂铁——我可不想看你拿半块砖头来跟我换口粮。', choices: [
                 { text: '明白，老规矩。', action: () => { setStoryFlag('met_merchant'); } },
                 { text: '你这人真现实。', action: () => { setStoryFlag('met_merchant'); addNpcAffinity('merchant', 5); } }
             ]}
@@ -14236,10 +14345,11 @@ const DIALOGUES = {
         avatarImg: 'assets/art/npc-eileen.png',
         tag: '战地医疗',
         lines: [
-            { text: '我整理过黑潮的残骸，发现它们的装甲上刻着旧世界的工厂编号。' },
-            { text: '这说明一件事：黑潮不是外星来的，是我们自己造的。' },
-            { text: '所以……赢的可能不是消灭它们，而是弄明白是谁按下开关。', choices: [
-                { text: '我会找到那个人。', action: () => { setStoryFlag('eileen_lore_seen'); addNpcAffinity('eileen', 10); } }
+            { text: '我整理过黑潮的残骸，发现它们的装甲上刻着旧世界的工厂编号——连批次都和我们当年的制式一样。' },
+            { text: '这说明一件事：黑潮不是外星来的，也不是什么邪教，是我们自己造的。那些「被唤醒」的人，本来就是我们的兵。' },
+            { text: '所以……赢的可能不是消灭它们，而是弄明白是谁握着那个旧频道，按下开关。你走的每条路，最后都会撞上同一个答案。', choices: [
+                { text: '我会找到那个人。', action: () => { setStoryFlag('eileen_lore_seen'); addNpcAffinity('eileen', 10); } },
+                { text: '如果那个人是我们的人呢？', action: () => { setStoryFlag('eileen_lore_seen'); setStoryFlag('eileen_doubt'); addNpcAffinity('eileen', 5); } }
             ]}
         ]
     },
@@ -14348,10 +14458,12 @@ const DIALOGUES = {
         avatarImg: 'assets/art/npc-ghost.png',
         tag: '战术支援',
         lines: [
-            { text: '烟雾弹不是用来逃跑的，是用来重排战场。丢出去，视线归零，他们就瞎了。' },
-            { text: '低血量的敌人会撤退——别追太深，那是陷阱。让他们跑，你守点位。' },
-            { text: '还有，镭射指示器穿透掩体，躲在墙后的敌人也躲不过你的弹道。', choices: [
-                { text: '战术我记下了。', action: () => { setStoryFlag('ghost_tactics_seen'); addNpcAffinity('ghost', 5); } }
+            { text: '断壁城深处，幽灵教的人比黑潮还多。他们不穿军服，脸上画着那个旧频道的符号。' },
+            { text: '他们不是在守城——是在等人。我查过名单，被「唤醒」的失踪人员里，有几个曾是他们的亲人。' },
+            { text: '战术要点我再说一遍：烟雾弹重排战场，低血敌人会诈退，镭射指示器穿透掩体。' },
+            { text: '但今天最重要的不是战术。是你得知道，你追的敌人，可能昨天还是你这边的人。', choices: [
+                { text: '那我该怎么扣扳机？', action: () => { addNpcAffinity('ghost', 5); showDialogue('ghost_warning'); } },
+                { text: '任务优先，先清场。', action: () => { addNpcAffinity('ghost', 5); setStoryFlag('ghost_tactics_seen'); } }
             ]}
         ]
     },
@@ -14375,9 +14487,24 @@ const DIALOGUES = {
         tag: '后勤补给',
         lines: [
             { text: '老主顾了，给你透个底：变卖物价格随行情浮动，传奇货别急着全卖。' },
-            { text: '黑市里有「兑换码」渠道——据说官方偶尔发福利码，能解锁特殊装备。' },
-            { text: '比如一把叫 PKM 的通用机枪，弹链无限。这种好事，碰上了别错过。', choices: [
-                { text: '有码我一定试。', action: () => { setStoryFlag('merchant_deal_seen'); addNpcAffinity('merchant', 5); } }
+            { text: '黑市里有消息渠道——听说黑潮的「唤醒」技术，源头就在那个旧频道。谁握着频道，谁就握着这支鬼军队。' },
+            { text: '你要是真想断他们的根，别光炸节点。找到那个发令的人，比炸一百个节点都管用。', choices: [
+                { text: '我记下了。', action: () => { setStoryFlag('merchant_deal_seen'); addNpcAffinity('merchant', 5); } }
+            ]}
+        ]
+    },
+    'final_stand': {
+        speaker: '指挥官 · 普莱斯',
+        avatar: '🎖️',
+        avatarImg: 'assets/art/npc-price.png',
+        tag: 'Death Trench 特遣队',
+        lines: [
+            { text: '最后一战前，我想跟你说点指挥官手册上没写的。' },
+            { text: '死亡战壕这条线，从你走进来那天起，就不是普通的清剿。你遇到的每个人——艾琳、幽灵、商人，还有我——都在用各自的方式，护着点什么。' },
+            { text: '接下来无论炸掉节点、救出谁、还是揭开真相，你都会背着它走下去。' },
+            { text: '（普莱斯把他的旧通讯器摘下来，塞进你手里。）这个，你拿着。等你也听见那个旧频道时，你就知道，该信谁了。', choices: [
+                { text: '我不辜负这条路。', action: () => { setStoryFlag('final_stand_seen'); addNpcAffinity('price', 10); } },
+                { text: '不管结局如何，我走到底。', action: () => { setStoryFlag('final_stand_seen'); setStoryFlag('final_resolve'); } }
             ]}
         ]
     }
@@ -14388,10 +14515,12 @@ let currentDialogue = null;
 let currentDialogueLineIndex = 0;
 
 function showDialogue(dialogueId) {
-    const dialogue = DIALOGUES[dialogueId];
-    if (!dialogue) { console.warn('[Dialogue] not found:', dialogueId); return; }
+    const src = DIALOGUES[dialogueId];
+    if (!src) { console.warn('[Dialogue] not found:', dialogueId); return; }
     currentDialogueId = dialogueId;
-    currentDialogue = dialogue;
+    // 深拷贝避免 dynamic 分支修改污染原始对话定义（保证重播时从模板重新生成）
+    currentDialogue = JSON.parse(JSON.stringify(src));
+    if (typeof src.dynamic === 'function') { try { src.dynamic(currentDialogue); } catch (e) { console.error('[Dialogue] dynamic failed', e); } }
     currentDialogueLineIndex = 0;
 
     const overlay = document.getElementById('dialogueOverlay');
