@@ -13956,7 +13956,7 @@ const STORY_CHAPTERS = [
     { id: 'story_ch2', dialogue: 'city_choice', nameZh: '第二章 · 断壁城', nameEn: 'Ch.2 Broken Wall City', descZh: '断壁城曾是自由贸易港，现为黑潮军火中转站。地下弹药库是切断补给的关键——但城里还有没撤走的平民。', descEn: 'A free port turned Black Tide arsenal. The cache is the key — but civilians still hide in the ruins.', target: 25, reward: 500, map: 'city' },
     { id: 'story_ch3', dialogue: 'ghost_tactics', nameZh: '第三章 · 断壁城猎杀', nameEn: 'Ch.3 Broken Wall Hunt', descZh: '断壁城深处，幽灵教信徒游荡。他们在等一个人——也许是你。幽灵知道普莱斯不想让你知道的事。', descEn: 'Deep in the city, Ghost Cultists wait. The Ghost knows what Price hides.', target: 35, reward: 700, map: 'city' },
     { id: 'story_ch4', dialogue: 'ch4_hub', nameZh: '第四章 · 分歧之路', nameEn: 'Ch.4 The Fork', descZh: '你的选择在此分叉：追问真相、服从命令，还是先救眼前的人。这一段，由你走过的路决定。', descEn: 'Your path forks here: the truth, the order, or the life in front of you.', target: 45, reward: 900, map: 'lab' },
-    { id: 'story_ch5', dialogue: 'ch5_final_choice', nameZh: '第五章 · 核心节点', nameEn: 'Ch.5 Core Node', descZh: '黑潮指挥核心。摧毁它，或揭开它——你的选择决定结局。', descEn: 'The Black Tide core. Destroy it, or expose it — your choice ends the war.', target: 60, reward: 1200, map: 'lab' },
+    { id: 'story_ch5', dialogue: 'price_intel', nameZh: '第五章 · 核心节点', nameEn: 'Ch.5 Core Node', descZh: '黑潮指挥核心。摧毁它，或揭开它——你的选择决定结局。', descEn: 'The Black Tide core. Destroy it, or expose it — your choice ends the war.', target: 60, reward: 1200, map: 'lab' },
     { id: 'story_ch6', dialogue: 'final_stand', nameZh: '第六章 · 终局之战', nameEn: 'Ch.6 The Final Stand', descZh: '在商人的补给与队友的信任下，你走向那条战壕的尽头。', descEn: 'With the merchant’s supply and your team’s trust, you walk to the trench’s end.', target: 80, reward: 2000, map: 'lab' }
 ];
 function getStoryChapter(n) { return STORY_CHAPTERS[n - 1] || null; }
@@ -14178,7 +14178,8 @@ const DIALOGUES = {
             { text: '别去质问他。先完成任务，把证据攒够——到那天，你就能看清他到底站在哪一边。', choices: [
                 { text: '我会自己查清楚。', action: () => { setStoryFlag('ghost_trust'); setStoryBranch('truth'); addNpcAffinity('ghost', 10); } },
                 { text: '我信普莱斯。', action: () => { setStoryFlag('price_defended'); addNpcAffinity('price', 5); } },
-                { text: '先打完了再说。', action: () => { setStoryFlag('ghost_trust'); } }
+                { text: '先打完了再说。', action: () => { setStoryFlag('ghost_trust'); } },
+                { text: '我去医疗站找艾琳聊聊。', action: () => { addNpcAffinity('eileen', 5); showDialogue('eileen_med'); } }
             ]}
         ]
     },
@@ -14444,11 +14445,12 @@ const DIALOGUES = {
         avatarImg: 'assets/art/npc-price.png',
         tag: 'Death Trench 特遣队',
         lines: [
-            { text: '情报室刚破译了一段黑潮通信。他们在收集「旧世界」的冷冻技术。' },
-            { text: '这解释了为什么战场上总能看到重复的面孔——它们不是新造的，是被唤醒的。' },
-            { text: '记住：你打死的每一个黑潮兵，可能都曾是和我们一样的人。', choices: [
-                { text: '这仗不好打。', action: () => { setStoryFlag('price_intel_seen'); addNpcAffinity('price', 5); } },
-                { text: '我会让他们安息。', action: () => { setStoryFlag('price_intel_seen'); addNpcAffinity('price', 10); } }
+            { text: '情报室刚破译了一段黑潮通信。他们在到处收集「旧世界」的冷冻技术——就是那种能把人冻住、再唤醒成士兵的东西。' },
+            { text: '这下全对上了：为什么战场上总能看到重复的面孔，为什么那些「被唤醒」的，连战术习惯都像我们的人。' },
+            { text: '记住——你打死的每一个黑潮兵，可能都曾是和我们一样的人。开枪前，认准了。' },
+            { text: '情报就到这。下一步怎么走，得你自己定。核心节点就在前面，但你得先想清楚，你要的是结束战争，还是结束谎言。', choices: [
+                { text: '我会想清楚。', action: () => { setStoryFlag('price_intel_seen'); addNpcAffinity('price', 5); showDialogue('ch5_final_choice'); } },
+                { text: '告诉我更多。', action: () => { setStoryFlag('price_intel_seen'); addNpcAffinity('price', 10); showDialogue('ch5_final_choice'); } }
             ]}
         ]
     },
@@ -14473,10 +14475,12 @@ const DIALOGUES = {
         avatarImg: 'assets/art/npc-eileen.png',
         tag: '战地医疗',
         lines: [
-            { text: '背包里永远留一格给医疗包。重型护甲能扛两枪，但扛不住失血。' },
+            { text: '背包里永远留一格给医疗包。重型护甲能扛两枪，但扛不住失血——我见过的硬汉，多半是死在流血不止上。' },
             { text: '撤离点有我的人接应，残血也别放弃——跑出去就还有救。' },
-            { text: '……说实话，我最怕的不是敌人，是接到「全员阵亡」的回报。', choices: [
-                { text: '我会活着回来。', action: () => { setStoryFlag('eileen_med_seen'); addNpcAffinity('eileen', 10); } }
+            { text: '……说实话，我最怕的不是敌人，是接到「全员阵亡」的回报。最近那些「被唤醒」的脸，我半夜总梦见。' },
+            { text: '（艾琳把一张照片按在桌面上——是她哥哥，和你在断壁城见过的唤醒舱里的脸，是同一个人。）你答应过我救阿雅。这次，也替我认认那些脸，好吗？', choices: [
+                { text: '我会认的。一个都不漏。', action: () => { setStoryFlag('eileen_med_seen'); setStoryFlag('eileen_promise'); addNpcAffinity('eileen', 10); } },
+                { text: '我活着回来，就带你哥回家。', action: () => { setStoryFlag('eileen_med_seen'); addNpcAffinity('eileen', 15); } }
             ]}
         ]
     },
