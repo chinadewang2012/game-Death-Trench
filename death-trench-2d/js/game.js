@@ -7923,12 +7923,13 @@ function showLobby() {
     showLobbyBottom();
     // 剧情模式精简底部导航：仅保留开始行动/仓库/黑市/改装处/任务线，
     // 隐藏皮肤商店/抽奖/刀皮抽奖/兑换码/弹药库；并保留设置/个人信息/投诉。
+    // 用 !important 覆盖 .lobby-func-btn 的 display:flex（否则其 CSS 优先级高于内联 none）
     if (typeof inStoryMode !== 'undefined' && inStoryMode) {
-        document.querySelectorAll('.lobby-func-btn[data-story-hide]').forEach(b => b.style.display = 'none');
-        document.querySelectorAll('.lobby-func-btn[data-story-show]').forEach(b => b.style.display = '');
+        document.querySelectorAll('.lobby-func-btn[data-story-hide]').forEach(b => b.style.setProperty('display', 'none', 'important'));
+        document.querySelectorAll('.lobby-func-btn[data-story-show]').forEach(b => b.style.removeProperty('display'));
     } else {
-        document.querySelectorAll('.lobby-func-btn[data-story-hide]').forEach(b => b.style.display = '');
-        document.querySelectorAll('.lobby-func-btn[data-story-show]').forEach(b => b.style.display = 'none');
+        document.querySelectorAll('.lobby-func-btn[data-story-hide]').forEach(b => b.style.removeProperty('display'));
+        document.querySelectorAll('.lobby-func-btn[data-story-show]').forEach(b => b.style.setProperty('display', 'none', 'important'));
     }
     updatePlayerStats();
     renderMapPreviews();
